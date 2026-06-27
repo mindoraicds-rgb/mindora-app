@@ -988,7 +988,18 @@ async function renderFinances(v){
 }
 let ACCOUNTS=[], FIN_TAB='overview';
 async function loadAccounts(){ if(ACCOUNTS.length)return ACCOUNTS; const {data}=await sb.from('chart_of_accounts').select('*').eq('active',true).order('sort'); ACCOUNTS=data||[]; return ACCOUNTS; }
-function acctOptions(types,sel){ return ACCOUNTS.filter(a=>!types||types.includes(a.type)).map(a=>`<option value="${a.code}" ${a.code===sel?'selected':''}>${escapeHtml(a.name)}</option>`).join(''); }
+function acctOptions(types,sel){
+  const list=ACCOUNTS.filter(a=>!types||types.includes(a.type));
+  const order=['income','expense','asset','liability','equity'];
+  const labels={income:'Income',expense:'Expenses',asset:'Assets',liability:'Liabilities',equity:'Equity'};
+  let html='';
+  order.forEach(tp=>{
+    const grp=list.filter(a=>a.type===tp);
+    if(!grp.length)return;
+    html+=`<optgroup label="${labels[tp]}">`+grp.map(a=>`<option value="${a.code}" ${a.code===sel?'selected':''}>${escapeHtml(a.name)}</option>`).join('')+`</optgroup>`;
+  });
+  return html;
+}
 
 async function finOverview(b){
   const {data:fin}=await sb.from('v_dashboard').select('*').single();
@@ -1015,43 +1026,50 @@ async function finCashbook(b){
   if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No transactions yet</h4><p>Record your first receipt or payment.</p></div>`;return;}
   rows.innerHTML='';
   const accName=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
-  data.forEach(t=>rows.appendChild(el(`<div class="row-card" style="cursor:default">
+  data.forEach(t=>{const card=el(`<div class="row-card">
     <div class="row-ava" style="background:${t.direction==='in'?'#E7F3EE':'#FBEAEC'};color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${t.direction==='in'?'+':'–'}</div>
     <div class="row-main"><div class="row-name">${escapeHtml(t.description||t.party||'Transaction')}</div>
     <div class="row-sub">${fmtDate(t.txn_date)} · ${escapeHtml(accName(t.account_code))}${t.reference?' · '+escapeHtml(t.reference):''} · ${escapeHtml(t.channel||'')}</div></div>
     <div style="font-weight:700;color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${money(t.gross_amount)}</div>
-  </div>`)));
+  </div>`);
+    card.addEventListener('click',()=>txnForm(t));
+    rows.appendChild(card);
+  });
 }
-function txnForm(){
+function txnForm(t){
+  t=t||null; const edit=!!t;
   const today=new Date().toISOString().slice(0,10);
+  const sel=(val,opt)=>val===opt?'selected':'';
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>Record money in / out</h3><div class="sub">Enter it once — it updates every book automatically.</div>
+    <h3>${edit?'Edit transaction':'Record money in / out'}</h3><div class="sub">Enter it once — it updates every book automatically.</div>
     <div class="form-row two">
-      <div><label>Type</label><select id="t_dir"><option value="in">Money in (receipt)</option><option value="out">Money out (payment)</option></select></div>
-      <div><label>Date</label><input id="t_date" type="date" value="${today}"/></div>
+      <div><label>Type</label><select id="t_dir"><option value="in" ${edit&&sel(t.direction,'in')}>Money in (receipt)</option><option value="out" ${edit&&sel(t.direction,'out')}>Money out (payment)</option></select></div>
+      <div><label>Date</label><input id="t_date" type="date" value="${edit?(t.txn_date||today):today}"/></div>
     </div>
-    <div class="form-row"><label>Account (category)</label><select id="t_acct">${acctOptions(null,'')}</select></div>
+    <div class="form-row"><label>Account (category)</label><select id="t_acct">${acctOptions(null,edit?t.account_code:'')}</select></div>
     <div class="form-row two">
-      <div><label>Amount (UGX)</label><input id="t_amt" type="number" placeholder="0"/></div>
-      <div><label>Channel</label><select id="t_chan"><option>cash</option><option>bank</option><option>mobile money</option></select></div>
+      <div><label>Amount (UGX)</label><input id="t_amt" type="number" value="${edit?(t.gross_amount??''):''}" placeholder="0"/></div>
+      <div><label>Channel</label><select id="t_chan"><option ${edit&&sel(t.channel,'cash')}>cash</option><option ${edit&&sel(t.channel,'bank')}>bank</option><option ${edit&&sel(t.channel,'mobile money')}>mobile money</option></select></div>
     </div>
     <div class="form-row two">
-      <div><label>VAT (if any)</label><input id="t_vat" type="number" value="0"/></div>
-      <div><label>WHT (if any)</label><input id="t_wht" type="number" value="0"/></div>
+      <div><label>VAT (if any)</label><input id="t_vat" type="number" value="${edit?(t.vat_amount||0):0}"/></div>
+      <div><label>WHT (if any)</label><input id="t_wht" type="number" value="${edit?(t.wht_amount||0):0}"/></div>
     </div>
-    <div class="form-row"><label>Who / party</label><input id="t_party" placeholder="Who paid you / who you paid"/></div>
-    <div class="form-row"><label>Description</label><input id="t_desc"/></div>
-    <div class="form-row"><label>Reference (optional)</label><input id="t_ref" placeholder="receipt / voucher no."/></div>
-    <div class="modal-actions"><button class="btn btn-ghost" id="t_cancel">Cancel</button><button class="btn btn-primary" id="t_save">Save</button></div>
+    <div class="form-row"><label>Who / party</label><input id="t_party" value="${edit?escapeHtml(t.party||''):''}" placeholder="Who paid you / who you paid"/></div>
+    <div class="form-row"><label>Description</label><input id="t_desc" value="${edit?escapeHtml(t.description||''):''}"/></div>
+    <div class="form-row"><label>Reference (optional)</label><input id="t_ref" value="${edit?escapeHtml(t.reference||''):''}" placeholder="receipt / voucher no."/></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="t_cancel">Cancel</button><button class="btn btn-primary" id="t_save">${edit?'Save changes':'Save'}</button></div>
+    ${edit?'<button class="btn" id="t_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this transaction</button>':''}
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#t_cancel').onclick=close;
+  if(edit){ m.querySelector('#t_del').onclick=async()=>{ if(!confirm('Delete this transaction permanently?'))return; const {error}=await sb.from('transactions').delete().eq('id',t.id); if(error){toast(error.message,true);return;} toast('Transaction deleted'); close(); renderFinances($('#view')); }; }
   m.querySelector('#t_save').onclick=async()=>{
     const amt=parseFloat(m.querySelector('#t_amt').value);
     if(!amt||amt<=0){toast('Enter an amount.',true);return;}
     const btn=m.querySelector('#t_save');btn.disabled=true;btn.textContent='Saving…';
-    const {error}=await sb.from('transactions').insert({
+    const payload={
       txn_date:m.querySelector('#t_date').value||today,
       direction:m.querySelector('#t_dir').value,
       account_code:m.querySelector('#t_acct').value,
@@ -1061,11 +1079,13 @@ function txnForm(){
       channel:m.querySelector('#t_chan').value,
       party:m.querySelector('#t_party').value.trim()||null,
       description:m.querySelector('#t_desc').value.trim()||null,
-      reference:m.querySelector('#t_ref').value.trim()||null,
-      created_by:ME.id
-    });
-    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
-    toast('Recorded'); close(); renderFinances($('#view'));
+      reference:m.querySelector('#t_ref').value.trim()||null
+    };
+    let error;
+    if(edit){ ({error}=await sb.from('transactions').update(payload).eq('id',t.id)); }
+    else { payload.created_by=ME.id; ({error}=await sb.from('transactions').insert(payload)); }
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent=edit?'Save changes':'Save';return;}
+    toast(edit?'Transaction updated':'Recorded'); close(); renderFinances($('#view'));
   };
 }
 async function finInvoices(b){
@@ -1086,43 +1106,50 @@ async function finInvoices(b){
       ${out>0?`<button class="btn btn-ghost btn-sm payBtn" style="align-self:flex-end">Record payment (${money(out)} left)</button>`:''}
     </div>`);
     const pb=card.querySelector('.payBtn');
-    if(pb) pb.onclick=()=>paymentForm('invoice',i);
+    if(pb) pb.onclick=(e)=>{e.stopPropagation();paymentForm('invoice',i);};
+    const rm=card.querySelector('.row-main'); rm.style.cursor='pointer';
+    rm.addEventListener('click',()=>invoiceForm(i));
     rows.appendChild(card);
   });
 }
-function invoiceForm(){
+function invoiceForm(i){
+  i=i||null; const edit=!!i;
   const today=new Date().toISOString().slice(0,10);
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>New invoice</h3><div class="sub">Money owed to Mindora.</div>
-    <div class="form-row"><label>Client / payer name</label><input id="i_client"/></div>
-    <div class="form-row"><label>Description</label><input id="i_desc" placeholder="e.g. June program fee"/></div>
+    <h3>${edit?'Edit invoice':'New invoice'}</h3><div class="sub">Money owed to Mindora.</div>
+    <div class="form-row"><label>Client / payer name</label><input id="i_client" value="${edit?escapeHtml(i.client_name||''):''}"/></div>
+    <div class="form-row"><label>Description</label><input id="i_desc" value="${edit?escapeHtml(i.description||''):''}" placeholder="e.g. June program fee"/></div>
     <div class="form-row two">
-      <div><label>Amount (UGX)</label><input id="i_amt" type="number"/></div>
-      <div><label>Income account</label><select id="i_acct">${acctOptions(['income'],'4010')}</select></div>
+      <div><label>Amount (UGX)</label><input id="i_amt" type="number" value="${edit?(i.amount??''):''}"/></div>
+      <div><label>Income account</label><select id="i_acct">${acctOptions(['income'],edit?i.income_account_code:'4010')}</select></div>
     </div>
     <div class="form-row two">
-      <div><label>Invoice date</label><input id="i_date" type="date" value="${today}"/></div>
-      <div><label>Due date</label><input id="i_due" type="date"/></div>
+      <div><label>Invoice date</label><input id="i_date" type="date" value="${edit?(i.invoice_date||today):today}"/></div>
+      <div><label>Due date</label><input id="i_due" type="date" value="${edit?(i.due_date||''):''}"/></div>
     </div>
-    <div class="modal-actions"><button class="btn btn-ghost" id="i_cancel">Cancel</button><button class="btn btn-primary" id="i_save">Create invoice</button></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="i_cancel">Cancel</button><button class="btn btn-primary" id="i_save">${edit?'Save changes':'Create invoice'}</button></div>
+    ${edit?'<button class="btn" id="i_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this invoice</button>':''}
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#i_cancel').onclick=close;
+  if(edit){ m.querySelector('#i_del').onclick=async()=>{ if(!confirm('Delete this invoice? Any payments recorded against it stay in the cash book.'))return; const {error}=await sb.from('invoices').delete().eq('id',i.id); if(error){toast(error.message,true);return;} toast('Invoice deleted'); close(); renderFinances($('#view')); }; }
   m.querySelector('#i_save').onclick=async()=>{
     const amt=parseFloat(m.querySelector('#i_amt').value);
     if(!amt||amt<=0){toast('Enter an amount.',true);return;}
     const btn=m.querySelector('#i_save');btn.disabled=true;btn.textContent='Saving…';
-    const {error}=await sb.from('invoices').insert({
-      invoice_no:'INV-'+Date.now().toString().slice(-6),
+    const payload={
       client_name:m.querySelector('#i_client').value.trim()||null,
       description:m.querySelector('#i_desc').value.trim()||null,
       amount:amt, income_account_code:m.querySelector('#i_acct').value,
       invoice_date:m.querySelector('#i_date').value||today,
-      due_date:m.querySelector('#i_due').value||null, status:'sent'
-    });
-    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Create invoice';return;}
-    toast('Invoice created'); close(); renderFinances($('#view'));
+      due_date:m.querySelector('#i_due').value||null
+    };
+    let error;
+    if(edit){ ({error}=await sb.from('invoices').update(payload).eq('id',i.id)); }
+    else { payload.invoice_no='INV-'+Date.now().toString().slice(-6); payload.status='sent'; ({error}=await sb.from('invoices').insert(payload)); }
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent=edit?'Save changes':'Create invoice';return;}
+    toast(edit?'Invoice updated':'Invoice created'); close(); renderFinances($('#view'));
   };
 }
 async function finBills(b){
@@ -1143,43 +1170,50 @@ async function finBills(b){
       ${out>0?`<button class="btn btn-ghost btn-sm payBtn" style="align-self:flex-end">Record payment (${money(out)} left)</button>`:''}
     </div>`);
     const pb=card.querySelector('.payBtn');
-    if(pb) pb.onclick=()=>paymentForm('bill',bl);
+    if(pb) pb.onclick=(e)=>{e.stopPropagation();paymentForm('bill',bl);};
+    const rm=card.querySelector('.row-main'); rm.style.cursor='pointer';
+    rm.addEventListener('click',()=>billForm(bl));
     rows.appendChild(card);
   });
 }
-function billForm(){
+function billForm(bl){
+  bl=bl||null; const edit=!!bl;
   const today=new Date().toISOString().slice(0,10);
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>New bill</h3><div class="sub">Money Mindora owes.</div>
-    <div class="form-row"><label>Payee</label><input id="b_payee"/></div>
-    <div class="form-row"><label>Description</label><input id="b_desc"/></div>
+    <h3>${edit?'Edit bill':'New bill'}</h3><div class="sub">Money Mindora owes.</div>
+    <div class="form-row"><label>Payee</label><input id="b_payee" value="${edit?escapeHtml(bl.payee||''):''}"/></div>
+    <div class="form-row"><label>Description</label><input id="b_desc" value="${edit?escapeHtml(bl.description||''):''}"/></div>
     <div class="form-row two">
-      <div><label>Amount (UGX)</label><input id="b_amt" type="number"/></div>
-      <div><label>Expense account</label><select id="b_acct">${acctOptions(['expense'],'6900')}</select></div>
+      <div><label>Amount (UGX)</label><input id="b_amt" type="number" value="${edit?(bl.amount??''):''}"/></div>
+      <div><label>Expense account</label><select id="b_acct">${acctOptions(['expense'],edit?bl.expense_account_code:'6900')}</select></div>
     </div>
     <div class="form-row two">
-      <div><label>Bill date</label><input id="b_date" type="date" value="${today}"/></div>
-      <div><label>Due date</label><input id="b_due" type="date"/></div>
+      <div><label>Bill date</label><input id="b_date" type="date" value="${edit?(bl.bill_date||today):today}"/></div>
+      <div><label>Due date</label><input id="b_due" type="date" value="${edit?(bl.due_date||''):''}"/></div>
     </div>
-    <div class="modal-actions"><button class="btn btn-ghost" id="b_cancel">Cancel</button><button class="btn btn-primary" id="b_save">Create bill</button></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="b_cancel">Cancel</button><button class="btn btn-primary" id="b_save">${edit?'Save changes':'Create bill'}</button></div>
+    ${edit?'<button class="btn" id="b_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this bill</button>':''}
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#b_cancel').onclick=close;
+  if(edit){ m.querySelector('#b_del').onclick=async()=>{ if(!confirm('Delete this bill? Any payments recorded against it stay in the cash book.'))return; const {error}=await sb.from('bills').delete().eq('id',bl.id); if(error){toast(error.message,true);return;} toast('Bill deleted'); close(); renderFinances($('#view')); }; }
   m.querySelector('#b_save').onclick=async()=>{
     const amt=parseFloat(m.querySelector('#b_amt').value);
     if(!amt||amt<=0){toast('Enter an amount.',true);return;}
     const btn=m.querySelector('#b_save');btn.disabled=true;btn.textContent='Saving…';
-    const {error}=await sb.from('bills').insert({
-      bill_no:'BIL-'+Date.now().toString().slice(-6),
+    const payload={
       payee:m.querySelector('#b_payee').value.trim()||null,
       description:m.querySelector('#b_desc').value.trim()||null,
       amount:amt, expense_account_code:m.querySelector('#b_acct').value,
       bill_date:m.querySelector('#b_date').value||today,
-      due_date:m.querySelector('#b_due').value||null, status:'pending'
-    });
-    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Create bill';return;}
-    toast('Bill created'); close(); renderFinances($('#view'));
+      due_date:m.querySelector('#b_due').value||null
+    };
+    let error;
+    if(edit){ ({error}=await sb.from('bills').update(payload).eq('id',bl.id)); }
+    else { payload.bill_no='BIL-'+Date.now().toString().slice(-6); payload.status='pending'; ({error}=await sb.from('bills').insert(payload)); }
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent=edit?'Save changes':'Create bill';return;}
+    toast(edit?'Bill updated':'Bill created'); close(); renderFinances($('#view'));
   };
 }
 function paymentForm(kind,doc){
