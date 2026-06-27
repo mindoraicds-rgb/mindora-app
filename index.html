@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Mindora · Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --plum:#3D1A4F; --purple:#6C3483; --violet:#8E44AD; --lilac:#B589C9;
+  --teal:#0F6E56; --gold:#C9A961;
+  --bg:#FAF8FC; --card:#FFFFFF; --ink:#2A2330; --muted:#6B6475; --line:#ECE6F0;
+  --ok:#0F6E56; --warn:#B45309; --danger:#B23A48;
+  --shadow:0 1px 2px rgba(61,26,79,.04),0 8px 24px rgba(61,26,79,.06);
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+h1,h2,h3,.disp{font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-.01em}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:inherit;font-size:15px}
+a{color:var(--purple)}
+.hidden{display:none!important}
+
+/* ---------- LOGIN ---------- */
+#login{min-height:100%;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(1200px 600px at 70% -10%,rgba(142,68,173,.25),transparent 60%),
+             radial-gradient(900px 500px at -10% 110%,rgba(15,110,86,.18),transparent 55%),
+             linear-gradient(160deg,#2A1138,#3D1A4F 55%,#4A2160)}
+.login-card{width:100%;max-width:400px;background:var(--card);border-radius:24px;padding:36px 30px;box-shadow:0 30px 80px rgba(20,8,30,.45)}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.mark{width:42px;height:42px;flex:none}
+.brand-name{font-family:'Fraunces';font-weight:600;font-size:24px;color:var(--plum);line-height:1}
+.brand-sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-top:3px}
+.login-card h1{font-size:22px;margin:22px 0 4px;color:var(--ink)}
+.login-card p.lead{color:var(--muted);font-size:14px;margin-bottom:22px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.field input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:#FCFBFD;transition:border-color .15s,box-shadow .15s}
+.field input:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 4px rgba(142,68,173,.12)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:12px;font-weight:600;font-size:15px;transition:transform .08s,filter .15s,background .15s}
+.btn:active{transform:translateY(1px)}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--purple),var(--violet));color:#fff;box-shadow:0 8px 20px rgba(108,52,131,.3)}
+.btn-primary:hover{filter:brightness(1.06)}
+.btn-primary[disabled]{opacity:.6;cursor:default}
+.msg{font-size:13.5px;padding:10px 12px;border-radius:10px;margin-bottom:14px;display:none}
+.msg.show{display:block}
+.msg.err{background:#FBEAEC;color:var(--danger)}
+.msg.ok{background:#E7F3EE;color:var(--ok)}
+.login-foot{margin-top:18px;text-align:center;font-size:12px;color:var(--muted)}
+
+/* ---------- APP SHELL ---------- */
+#app{display:none;min-height:100%}
+.shell{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+.side{background:linear-gradient(185deg,var(--plum),#34173F);color:#EFE7F3;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side-top{padding:22px 20px 14px;display:flex;align-items:center;gap:11px}
+.side-top .brand-name{color:#fff;font-size:20px}
+.side-top .brand-sub{margin-top:2px}
+.nav{padding:10px 12px;flex:1;overflow-y:auto}
+.nav-label{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:14px 12px 6px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;color:rgba(255,255,255,.82);font-weight:500;font-size:14.5px;width:100%;text-align:left;transition:background .14s,color .14s}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:rgba(255,255,255,.13);color:#fff}
+.nav-item svg{width:19px;height:19px;flex:none;opacity:.9}
+.nav-item .badge{margin-left:auto;background:var(--gold);color:#3a2a00;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px}
+.side-foot{padding:14px;border-top:1px solid rgba(255,255,255,.1)}
+.who{display:flex;align-items:center;gap:11px;padding:6px 8px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--lilac));display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex:none}
+.who-name{font-size:13.5px;font-weight:600;color:#fff;line-height:1.2}
+.who-role{font-size:11px;color:rgba(255,255,255,.55);text-transform:capitalize}
+.signout{margin-top:8px;width:100%;color:rgba(255,255,255,.7);font-size:13px;padding:9px;border-radius:10px;display:flex;align-items:center;gap:9px;justify-content:center}
+.signout:hover{background:rgba(255,255,255,.08);color:#fff}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:14px;padding:18px 28px;border-bottom:1px solid var(--line);background:rgba(250,248,252,.85);backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.menu-btn{display:none;width:40px;height:40px;border-radius:11px;border:1.5px solid var(--line);background:#fff;align-items:center;justify-content:center}
+.topbar .crumb{font-size:12.5px;color:var(--muted);font-weight:500}
+.topbar h2{font-size:19px;color:var(--ink);line-height:1.15}
+.topbar .date{margin-left:auto;font-size:13px;color:var(--muted);font-weight:500}
+.content{padding:26px 28px 60px;max-width:1100px;width:100%}
+
+/* welcome */
+.welcome{background:linear-gradient(120deg,#fff,#F7F0FA);border:1px solid var(--line);border-radius:var(--radius);padding:24px 26px;box-shadow:var(--shadow);position:relative;overflow:hidden;margin-bottom:22px}
+.welcome::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,97,.22),transparent 70%)}
+.welcome h1{font-size:26px;color:var(--plum);margin-bottom:4px}
+.welcome p{color:var(--muted);font-size:14.5px;max-width:60ch}
+
+/* stat cards */
+.grid{display:grid;gap:16px}
+.stats{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:22px}
+.stat{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent,var(--violet));border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+.stat .n{font-family:'Fraunces';font-size:32px;font-weight:600;color:var(--ink);line-height:1}
+.stat .l{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:8px}
+.stat .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+
+.section-head{display:flex;align-items:center;gap:12px;margin:8px 0 16px}
+.section-head h3{font-size:18px;color:var(--ink)}
+.section-head .btn{margin-left:auto}
+.btn-sm{padding:9px 15px;font-size:14px;border-radius:11px}
+.btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--lilac)}
+
+/* search */
+.searchbar{display:flex;gap:10px;margin-bottom:16px}
+.searchbar input{flex:1;padding:11px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fff}
+.searchbar input:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 4px rgba(142,68,173,.1)}
+
+/* list cards */
+.rows{display:flex;flex-direction:column;gap:10px}
+.row-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);transition:border-color .14s,transform .08s;cursor:pointer}
+.row-card:hover{border-color:var(--lilac)}
+.row-card:active{transform:scale(.997)}
+.row-ava{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#EFE2F6,#F6EEDA);display:grid;place-items:center;font-weight:700;color:var(--purple);flex:none;font-size:15px}
+.row-main{min-width:0;flex:1}
+.row-name{font-weight:600;font-size:15.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.pill.active{background:#E7F3EE;color:var(--ok)}
+.pill.enquiry,.pill.intake{background:#FDF3E3;color:var(--warn)}
+.pill.assessment{background:#EEE8F7;color:var(--purple)}
+.pill.on_hold,.pill.exited{background:#F1EEF3;color:var(--muted)}
+.pill.band{background:#F3ECDA;color:#8a6d1f}
+
+/* empty / loading */
+.empty{text-align:center;padding:46px 20px;color:var(--muted)}
+.empty .e-mark{width:54px;height:54px;margin:0 auto 14px;opacity:.5}
+.empty h4{font-family:'Fraunces';font-size:19px;color:var(--ink);margin-bottom:5px}
+.empty p{font-size:14px;margin-bottom:18px}
+.loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;padding:30px 4px}
+.spin{width:18px;height:18px;border:2.5px solid var(--line);border-top-color:var(--violet);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.coming{background:var(--card);border:1px dashed var(--lilac);border-radius:var(--radius);padding:40px 28px;text-align:center;box-shadow:var(--shadow)}
+.coming h3{font-size:20px;color:var(--plum);margin-bottom:8px}
+.coming p{color:var(--muted);max-width:48ch;margin:0 auto;font-size:14.5px}
+
+/* finance snapshot */
+.fin-grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:8px}
+.fin{background:linear-gradient(135deg,#fff,#F6F1FA);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.fin .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.fin .n{font-family:'Fraunces';font-size:23px;color:var(--ink);margin-top:6px}
+.fin.pos .n{color:var(--teal)} .fin.due .n{color:var(--warn)}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(40,18,55,.5);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center;z-index:60}
+.modal-bg.show{display:flex}
+.modal{background:#fff;width:100%;max-width:520px;border-radius:22px 22px 0 0;max-height:92vh;overflow-y:auto;padding:24px 22px 30px;animation:up .25s ease}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+.modal h3{font-size:20px;color:var(--plum);margin-bottom:3px}
+.modal .sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+.form-row{margin-bottom:13px}
+.form-row.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:11px;background:#FCFBFD}
+.form-row textarea{resize:vertical;min-height:64px}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 4px rgba(142,68,173,.1)}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-actions .btn{flex:1}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:500;opacity:0;transition:.25s;z-index:90;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.bad{background:var(--danger)}
+
+@media(max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;width:264px;z-index:50;transform:translateX(-100%);transition:transform .25s}
+  .side.open{transform:none}
+  .scrim{position:fixed;inset:0;background:rgba(40,18,55,.45);z-index:45;display:none}
+  .scrim.show{display:block}
+  .menu-btn{display:flex}
+  .topbar .date{display:none}
+  .content{padding:20px 16px 70px}
+  .modal{max-width:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="login-card">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="15" r="9" fill="#8E44AD"/>
+        <circle cx="16" cy="30" r="9" fill="#6C3483"/>
+        <circle cx="32" cy="30" r="9" fill="#B589C9"/>
+        <circle cx="24" cy="25" r="6.5" fill="#C9A961"/>
+      </svg>
+      <div>
+        <div class="brand-name">Mindora</div>
+        <div class="brand-sub">Home · Hope · Harmony</div>
+      </div>
+    </div>
+    <h1>Welcome back</h1>
+    <p class="lead">Sign in to the Mindora operations workspace.</p>
+    <div id="loginMsg" class="msg"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="you@mindoraicds.com" required/>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required/>
+      </div>
+      <button class="btn btn-primary" id="loginBtn" type="submit">Sign in</button>
+    </form>
+    <div class="login-foot">Mindora Inclusive Child Development Services</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="shell">
+    <div class="scrim" id="scrim"></div>
+    <aside class="side" id="side">
+      <div class="side-top">
+        <svg class="mark" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="15" r="9" fill="#8E44AD"/><circle cx="16" cy="30" r="9" fill="#6C3483"/><circle cx="32" cy="30" r="9" fill="#B589C9"/><circle cx="24" cy="25" r="6.5" fill="#C9A961"/></svg>
+        <div><div class="brand-name">Mindora</div><div class="brand-sub">Operations</div></div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-foot">
+        <div class="who">
+          <div class="avatar" id="avatar">M</div>
+          <div><div class="who-name" id="whoName">—</div><div class="who-role" id="whoRole">—</div></div>
+        </div>
+        <button class="signout" id="signout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sign out
+        </button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <button class="menu-btn" id="menuBtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3D1A4F" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+        <div>
+          <div class="crumb">Mindora Operations</div>
+          <h2 id="pageTitle">Dashboard</h2>
+        </div>
+        <div class="date" id="todayDate"></div>
+      </div>
+      <div class="content" id="view"></div>
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ===================== CONFIG ===================== */
+const SUPABASE_URL = 'https://uaaowqwptfzjmngmluow.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_YFNFxqpBNwlqU5QYd8LdcA_euOkXzHt';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===================== ICONS ===================== */
+const I = {
+  dash:'<path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/>',
+  child:'<circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>',
+  prof:'<path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/>',
+  inst:'<path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5"/>',
+  assign:'<path d="M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  fin:'<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  set:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 6.6 19l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4 13.6H4a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 5 6.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 4.6V4a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a2 2 0 0 1 0 4h-.1z"/>'
+};
+const icon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
+
+/* ===================== NAV BY ROLE ===================== */
+const NAV = {
+  staff:[
+    {k:'dashboard',label:'Dashboard',icon:'dash'},
+    {k:'clients',label:'Children',icon:'child'},
+    {k:'professionals',label:'Professionals',icon:'prof'},
+    {k:'institutions',label:'Institutions',icon:'inst'},
+    {k:'assignments',label:'Assignments',icon:'assign'},
+    {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
+    {k:'settings',label:'Settings',icon:'set',directorOnly:true},
+  ]
+};
+
+/* ===================== STATE ===================== */
+let ME={id:null,name:'',role:null};
+let currentView='dashboard';
+
+/* ===================== HELPERS ===================== */
+const $=s=>document.querySelector(s);
+const el=(h)=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;};
+function toast(m,bad){const t=$('#toast');t.textContent=m;t.className=bad?'bad show':'show';setTimeout(()=>t.className='',2600);}
+function initials(n){return (n||'M').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+function money(n){return 'UGX '+Number(n||0).toLocaleString();}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* ===================== AUTH ===================== */
+$('#loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=$('#loginBtn'); const msg=$('#loginMsg');
+  msg.className='msg';
+  btn.disabled=true; btn.textContent='Signing in…';
+  const {error}=await sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value});
+  if(error){ msg.textContent=error.message.includes('Invalid')?'That email or password is not right. Try again.':error.message; msg.className='msg err show'; btn.disabled=false; btn.textContent='Sign in'; return; }
+  await boot();
+});
+
+$('#signout').addEventListener('click',async()=>{ await sb.auth.signOut(); location.reload(); });
+
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ $('#login').classList.remove('hidden'); $('#app').style.display='none'; return; }
+  // load profile
+  const {data:prof,error}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
+  if(error||!prof){ toast('Could not load your profile.',true); return; }
+  ME={id:session.user.id,name:prof.full_name||session.user.email,role:prof.role};
+  $('#login').classList.add('hidden');
+  $('#app').style.display='block';
+  $('#whoName').textContent=ME.name;
+  $('#whoRole').textContent=ME.role;
+  $('#avatar').textContent=initials(ME.name);
+  $('#todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  buildNav();
+  go(isStaff()?'dashboard':'portal');
+}
+const isStaff=()=>['director','secretary'].includes(ME.role);
+const isDirector=()=>ME.role==='director';
+
+/* ===================== NAV ===================== */
+function buildNav(){
+  const nav=$('#nav'); nav.innerHTML='';
+  if(!isStaff()){ return; } // non-staff portals handled separately (built next stages)
+  nav.appendChild(el(`<div class="nav-label">Workspace</div>`));
+  NAV.staff.forEach(item=>{
+    if(item.directorOnly && !isDirector()) return;
+    const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
+    b.addEventListener('click',()=>{go(item.k);closeSide();});
+    nav.appendChild(b);
+  });
+}
+function setActiveNav(){document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.k===currentView));}
+$('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $('#scrim').classList.add('show'); });
+function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
+$('#scrim').addEventListener('click',closeSide);
+
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',settings:'Settings',portal:'Welcome'};
+function go(view){
+  currentView=view;
+  $('#pageTitle').textContent=TITLES[view]||'Mindora';
+  setActiveNav();
+  const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
+  ({dashboard:renderDashboard,clients:renderClients,professionals:comingSoon('Professionals'),institutions:comingSoon('Institutions'),assignments:comingSoon('Assignments'),finances:renderFinances,settings:comingSoon('Settings'),portal:renderPortal}[view]||(()=>{}))(v);
+}
+
+/* ===================== DASHBOARD ===================== */
+async function renderDashboard(v){
+  const [clients,profs,insts,assigns]=await Promise.all([
+    sb.from('clients').select('*',{count:'exact',head:true}),
+    sb.from('professionals').select('*',{count:'exact',head:true}),
+    sb.from('institutions').select('*',{count:'exact',head:true}),
+    sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending'),
+  ]);
+  const activeClients=await sb.from('clients').select('*',{count:'exact',head:true}).eq('status','active');
+  let finHtml='';
+  if(isDirector()){
+    const {data:fin}=await sb.from('v_dashboard').select('*').single();
+    if(fin){
+      finHtml=`<div class="section-head"><h3>Finance snapshot</h3></div>
+      <div class="grid fin-grid">
+        <div class="fin pos"><div class="l">Cash position</div><div class="n">${money(fin.cash_position)}</div></div>
+        <div class="fin"><div class="l">Received (all time)</div><div class="n">${money(fin.total_received)}</div></div>
+        <div class="fin due"><div class="l">Owed to us</div><div class="n">${money(fin.total_receivable)}</div></div>
+        <div class="fin due"><div class="l">We owe</div><div class="n">${money(fin.total_payable)}</div></div>
+      </div>`;
+    }
+  }
+  v.innerHTML=`
+    <div class="welcome">
+      <h1>Hello, ${escapeHtml(ME.name.split(' ')[0])} 👋</h1>
+      <p>This is your live operations workspace. Everything you and your team enter here is shared and saved securely. Tap a card or use the menu to get started.</p>
+    </div>
+    <div class="grid stats">
+      <div class="stat" style="--accent:var(--purple)"><div class="n">${activeClients.count??0}</div><div class="l">Active children</div><div class="s">${clients.count??0} total on file</div></div>
+      <div class="stat" style="--accent:var(--teal)"><div class="n">${profs.count??0}</div><div class="l">Professionals</div></div>
+      <div class="stat" style="--accent:var(--lilac)"><div class="n">${insts.count??0}</div><div class="l">Institutions</div></div>
+      <div class="stat" style="--accent:var(--gold)"><div class="n">${assigns.count??0}</div><div class="l">Pending assignments</div><div class="s">awaiting a professional</div></div>
+    </div>
+    ${finHtml}
+    <div class="section-head"><h3>Quick actions</h3></div>
+    <div class="searchbar" style="flex-wrap:wrap">
+      <button class="btn btn-primary" style="width:auto" id="qaClient">+ Add a child</button>
+      <button class="btn btn-ghost btn-sm" id="qaClients">View all children</button>
+    </div>`;
+  $('#qaClient').onclick=()=>openClientForm();
+  $('#qaClients').onclick=()=>go('clients');
+}
+
+/* ===================== CLIENTS (CHILDREN) ===================== */
+let CLIENTS=[];
+async function renderClients(v){
+  const {data,error}=await sb.from('clients').select('*').order('created_at',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load children</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  CLIENTS=data||[];
+  v.innerHTML=`
+    <div class="section-head"><h3>Children</h3><button class="btn btn-primary btn-sm" id="addClient">+ Add a child</button></div>
+    <div class="searchbar"><input id="clientSearch" placeholder="Search by name…"/></div>
+    <div class="rows" id="clientRows"></div>`;
+  $('#addClient').onclick=()=>openClientForm();
+  $('#clientSearch').addEventListener('input',e=>paintClients(e.target.value));
+  paintClients('');
+}
+function paintClients(q){
+  const rows=$('#clientRows'); if(!rows)return;
+  const list=CLIENTS.filter(c=>!q||(c.full_name||'').toLowerCase().includes(q.toLowerCase()));
+  if(!list.length){
+    rows.innerHTML=`<div class="empty">
+      <svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+      <h4>${q?'No matches':'No children yet'}</h4>
+      <p>${q?'Try a different name.':'Add your first child to get started.'}</p>
+      ${q?'':'<button class="btn btn-primary btn-sm" style="width:auto" onclick="openClientForm()">+ Add a child</button>'}</div>`;
+    return;
+  }
+  rows.innerHTML='';
+  list.forEach(c=>{
+    const band=c.assessed_band?`<span class="pill band">Band ${c.assessed_band}</span>`:'';
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${initials(c.full_name)}</div>
+      <div class="row-main">
+        <div class="row-name">${escapeHtml(c.full_name)}</div>
+        <div class="row-sub">${c.child_no?escapeHtml(c.child_no)+' · ':''}${c.delivery_channel||'direct'}${c.parent_name?' · '+escapeHtml(c.parent_name):''}</div>
+      </div>
+      ${band}
+      <span class="pill ${c.status||'enquiry'}">${(c.status||'enquiry').replace('_',' ')}</span>
+    </div>`);
+    card.addEventListener('click',()=>openClientForm(c));
+    rows.appendChild(card);
+  });
+}
+
+function openClientForm(c){
+  const edit=!!c; c=c||{};
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${edit?'Edit child':'Add a child'}</h3>
+    <div class="sub">${edit?'Update this record.':'Create a new child record. You can add more details later.'}</div>
+    <div class="form-row"><label>Full name *</label><input id="f_name" value="${escapeHtml(c.full_name||'')}" placeholder="Child's full name"/></div>
+    <div class="form-row two">
+      <div><label>Date of birth</label><input id="f_dob" type="date" value="${c.dob||''}"/></div>
+      <div><label>Sex</label><select id="f_sex"><option value="">—</option><option ${c.sex==='Female'?'selected':''}>Female</option><option ${c.sex==='Male'?'selected':''}>Male</option></select></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Delivery channel</label><select id="f_chan">
+        <option value="direct" ${c.delivery_channel==='direct'?'selected':''}>Direct</option>
+        <option value="clinic" ${c.delivery_channel==='clinic'?'selected':''}>Clinic</option>
+        <option value="school" ${c.delivery_channel==='school'?'selected':''}>School</option></select></div>
+      <div><label>Status</label><select id="f_status">
+        ${['enquiry','intake','assessment','active','on_hold','exited'].map(s=>`<option value="${s}" ${ (c.status||'enquiry')===s?'selected':''}>${s.replace('_',' ')}</option>`).join('')}
+      </select></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Assessed band</label><select id="f_band"><option value="">—</option>${[1,2,3,4].map(b=>`<option value="${b}" ${c.assessed_band==b?'selected':''}>Band ${b}</option>`).join('')}</select></div>
+      <div><label>Pricing context</label><select id="f_pc"><option value="">—</option>${['C1','C2','C3','C4'].map(p=>`<option ${c.pricing_context===p?'selected':''}>${p}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row"><label>Parent / guardian name</label><input id="f_pname" value="${escapeHtml(c.parent_name||'')}"/></div>
+    <div class="form-row two">
+      <div><label>Parent email</label><input id="f_pemail" type="email" value="${escapeHtml(c.parent_email||'')}"/></div>
+      <div><label>Parent phone</label><input id="f_pphone" value="${escapeHtml(c.parent_phone||'')}"/></div>
+    </div>
+    <div class="form-row"><label>Presenting needs / notes</label><textarea id="f_needs">${escapeHtml(c.presenting_needs||'')}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="f_cancel">Cancel</button>
+      <button class="btn btn-primary" id="f_save">${edit?'Save changes':'Add child'}</button>
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#f_cancel').onclick=close;
+  m.querySelector('#f_save').onclick=async()=>{
+    const name=m.querySelector('#f_name').value.trim();
+    if(!name){toast('Please enter the name.',true);return;}
+    const btn=m.querySelector('#f_save'); btn.disabled=true; btn.textContent='Saving…';
+    const payload={
+      full_name:name,
+      dob:m.querySelector('#f_dob').value||null,
+      sex:m.querySelector('#f_sex').value||null,
+      delivery_channel:m.querySelector('#f_chan').value,
+      status:m.querySelector('#f_status').value,
+      assessed_band:m.querySelector('#f_band').value||null,
+      pricing_context:m.querySelector('#f_pc').value||null,
+      parent_name:m.querySelector('#f_pname').value.trim()||null,
+      parent_email:m.querySelector('#f_pemail').value.trim()||null,
+      parent_phone:m.querySelector('#f_pphone').value.trim()||null,
+      presenting_needs:m.querySelector('#f_needs').value.trim()||null,
+    };
+    let res;
+    if(edit){ res=await sb.from('clients').update(payload).eq('id',c.id); }
+    else { payload.created_by=ME.id; payload.child_no='MND-C-'+Date.now().toString().slice(-6); res=await sb.from('clients').insert(payload); }
+    if(res.error){ toast(res.error.message,true); btn.disabled=false; btn.textContent=edit?'Save changes':'Add child'; return; }
+    toast(edit?'Child updated':'Child added');
+    close(); if(currentView==='clients')renderClients($('#view')); else go('clients');
+  };
+}
+
+/* ===================== FINANCES (director) ===================== */
+async function renderFinances(v){
+  if(!isDirector()){ v.innerHTML=`<div class="coming"><h3>Finances</h3><p>This area is for the Director only.</p></div>`; return; }
+  const {data:fin}=await sb.from('v_dashboard').select('*').single();
+  const {data:txns}=await sb.from('transactions').select('*').order('txn_date',{ascending:false}).limit(20);
+  v.innerHTML=`
+    <div class="grid fin-grid" style="margin-bottom:18px">
+      <div class="fin pos"><div class="l">Cash position</div><div class="n">${money(fin?.cash_position)}</div></div>
+      <div class="fin"><div class="l">Received</div><div class="n">${money(fin?.total_received)}</div></div>
+      <div class="fin due"><div class="l">Owed to us</div><div class="n">${money(fin?.total_receivable)}</div></div>
+      <div class="fin due"><div class="l">We owe</div><div class="n">${money(fin?.total_payable)}</div></div>
+    </div>
+    <div class="section-head"><h3>Recent transactions</h3></div>
+    <div class="rows">${(txns||[]).map(t=>`
+      <div class="row-card" style="cursor:default">
+        <div class="row-ava" style="background:${t.direction==='in'?'#E7F3EE':'#FBEAEC'};color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${t.direction==='in'?'+':'–'}</div>
+        <div class="row-main"><div class="row-name">${escapeHtml(t.description||t.party||'Transaction')}</div>
+        <div class="row-sub">${fmtDate(t.txn_date)} · ${escapeHtml(t.reference||'')} · ${escapeHtml(t.channel||'')}</div></div>
+        <div style="font-weight:700;color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${money(t.gross_amount)}</div>
+      </div>`).join('')||'<div class="empty"><h4>No transactions yet</h4></div>'}</div>
+    <p style="color:var(--muted);font-size:13px;margin-top:18px">Full cash book, invoices, bills and report generation are being added next.</p>`;
+}
+
+/* ===================== PLACEHOLDERS ===================== */
+function comingSoon(name){return (v)=>{v.innerHTML=`<div class="coming"><h3>${name}</h3><p>This screen is part of your system and is being built next. Your data and security are already in place behind it.</p></div>`;};}
+function renderPortal(v){
+  v.innerHTML=`<div class="coming"><h3>Welcome, ${escapeHtml(ME.name.split(' ')[0])}</h3><p>Your ${escapeHtml(ME.role)} portal is being set up. You'll be able to sign in here and see exactly what's shared with you.</p></div>`;
+  $('#nav').innerHTML='';
+}
+
+/* ===================== START ===================== */
+boot();
+</script>
+</body>
+</html>
