@@ -279,6 +279,7 @@ const NAV = {
     {k:'institutions',label:'Institutions',icon:'inst'},
     {k:'assignments',label:'Assignments',icon:'assign'},
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
+    {k:'access',label:'People & access',icon:'prof',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
   ],
   professional:[
@@ -290,6 +291,8 @@ const NAV = {
 /* ===================== STATE ===================== */
 let ME={id:null,name:'',role:null};
 let currentView='dashboard';
+let MY_PROF_ID=null;
+let SELECTED_CHILD=null;
 
 /* ===================== HELPERS ===================== */
 const $=s=>document.querySelector(s);
@@ -326,10 +329,15 @@ async function boot(){
     const {data:p2}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
     if(p2){ ME.role=p2.role; ME.name=p2.full_name||ME.name; }
   }
+  MY_PROF_ID=null;
+  if(ME.role==='professional'){
+    const {data:pr}=await sb.from('professionals').select('id').eq('profile_id',ME.id).maybeSingle();
+    MY_PROF_ID=pr?pr.id:null;
+  }
   $('#login').classList.add('hidden');
   $('#app').style.display='block';
   $('#whoName').textContent=ME.name;
-  $('#whoRole').textContent=ME.role;
+  $('#whoRole').textContent=ME.role||'no access yet';
   $('#avatar').textContent=initials(ME.name);
   $('#todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   buildNav();
@@ -379,13 +387,13 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,access:renderAccess,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -827,24 +835,141 @@ async function renderProChildren(v){
       <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}</div>
       <div class="row-sub">${c.dob?'DOB '+fmtDate(c.dob):''}${c.assessed_band?' · Band '+c.assessed_band:''}</div></div>
       <span class="pill ${c.status||'active'}">${(c.status||'active').replace('_',' ')}</span></div>`);
-    card.addEventListener('click',()=>proChildView(c));
+    card.addEventListener('click',()=>{SELECTED_CHILD=c;go('pro_child');});
     rows.appendChild(card);
   });
 }
-function proChildView(c){
+async function renderProChild(v,c){
+  if(!c){ go('pro_children'); return; }
+  const [{data:sessions},{data:programs}]=await Promise.all([
+    sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}),
+    sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false})
+  ]);
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to my children</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
+      <p>${c.dob?'Born '+fmtDate(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${escapeHtml(c.presenting_needs||'No needs recorded yet')}</p></div>
+
+    <div class="section-head"><h3>Sessions</h3><button class="btn btn-primary btn-sm" id="logSession">+ Log a session</button></div>
+    <div class="rows" id="sessRows"></div>
+
+    <div class="section-head" style="margin-top:26px"><h3>Home programs</h3><button class="btn btn-primary btn-sm" id="addHP">+ New home program</button></div>
+    <div class="rows" id="hpRows"></div>`;
+  $('#backBtn').onclick=()=>go('pro_children');
+  $('#logSession').onclick=()=>sessionForm(c);
+  $('#addHP').onclick=()=>homeProgramForm(c);
+
+  const sr=$('#sessRows');
+  sr.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:26px"><h4>No sessions yet</h4><p>Log your first session — it replaces the paper summary.</p></div>`;
+  (sessions||[]).forEach(s=>{
+    sr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div>
+        <span class="pill band">${s.service_units||0} unit${(s.service_units==1)?'':'s'}</span>
+        <span class="row-sub">${fmtDate(s.session_date)}</span>
+      </div>
+      ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}
+      ${s.visible_to_parent?'<div class="row-sub" style="color:var(--teal)">Shared with parent</div>':'<div class="row-sub">Private to team</div>'}
+    </div>`));
+  });
+  const hr=$('#hpRows');
+  hr.innerHTML=(programs&&programs.length)?'':`<div class="empty" style="padding:26px"><h4>No home programs yet</h4><p>Create guidance for the family to use at home.</p></div>`;
+  (programs||[]).forEach(p=>{
+    hr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+      <div class="row-name">${escapeHtml(p.title||'Home program')}</div>
+      ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
+      <div class="row-sub">${fmtDate(p.issued_date)}${p.visible_to_parent?' · shared with parent':''}</div>
+    </div>`));
+  });
+}
+function sessionForm(c){
+  const today=new Date().toISOString().slice(0,10);
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>${escapeHtml(c.full_name)}</h3>
-    <div class="sub">${c.child_no?escapeHtml(c.child_no):''}</div>
-    <div class="form-row"><label>Date of birth</label><div>${c.dob?fmtDate(c.dob):'—'}</div></div>
-    <div class="form-row"><label>Presenting needs</label><div>${escapeHtml(c.presenting_needs||'—')}</div></div>
-    <div class="form-row"><label>Parent / guardian</label><div>${escapeHtml(c.parent_name||'—')}${c.parent_phone?' · '+escapeHtml(c.parent_phone):''}</div></div>
-    <p style="font-size:13px;color:var(--muted);margin-top:6px">Session logging and home programs for this child are being added next.</p>
-    <div class="modal-actions"><button class="btn btn-primary" id="cv_close">Close</button></div>
+    <h3>Log a session</h3><div class="sub">For ${escapeHtml(c.full_name)}. This replaces the paper session summary.</div>
+    <div class="form-row two">
+      <div><label>Date</label><input id="s_date" type="date" value="${today}"/></div>
+      <div><label>Service units</label><input id="s_units" type="number" step="0.5" value="1"/></div>
+    </div>
+    <div class="form-row"><label>Session type</label><input id="s_type" placeholder="e.g. Speech therapy — individual"/></div>
+    <div class="form-row"><label>Goals worked on</label><textarea id="s_goals"></textarea></div>
+    <div class="form-row"><label>Summary</label><textarea id="s_sum" placeholder="What happened in the session"></textarea></div>
+    <div class="form-row"><label>Progress notes</label><textarea id="s_prog"></textarea></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="s_vis" type="checkbox" checked style="width:auto"/> Share this with the parent</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="s_cancel">Cancel</button><button class="btn btn-primary" id="s_save">Save session</button></div>
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
-  m.querySelector('#cv_close').onclick=close;
+  m.querySelector('#s_cancel').onclick=close;
+  m.querySelector('#s_save').onclick=async()=>{
+    const btn=m.querySelector('#s_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('session_logs').insert({
+      client_id:c.id, professional_id:MY_PROF_ID,
+      session_date:m.querySelector('#s_date').value||today,
+      service_units:m.querySelector('#s_units').value||0,
+      session_type:m.querySelector('#s_type').value.trim()||null,
+      goals_worked:m.querySelector('#s_goals').value.trim()||null,
+      summary:m.querySelector('#s_sum').value.trim()||null,
+      progress_notes:m.querySelector('#s_prog').value.trim()||null,
+      visible_to_parent:m.querySelector('#s_vis').checked
+    });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save session';return;}
+    toast('Session logged'); close(); renderProChild($('#view'),c);
+  };
+}
+function homeProgramForm(c){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>New home program</h3><div class="sub">Guidance for ${escapeHtml(c.full_name)}'s family to use at home.</div>
+    <div class="form-row"><label>Title</label><input id="h_title" placeholder="e.g. Daily communication practice"/></div>
+    <div class="form-row"><label>Instructions</label><textarea id="h_inst" style="min-height:120px"></textarea></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="h_vis" type="checkbox" checked style="width:auto"/> Share this with the parent</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="h_cancel">Cancel</button><button class="btn btn-primary" id="h_save">Save program</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#h_cancel').onclick=close;
+  m.querySelector('#h_save').onclick=async()=>{
+    const title=m.querySelector('#h_title').value.trim();
+    if(!title){toast('Please add a title.',true);return;}
+    const btn=m.querySelector('#h_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('home_programs').insert({
+      client_id:c.id, professional_id:MY_PROF_ID, title:title,
+      instructions:m.querySelector('#h_inst').value.trim()||null,
+      visible_to_parent:m.querySelector('#h_vis').checked
+    });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save program';return;}
+    toast('Home program saved'); close(); renderProChild($('#view'),c);
+  };
+}
+
+/* ===================== ACCESS (director) ===================== */
+const ROLE_OPTS=['director','secretary','professional','parent','institution'];
+async function renderAccess(v){
+  if(!isDirector()){v.innerHTML=`<div class="coming"><h3>People & access</h3><p>Director only.</p></div>`;return;}
+  const {data,error}=await sb.from('profiles').select('id,full_name,email,role').order('email');
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load people</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  v.innerHTML=`<div class="welcome"><h1>People &amp; access</h1><p>Everyone with a login. Set each person's role here — no need to touch the database. To add someone new, create their login in Supabase (Authentication → Add user), then set their role here.</p></div>
+    <div class="rows" id="accRows"></div>`;
+  const rows=$('#accRows');
+  (data||[]).forEach(p=>{
+    const card=el(`<div class="row-card" style="cursor:default">
+      <div class="row-ava">${initials(p.full_name||p.email)}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(p.full_name||'—')}</div><div class="row-sub">${escapeHtml(p.email||'')}</div></div>
+      <select class="roleSel" style="padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff">
+        <option value="">— no access —</option>
+        ${ROLE_OPTS.map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${r}</option>`).join('')}
+      </select>
+    </div>`);
+    const sel=card.querySelector('.roleSel');
+    sel.addEventListener('change',async()=>{
+      const newRole=sel.value||null;
+      const {error}=await sb.from('profiles').update({role:newRole}).eq('id',p.id);
+      if(error){toast(error.message,true);return;}
+      toast('Access updated');
+    });
+    rows.appendChild(card);
+  });
 }
 
 /* ===================== FINANCES (director) ===================== */
@@ -873,8 +998,12 @@ async function renderFinances(v){
 /* ===================== PLACEHOLDERS ===================== */
 function comingSoon(name){return (v)=>{v.innerHTML=`<div class="coming"><h3>${name}</h3><p>This screen is part of your system and is being built next. Your data and security are already in place behind it.</p></div>`;};}
 function renderPortal(v){
-  v.innerHTML=`<div class="coming"><h3>Welcome, ${escapeHtml(ME.name.split(' ')[0])}</h3><p>Your ${escapeHtml(ME.role)} portal is being set up. You'll be able to sign in here and see exactly what's shared with you.</p></div>`;
   $('#nav').innerHTML='';
+  if(!ME.role){
+    v.innerHTML=`<div class="coming"><h3>Welcome, ${escapeHtml((ME.name||'').split(' ')[0]||'there')}</h3><p>Your account is set up, but access hasn't been granted yet. The Director will assign your role shortly — please check back after that.</p></div>`;
+    return;
+  }
+  v.innerHTML=`<div class="coming"><h3>Welcome, ${escapeHtml(ME.name.split(' ')[0])}</h3><p>Your ${escapeHtml(ME.role)} portal is being built and will appear here soon. You'll see exactly what's shared with you.</p></div>`;
 }
 
 /* ===================== START ===================== */
