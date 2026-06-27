@@ -351,7 +351,7 @@ function go(view){
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:comingSoon('Professionals'),institutions:comingSoon('Institutions'),assignments:comingSoon('Assignments'),finances:renderFinances,settings:comingSoon('Settings'),portal:renderPortal}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:comingSoon('Assignments'),finances:renderFinances,settings:comingSoon('Settings'),portal:renderPortal}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -500,6 +500,168 @@ function openClientForm(c){
     if(res.error){ toast(res.error.message,true); btn.disabled=false; btn.textContent=edit?'Save changes':'Add child'; return; }
     toast(edit?'Child updated':'Child added');
     close(); if(currentView==='clients')renderClients($('#view')); else go('clients');
+  };
+}
+
+/* ===================== PROFESSIONALS ===================== */
+let PROFS=[];
+function statusClass(s){return {active:'active',pending:'enquiry',inactive:'exited'}[s]||'enquiry';}
+async function renderProfessionals(v){
+  const {data,error}=await sb.from('professionals').select('*').order('created_at',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load professionals</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  PROFS=data||[];
+  v.innerHTML=`<div class="section-head"><h3>Professionals</h3><button class="btn btn-primary btn-sm" id="addProf">+ Add professional</button></div>
+    <div class="searchbar"><input id="profSearch" placeholder="Search by name…"/></div>
+    <div class="rows" id="profRows"></div>`;
+  $('#addProf').onclick=()=>openProfessionalForm();
+  $('#profSearch').addEventListener('input',e=>paintProfs(e.target.value));
+  paintProfs('');
+}
+function paintProfs(q){
+  const rows=$('#profRows'); if(!rows)return;
+  const list=PROFS.filter(p=>!q||(p.full_name||'').toLowerCase().includes(q.toLowerCase()));
+  if(!list.length){rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/></svg><h4>${q?'No matches':'No professionals yet'}</h4><p>${q?'Try another name.':'Add your first professional.'}</p>${q?'':'<button class="btn btn-primary btn-sm" style="width:auto" onclick="openProfessionalForm()">+ Add professional</button>'}</div>`;return;}
+  rows.innerHTML='';
+  list.forEach(p=>{
+    const docs=p.documents_complete?'<span class="pill active">Docs ✓</span>':'<span class="pill enquiry">Docs pending</span>';
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${initials(p.full_name)}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(p.full_name)}</div>
+      <div class="row-sub">${escapeHtml(p.discipline||'—')}${p.email?' · '+escapeHtml(p.email):''}</div></div>
+      ${docs}<span class="pill ${statusClass(p.status)}">${p.status||'pending'}</span></div>`);
+    card.addEventListener('click',()=>openProfessionalForm(p));
+    rows.appendChild(card);
+  });
+}
+async function openProfessionalForm(p){
+  const edit=!!p; p=p||{};
+  let rate={};
+  if(edit && isDirector()){ const {data}=await sb.from('professional_pay_rates').select('*').eq('professional_id',p.id).maybeSingle(); rate=data||{}; }
+  const payBlock=isDirector()?`
+    <div class="form-row two">
+      <div><label>Pay rate (UGX)</label><input id="f_rate" type="number" value="${rate.pay_rate??''}" placeholder="e.g. 50000"/></div>
+      <div><label>Rate basis</label><select id="f_basis"><option value="">—</option>${['per service unit','per session','per hour','monthly retainer'].map(b=>`<option ${rate.rate_basis===b?'selected':''}>${b}</option>`).join('')}</select></div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:-4px 0 12px">Pay rate is visible to the Director only.</p>`:'';
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${edit?'Edit professional':'Add professional'}</h3>
+    <div class="sub">${edit?'Update this professional record.':'Create a new professional record (MND-AGR-03).'}</div>
+    <div class="form-row"><label>Full name *</label><input id="f_name" value="${escapeHtml(p.full_name||'')}"/></div>
+    <div class="form-row two">
+      <div><label>Email (their login)</label><input id="f_email" type="email" value="${escapeHtml(p.email||'')}"/></div>
+      <div><label>Phone</label><input id="f_phone" value="${escapeHtml(p.phone||'')}"/></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Discipline</label><input id="f_disc" value="${escapeHtml(p.discipline||'')}" placeholder="e.g. Speech & Language Therapist"/></div>
+      <div><label>Qualification</label><input id="f_qual" value="${escapeHtml(p.qualification||'')}"/></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Registration / licence no.</label><input id="f_lic" value="${escapeHtml(p.licence_no||'')}"/></div>
+      <div><label>Status</label><select id="f_status">${['pending','active','inactive'].map(s=>`<option ${(p.status||'pending')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="f_docs" type="checkbox" ${p.documents_complete?'checked':''} style="width:auto"/> Registration documents complete</label></div>
+    ${payBlock}
+    <div class="form-row"><label>Notes</label><textarea id="f_notes">${escapeHtml(p.notes||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="f_cancel">Cancel</button><button class="btn btn-primary" id="f_save">${edit?'Save changes':'Add professional'}</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#f_cancel').onclick=close;
+  m.querySelector('#f_save').onclick=async()=>{
+    const name=m.querySelector('#f_name').value.trim();
+    if(!name){toast('Please enter the name.',true);return;}
+    const btn=m.querySelector('#f_save');btn.disabled=true;btn.textContent='Saving…';
+    const payload={full_name:name,
+      email:m.querySelector('#f_email').value.trim()||null,
+      phone:m.querySelector('#f_phone').value.trim()||null,
+      discipline:m.querySelector('#f_disc').value.trim()||null,
+      qualification:m.querySelector('#f_qual').value.trim()||null,
+      licence_no:m.querySelector('#f_lic').value.trim()||null,
+      status:m.querySelector('#f_status').value,
+      documents_complete:m.querySelector('#f_docs').checked,
+      notes:m.querySelector('#f_notes').value.trim()||null};
+    let profId=p.id,res;
+    if(edit){ res=await sb.from('professionals').update(payload).eq('id',p.id); }
+    else { payload.created_by=ME.id; payload.prof_no='MND-P-'+Date.now().toString().slice(-6); res=await sb.from('professionals').insert(payload).select().single(); if(res.data)profId=res.data.id; }
+    if(res.error){ toast(res.error.message.includes('duplicate')?'A professional with that email already exists.':res.error.message,true); btn.disabled=false; btn.textContent=edit?'Save changes':'Add professional'; return; }
+    if(isDirector()){
+      const rr=m.querySelector('#f_rate'),bb=m.querySelector('#f_basis');
+      if(rr && (rr.value!=='' || (bb&&bb.value))){ await sb.from('professional_pay_rates').upsert({professional_id:profId,pay_rate:rr.value||null,rate_basis:(bb&&bb.value)||null,updated_at:new Date().toISOString()}); }
+    }
+    toast(edit?'Professional updated':'Professional added'); close(); renderProfessionals($('#view'));
+  };
+}
+
+/* ===================== INSTITUTIONS ===================== */
+const INST_TYPES={school_model_a:'School — Model A',school_model_b:'School — Model B',clinic:'Clinic / Centre',hospital:'Hospital',organisation:'Organisation'};
+let INSTS=[];
+async function renderInstitutions(v){
+  const {data,error}=await sb.from('institutions').select('*').order('created_at',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load institutions</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  INSTS=data||[];
+  v.innerHTML=`<div class="section-head"><h3>Institutions</h3><button class="btn btn-primary btn-sm" id="addInst">+ Add institution</button></div>
+    <div class="searchbar"><input id="instSearch" placeholder="Search by name…"/></div>
+    <div class="rows" id="instRows"></div>`;
+  $('#addInst').onclick=()=>openInstitutionForm();
+  $('#instSearch').addEventListener('input',e=>paintInsts(e.target.value));
+  paintInsts('');
+}
+function paintInsts(q){
+  const rows=$('#instRows'); if(!rows)return;
+  const list=INSTS.filter(i=>!q||(i.name||'').toLowerCase().includes(q.toLowerCase()));
+  if(!list.length){rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5"/></svg><h4>${q?'No matches':'No institutions yet'}</h4><p>${q?'Try another name.':'Add your first school, clinic or partner.'}</p>${q?'':'<button class="btn btn-primary btn-sm" style="width:auto" onclick="openInstitutionForm()">+ Add institution</button>'}</div>`;return;}
+  rows.innerHTML='';
+  list.forEach(i=>{
+    const cls=(i.partnership_status==='active'||!i.partnership_status)?'active':'exited';
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${initials(i.name)}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(i.name)}</div>
+      <div class="row-sub">${INST_TYPES[i.type]||'—'}${i.contact_person?' · '+escapeHtml(i.contact_person):''}</div></div>
+      <span class="pill ${cls}">${escapeHtml(i.partnership_status||'active')}</span></div>`);
+    card.addEventListener('click',()=>openInstitutionForm(i));
+    rows.appendChild(card);
+  });
+}
+function openInstitutionForm(i){
+  const edit=!!i; i=i||{};
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${edit?'Edit institution':'Add institution'}</h3>
+    <div class="sub">${edit?'Update this partner record.':'Add a school, clinic, hospital or organisation.'}</div>
+    <div class="form-row"><label>Name *</label><input id="f_name" value="${escapeHtml(i.name||'')}"/></div>
+    <div class="form-row"><label>Type</label><select id="f_type">${Object.entries(INST_TYPES).map(([k,l])=>`<option value="${k}" ${i.type===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="form-row two">
+      <div><label>Contact person</label><input id="f_contact" value="${escapeHtml(i.contact_person||'')}"/></div>
+      <div><label>Phone</label><input id="f_phone" value="${escapeHtml(i.phone||'')}"/></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Email</label><input id="f_email" type="email" value="${escapeHtml(i.email||'')}"/></div>
+      <div><label>Status</label><select id="f_status">${['active','prospective','paused','ended'].map(s=>`<option ${(i.partnership_status||'active')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row"><label>Address</label><input id="f_addr" value="${escapeHtml(i.address||'')}"/></div>
+    <div class="form-row"><label>Notes</label><textarea id="f_notes">${escapeHtml(i.notes||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="f_cancel">Cancel</button><button class="btn btn-primary" id="f_save">${edit?'Save changes':'Add institution'}</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#f_cancel').onclick=close;
+  m.querySelector('#f_save').onclick=async()=>{
+    const name=m.querySelector('#f_name').value.trim();
+    if(!name){toast('Please enter the name.',true);return;}
+    const btn=m.querySelector('#f_save');btn.disabled=true;btn.textContent='Saving…';
+    const payload={name:name,type:m.querySelector('#f_type').value,
+      contact_person:m.querySelector('#f_contact').value.trim()||null,
+      phone:m.querySelector('#f_phone').value.trim()||null,
+      email:m.querySelector('#f_email').value.trim()||null,
+      partnership_status:m.querySelector('#f_status').value,
+      address:m.querySelector('#f_addr').value.trim()||null,
+      notes:m.querySelector('#f_notes').value.trim()||null};
+    let res;
+    if(edit){res=await sb.from('institutions').update(payload).eq('id',i.id);}
+    else{payload.created_by=ME.id;payload.inst_no='MND-I-'+Date.now().toString().slice(-6);res=await sb.from('institutions').insert(payload);}
+    if(res.error){toast(res.error.message,true);btn.disabled=false;btn.textContent=edit?'Save changes':'Add institution';return;}
+    toast(edit?'Institution updated':'Institution added'); close(); renderInstitutions($('#view'));
   };
 }
 
