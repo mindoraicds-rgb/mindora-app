@@ -280,6 +280,10 @@ const NAV = {
     {k:'assignments',label:'Assignments',icon:'assign'},
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
+  ],
+  professional:[
+    {k:'pro_requests',label:'Requests',icon:'assign'},
+    {k:'pro_children',label:'My children',icon:'child'},
   ]
 };
 
@@ -316,6 +320,12 @@ async function boot(){
   const {data:prof,error}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
   if(error||!prof){ toast('Could not load your profile.',true); return; }
   ME={id:session.user.id,name:prof.full_name||session.user.email,role:prof.role};
+  // If not staff, try to link a professional record created for this email
+  if(!['director','secretary'].includes(ME.role)){
+    await sb.rpc('claim_professional_profile');
+    const {data:p2}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
+    if(p2){ ME.role=p2.role; ME.name=p2.full_name||ME.name; }
+  }
   $('#login').classList.add('hidden');
   $('#app').style.display='block';
   $('#whoName').textContent=ME.name;
@@ -323,7 +333,7 @@ async function boot(){
   $('#avatar').textContent=initials(ME.name);
   $('#todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   buildNav();
-  go(isStaff()?'dashboard':'portal');
+  go(isStaff()?'dashboard':(ME.role==='professional'?'pro_requests':'portal'));
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
@@ -331,27 +341,51 @@ const isDirector=()=>ME.role==='director';
 /* ===================== NAV ===================== */
 function buildNav(){
   const nav=$('#nav'); nav.innerHTML='';
-  if(!isStaff()){ return; } // non-staff portals handled separately (built next stages)
-  nav.appendChild(el(`<div class="nav-label">Workspace</div>`));
-  NAV.staff.forEach(item=>{
-    if(item.directorOnly && !isDirector()) return;
-    const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
-    b.addEventListener('click',()=>{go(item.k);closeSide();});
-    nav.appendChild(b);
-  });
+  if(isStaff()){
+    nav.appendChild(el(`<div class="nav-label">Workspace</div>`));
+    NAV.staff.forEach(item=>{
+      if(item.directorOnly && !isDirector()) return;
+      const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
+      b.addEventListener('click',()=>{go(item.k);closeSide();});
+      nav.appendChild(b);
+    });
+  } else if(ME.role==='professional'){
+    nav.appendChild(el(`<div class="nav-label">My work</div>`));
+    NAV.professional.forEach(item=>{
+      const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
+      b.addEventListener('click',()=>{go(item.k);closeSide();});
+      nav.appendChild(b);
+    });
+  }
+  updateBadges();
+}
+function setBadge(k,n){
+  const item=document.querySelector(`.nav-item[data-k="${k}"]`); if(!item)return;
+  let b=item.querySelector('.badge');
+  if(n>0){ if(!b){b=el('<span class="badge"></span>');item.appendChild(b);} b.textContent=n; }
+  else if(b){ b.remove(); }
+}
+async function updateBadges(){
+  if(isStaff()){
+    const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
+    setBadge('assignments',count||0);
+  } else if(ME.role==='professional'){
+    const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
+    setBadge('pro_requests',count||0);
+  }
 }
 function setActiveNav(){document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.k===currentView));}
 $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $('#scrim').classList.add('show'); });
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',settings:'Settings',portal:'Welcome'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:comingSoon('Assignments'),finances:renderFinances,settings:comingSoon('Settings'),portal:renderPortal}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -663,6 +697,154 @@ function openInstitutionForm(i){
     if(res.error){toast(res.error.message,true);btn.disabled=false;btn.textContent=edit?'Save changes':'Add institution';return;}
     toast(edit?'Institution updated':'Institution added'); close(); renderInstitutions($('#view'));
   };
+}
+
+/* ===================== ASSIGNMENTS (staff) ===================== */
+let ASSIGNS=[];
+function assignPill(s){return {pending:'enquiry',accepted:'active',declined:'exited',withdrawn:'exited'}[s]||'enquiry';}
+async function renderAssignments(v){
+  const {data,error}=await sb.from('assignments').select('*, clients(full_name,child_no), professionals(full_name,discipline)').order('assigned_at',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load assignments</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  ASSIGNS=data||[];
+  v.innerHTML=`<div class="section-head"><h3>Assignments</h3><button class="btn btn-primary btn-sm" id="addAssign">+ Assign a child</button></div>
+    <div class="rows" id="assignRows"></div>`;
+  $('#addAssign').onclick=()=>openAssignForm();
+  paintAssigns();
+}
+function paintAssigns(){
+  const rows=$('#assignRows'); if(!rows)return;
+  if(!ASSIGNS.length){rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><h4>No assignments yet</h4><p>Assign a child to a professional to start the workflow.</p><button class="btn btn-primary btn-sm" style="width:auto" onclick="openAssignForm()">+ Assign a child</button></div>`;return;}
+  rows.innerHTML='';
+  ASSIGNS.forEach(a=>{
+    const child=a.clients?escapeHtml(a.clients.full_name):'(child)';
+    const prof=a.professionals?escapeHtml(a.professionals.full_name):'(professional)';
+    const reason=(a.status==='declined'&&a.decline_reason)?`<div class="row-sub" style="color:var(--danger)">Reason: ${escapeHtml(a.decline_reason)}</div>`:'';
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="row-ava">${initials(child)}</div>
+        <div class="row-main"><div class="row-name">${child} &rarr; ${prof}</div>
+          <div class="row-sub">${fmtDate(a.assigned_at)}${a.note?' · '+escapeHtml(a.note):''}</div>${reason}</div>
+        <span class="pill ${assignPill(a.status)}">${a.status}</span>
+      </div>
+      ${a.status==='pending'?'<button class="btn btn-ghost btn-sm wd" style="align-self:flex-end">Withdraw</button>':''}
+    </div>`);
+    const wd=card.querySelector('.wd');
+    if(wd) wd.onclick=async()=>{ if(!confirm('Withdraw this pending assignment?'))return; const {error}=await sb.from('assignments').delete().eq('id',a.id); if(error){toast(error.message,true);return;} toast('Assignment withdrawn'); renderAssignments($('#view')); };
+    rows.appendChild(card);
+  });
+}
+async function openAssignForm(){
+  const [{data:kids},{data:profs}]=await Promise.all([
+    sb.from('clients').select('id,full_name,child_no').order('full_name'),
+    sb.from('professionals').select('id,full_name,discipline').order('full_name')
+  ]);
+  if(!kids||!kids.length){toast('Add a child first.',true);return;}
+  if(!profs||!profs.length){toast('Add a professional first.',true);return;}
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Assign a child</h3>
+    <div class="sub">The professional sees your note before they accept, then the full record once they accept.</div>
+    <div class="form-row"><label>Child</label><select id="f_child">${kids.map(k=>`<option value="${k.id}">${escapeHtml(k.full_name)}${k.child_no?' ('+escapeHtml(k.child_no)+')':''}</option>`).join('')}</select></div>
+    <div class="form-row"><label>Professional</label><select id="f_prof">${profs.map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}${p.discipline?' — '+escapeHtml(p.discipline):''}</option>`).join('')}</select></div>
+    <div class="form-row"><label>Note for the professional</label><textarea id="f_note" placeholder="e.g. 4-year-old, focus on early communication goals; Tue & Thu mornings."></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="f_cancel">Cancel</button><button class="btn btn-primary" id="f_save">Send assignment</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#f_cancel').onclick=close;
+  m.querySelector('#f_save').onclick=async()=>{
+    const btn=m.querySelector('#f_save');btn.disabled=true;btn.textContent='Sending…';
+    const {error}=await sb.from('assignments').insert({
+      client_id:m.querySelector('#f_child').value,
+      professional_id:m.querySelector('#f_prof').value,
+      note:m.querySelector('#f_note').value.trim()||null,
+      assigned_by:ME.id, status:'pending'
+    });
+    if(error){ toast(error.message.includes('duplicate')?'That child is already assigned to this professional.':error.message,true); btn.disabled=false; btn.textContent='Send assignment'; return; }
+    toast('Assignment sent'); close(); renderAssignments($('#view'));
+  };
+}
+
+/* ===================== PROFESSIONAL PORTAL ===================== */
+async function renderProRequests(v){
+  const {data,error}=await sb.from('assignments').select('*').eq('status','pending').order('assigned_at',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load requests</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  const reqs=data||[];
+  v.innerHTML=`<div class="welcome"><h1>Your requests</h1><p>New children assigned to you. Read the note, then accept to unlock the full record — or decline with a reason.</p></div>
+    <div class="rows" id="reqRows"></div>`;
+  const rows=$('#reqRows');
+  if(!reqs.length){ rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M9 11l3 3 8-8M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><h4>No pending requests</h4><p>When a child is assigned to you, it appears here.</p></div>`; updateBadges(); return; }
+  rows.innerHTML='';
+  reqs.forEach(a=>{
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:12px">
+      <div><div class="row-name">New child assignment</div>
+      <div class="row-sub">Sent ${fmtDate(a.assigned_at)}</div>
+      ${a.note?`<p style="margin-top:8px;font-size:14px;color:var(--ink)">${escapeHtml(a.note)}</p>`:'<p style="margin-top:8px;font-size:13px;color:var(--muted)">No note provided.</p>'}</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost btn-sm dec" style="flex:1">Decline</button>
+        <button class="btn btn-primary btn-sm acc" style="flex:1">Accept</button>
+      </div></div>`);
+    card.querySelector('.acc').onclick=async()=>{
+      const {error}=await sb.from('assignments').update({status:'accepted',responded_at:new Date().toISOString()}).eq('id',a.id);
+      if(error){toast(error.message,true);return;}
+      toast('Accepted — the child is now in “My children”.'); renderProRequests($('#view'));
+    };
+    card.querySelector('.dec').onclick=()=>declineModal(a);
+    rows.appendChild(card);
+  });
+  updateBadges();
+}
+function declineModal(a){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Decline assignment</h3>
+    <div class="sub">Let the team know why, so they can reassign appropriately.</div>
+    <div class="form-row"><label>Reason</label><textarea id="d_reason" placeholder="e.g. Outside my discipline / no capacity this term."></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="d_cancel">Cancel</button><button class="btn btn-primary" id="d_ok">Decline</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#d_cancel').onclick=close;
+  m.querySelector('#d_ok').onclick=async()=>{
+    const reason=m.querySelector('#d_reason').value.trim();
+    if(!reason){toast('Please give a brief reason.',true);return;}
+    const {error}=await sb.from('assignments').update({status:'declined',decline_reason:reason,responded_at:new Date().toISOString()}).eq('id',a.id);
+    if(error){toast(error.message,true);return;}
+    toast('Assignment declined'); close(); renderProRequests($('#view'));
+  };
+}
+async function renderProChildren(v){
+  const {data,error}=await sb.from('clients').select('*').order('full_name');
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load children</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  const kids=data||[];
+  v.innerHTML=`<div class="section-head"><h3>My children</h3></div><div class="rows" id="kidRows"></div>`;
+  const rows=$('#kidRows');
+  if(!kids.length){ rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg><h4>No children yet</h4><p>Once you accept a request, the child appears here with their full details.</p></div>`; return; }
+  rows.innerHTML='';
+  kids.forEach(c=>{
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${initials(c.full_name)}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}</div>
+      <div class="row-sub">${c.dob?'DOB '+fmtDate(c.dob):''}${c.assessed_band?' · Band '+c.assessed_band:''}</div></div>
+      <span class="pill ${c.status||'active'}">${(c.status||'active').replace('_',' ')}</span></div>`);
+    card.addEventListener('click',()=>proChildView(c));
+    rows.appendChild(card);
+  });
+}
+function proChildView(c){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${escapeHtml(c.full_name)}</h3>
+    <div class="sub">${c.child_no?escapeHtml(c.child_no):''}</div>
+    <div class="form-row"><label>Date of birth</label><div>${c.dob?fmtDate(c.dob):'—'}</div></div>
+    <div class="form-row"><label>Presenting needs</label><div>${escapeHtml(c.presenting_needs||'—')}</div></div>
+    <div class="form-row"><label>Parent / guardian</label><div>${escapeHtml(c.parent_name||'—')}${c.parent_phone?' · '+escapeHtml(c.parent_phone):''}</div></div>
+    <p style="font-size:13px;color:var(--muted);margin-top:6px">Session logging and home programs for this child are being added next.</p>
+    <div class="modal-actions"><button class="btn btn-primary" id="cv_close">Close</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#cv_close').onclick=close;
 }
 
 /* ===================== FINANCES (director) ===================== */
