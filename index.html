@@ -286,6 +286,10 @@ const NAV = {
   professional:[
     {k:'pro_requests',label:'Requests',icon:'assign'},
     {k:'pro_children',label:'My children',icon:'child'},
+  ],
+  parent:[
+    {k:'parent_home',label:'My child',icon:'child'},
+    {k:'parent_billing',label:'Billing',icon:'fin'},
   ]
 };
 
@@ -327,6 +331,7 @@ async function boot(){
   // If not staff, try to link a professional record created for this email
   if(!['director','secretary'].includes(ME.role)){
     await sb.rpc('claim_professional_profile');
+    await sb.rpc('claim_parent_profile');
     const {data:p2}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
     if(p2){ ME.role=p2.role; ME.name=p2.full_name||ME.name; }
   }
@@ -342,7 +347,7 @@ async function boot(){
   $('#avatar').textContent=initials(ME.name);
   $('#todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   buildNav();
-  go(isStaff()?'dashboard':(ME.role==='professional'?'pro_requests':'portal'));
+  go(isStaff()?'dashboard':(ME.role==='professional'?'pro_requests':(ME.role==='parent'?'parent_home':'portal')));
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
@@ -361,6 +366,13 @@ function buildNav(){
   } else if(ME.role==='professional'){
     nav.appendChild(el(`<div class="nav-label">My work</div>`));
     NAV.professional.forEach(item=>{
+      const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
+      b.addEventListener('click',()=>{go(item.k);closeSide();});
+      nav.appendChild(b);
+    });
+  } else if(ME.role==='parent'){
+    nav.appendChild(el(`<div class="nav-label">My family</div>`));
+    NAV.parent.forEach(item=>{
       const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
       b.addEventListener('click',()=>{go(item.k);closeSide();});
       nav.appendChild(b);
@@ -388,13 +400,13 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_billing:'Billing'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,access:renderAccess,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,access:renderAccess,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_billing:renderParentBilling}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -973,6 +985,64 @@ async function renderAccess(v){
   });
 }
 
+/* ===================== PARENT PORTAL ===================== */
+async function renderParentHome(v){
+  const {data,error}=await sb.from('clients').select('*').order('full_name');
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  const kids=data||[];
+  v.innerHTML=`<div class="welcome"><h1>Welcome${ME.name?', '+escapeHtml(ME.name.split(' ')[0]):''}</h1><p>Your child's progress and the home activities shared by the Mindora team.</p></div><div class="rows" id="pkids"></div>`;
+  const rows=$('#pkids');
+  if(!kids.length){ rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg><h4>No child linked yet</h4><p>Your account isn't linked to a child record yet. Please contact Mindora so they can connect your login.</p></div>`; return; }
+  kids.forEach(c=>{
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${initials(c.full_name)}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}</div>
+      <div class="row-sub">${c.dob?'Born '+fmtDate(c.dob):''}${c.assessed_band?' · Band '+c.assessed_band:''}</div></div>
+      <span style="color:var(--muted)">›</span></div>`);
+    card.addEventListener('click',()=>{SELECTED_CHILD=c;go('parent_child');});
+    rows.appendChild(card);
+  });
+}
+async function renderParentChild(v,c){
+  if(!c){go('parent_home');return;}
+  const [{data:sessions},{data:programs}]=await Promise.all([
+    sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}),
+    sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false})
+  ]);
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="pBack" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>${c.presenting_needs?escapeHtml(c.presenting_needs):'Progress shared by your therapy team.'}</p></div>
+    <div class="section-head"><h3>Progress</h3></div><div class="rows" id="pSess"></div>
+    <div class="section-head" style="margin-top:24px"><h3>Home activities</h3></div><div class="rows" id="pHp"></div>`;
+  $('#pBack').onclick=()=>go('parent_home');
+  const ss=$('#pSess');
+  ss.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:24px"><h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
+  (sessions||[]).forEach(s=>ss.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div><span class="row-sub">${fmtDate(s.session_date)}</span></div>
+    ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}
+    ${s.progress_notes?`<div class="row-sub" style="white-space:normal;color:var(--teal)">${escapeHtml(s.progress_notes)}</div>`:''}
+  </div>`)));
+  const hp=$('#pHp');
+  hp.innerHTML=(programs&&programs.length)?'':`<div class="empty" style="padding:24px"><h4>No home activities yet</h4><p>Activities to practise at home will appear here.</p></div>`;
+  (programs||[]).forEach(p=>hp.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div class="row-name">${escapeHtml(p.title||'Home activity')}</div>
+    ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
+    <div class="row-sub">${fmtDate(p.issued_date)}</div>
+  </div>`)));
+}
+async function renderParentBilling(v){
+  const {data,error}=await sb.from('invoices').select('*').order('invoice_date',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load billing</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  const inv=data||[];
+  v.innerHTML=`<div class="welcome"><h1>Billing</h1><p>Your invoices and their status.</p></div><div class="rows" id="pInv"></div>`;
+  const rows=$('#pInv');
+  if(!inv.length){ rows.innerHTML=`<div class="empty"><h4>No invoices</h4><p>You have no invoices on record.</p></div>`; return; }
+  inv.forEach(i=>rows.appendChild(el(`<div class="row-card" style="cursor:default">
+    <div class="row-main"><div class="row-name">${money(i.amount)} · ${escapeHtml(i.description||'Program fee')}</div>
+    <div class="row-sub">${escapeHtml(i.invoice_no||'')}${i.due_date?' · due '+fmtDate(i.due_date):''}</div></div>
+    <span class="pill ${i.status==='paid'?'active':'enquiry'}">${i.status==='paid'?'paid':'due'}</span></div>`)));
+}
+
 /* ===================== FINANCES (director) ===================== */
 async function renderFinances(v){
   if(!isDirector()){ v.innerHTML=`<div class="coming"><h3>Finances</h3><p>This area is for the Director only.</p></div>`; return; }
@@ -1186,6 +1256,7 @@ function invoiceForm(i){
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit invoice':'New invoice'}</h3><div class="sub">Money owed to Mindora.</div>
     <div class="form-row"><label>Client / payer name</label><input id="i_client" value="${edit?escapeHtml(i.client_name||''):''}"/></div>
+    <div class="form-row"><label>Link to child (so the parent can see it)</label><select id="i_child"><option value="">— none —</option></select></div>
     <div class="form-row"><label>Description</label><input id="i_desc" value="${edit?escapeHtml(i.description||''):''}" placeholder="e.g. June program fee"/></div>
     <div class="form-row two">
       <div><label>Amount (UGX)</label><input id="i_amt" type="number" value="${edit?(i.amount??''):''}"/></div>
@@ -1199,6 +1270,10 @@ function invoiceForm(i){
     ${edit?'<button class="btn" id="i_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this invoice</button>':''}
   </div></div>`);
   document.body.appendChild(m);
+  sb.from('clients').select('id,full_name').order('full_name').then(({data})=>{
+    const selChild=m.querySelector('#i_child');
+    (data||[]).forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.full_name;if(edit&&i.client_id===c.id)o.selected=true;selChild.appendChild(o);});
+  });
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#i_cancel').onclick=close;
   if(edit){ m.querySelector('#i_del').onclick=async()=>{ if(!confirm('Delete this invoice? Any payments recorded against it stay in the cash book.'))return; const {error}=await sb.from('invoices').delete().eq('id',i.id); if(error){toast(error.message,true);return;} toast('Invoice deleted'); close(); renderFinances($('#view')); }; }
@@ -1208,6 +1283,7 @@ function invoiceForm(i){
     const btn=m.querySelector('#i_save');btn.disabled=true;btn.textContent='Saving…';
     const payload={
       client_name:m.querySelector('#i_client').value.trim()||null,
+      client_id:m.querySelector('#i_child').value||null,
       description:m.querySelector('#i_desc').value.trim()||null,
       amount:amt, income_account_code:m.querySelector('#i_acct').value,
       invoice_date:m.querySelector('#i_date').value||today,
