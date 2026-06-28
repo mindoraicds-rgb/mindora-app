@@ -279,6 +279,7 @@ const NAV = {
     {k:'institutions',label:'Institutions',icon:'inst'},
     {k:'assignments',label:'Assignments',icon:'assign'},
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
+    {k:'reports',label:'Reports',icon:'fin',directorOnly:true},
     {k:'access',label:'People & access',icon:'prof',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
   ],
@@ -387,13 +388,13 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,access:renderAccess,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,access:renderAccess,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -1311,6 +1312,138 @@ function paymentForm(kind,doc){
     await sb.from(kind==='invoice'?'invoices':'bills').update({status:newStatus}).eq('id',doc.id);
     toast('Payment recorded'); close(); renderFinances($('#view'));
   };
+}
+
+/* ===================== REPORTS (director) ===================== */
+let REPORT_TYPE='pnl', REPORT_PERIOD='fy', ALLTXNS=[], LAST_CSV=[], LAST_TITLE='Mindora report', LAST_PERIOD='';
+const isoD=d=>d.toISOString().slice(0,10);
+function reportRange(){
+  const now=new Date(), y=now.getFullYear(), mo=now.getMonth(); let from,to;
+  if(REPORT_PERIOD==='month'){from=new Date(y,mo,1);to=new Date(y,mo+1,0);}
+  else if(REPORT_PERIOD==='quarter'){const q=Math.floor(mo/3);from=new Date(y,q*3,1);to=new Date(y,q*3+3,0);}
+  else if(REPORT_PERIOD==='fy'){const sY=(mo>=3)?y:y-1;from=new Date(sY,3,1);to=new Date(sY+1,2,31);}
+  else if(REPORT_PERIOD==='custom'){from=new Date(($('#rfrom')&&$('#rfrom').value)||'2000-01-01');to=new Date(($('#rto')&&$('#rto').value)||now);}
+  else {from=new Date(2000,0,1);to=now;}
+  return {fromS:isoD(from),toS:isoD(to)};
+}
+const accType=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.type:'';};
+const accNm=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
+const cashOf=t=>Number(t.gross_amount||0)+Number(t.vat_amount||0)-Number(t.wht_amount||0);
+async function renderReports(v){
+  if(!isDirector()){v.innerHTML=`<div class="coming"><h3>Reports</h3><p>Director only.</p></div>`;return;}
+  await loadAccounts();
+  { const {data}=await sb.from('transactions').select('*').order('txn_date'); ALLTXNS=data||[]; }
+  v.innerHTML=`
+   <div class="searchbar" style="flex-wrap:wrap;gap:8px">
+     ${[['pnl','Profit & Loss'],['cash','Cash Flow'],['tax','Tax Summary']].map(([k,l])=>`<button class="btn ${REPORT_TYPE===k?'btn-primary':'btn-ghost'} btn-sm rtab" data-t="${k}" style="width:auto">${l}</button>`).join('')}
+   </div>
+   <div class="searchbar" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+     <select id="rperiod" style="padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff">
+       <option value="month">This month</option><option value="quarter">This quarter</option>
+       <option value="fy">Financial year</option><option value="all">All time</option><option value="custom">Custom…</option>
+     </select>
+     <input id="rfrom" type="date" style="display:none;padding:8px;border:1.5px solid var(--line);border-radius:10px"/>
+     <input id="rto" type="date" style="display:none;padding:8px;border:1.5px solid var(--line);border-radius:10px"/>
+     <button class="btn btn-ghost btn-sm" id="rprint" style="width:auto">Print / Save PDF</button>
+     <button class="btn btn-ghost btn-sm" id="rcsv" style="width:auto">Download CSV</button>
+   </div>
+   <div id="reportBody" style="margin-top:16px"></div>`;
+  $('#rperiod').value=REPORT_PERIOD;
+  const c=REPORT_PERIOD==='custom'; $('#rfrom').style.display=c?'':'none'; $('#rto').style.display=c?'':'none';
+  $('#rperiod').onchange=()=>{REPORT_PERIOD=$('#rperiod').value;const cc=REPORT_PERIOD==='custom';$('#rfrom').style.display=cc?'':'none';$('#rto').style.display=cc?'':'none';drawReport();};
+  $('#rfrom').onchange=drawReport; $('#rto').onchange=drawReport;
+  document.querySelectorAll('.rtab').forEach(b=>b.onclick=()=>{REPORT_TYPE=b.dataset.t;renderReports($('#view'));});
+  $('#rprint').onclick=printReport; $('#rcsv').onclick=()=>downloadCSV(LAST_TITLE.replace(/\s+/g,'_')+'.csv',LAST_CSV);
+  drawReport();
+}
+function rowsToTable(rows){ // rows: [{label, value, bold, head}]
+  return `<table style="width:100%;border-collapse:collapse">`+rows.map(r=>{
+    if(r.head) return `<tr><td colspan="2" style="padding:12px 4px 4px;font-weight:700;color:var(--purple)">${escapeHtml(r.label)}</td></tr>`;
+    return `<tr><td style="padding:7px 4px;border-bottom:1px solid #eee;${r.bold?'font-weight:700;border-top:2px solid #333':''}">${escapeHtml(r.label)}</td>
+    <td style="padding:7px 4px;border-bottom:1px solid #eee;text-align:right;${r.bold?'font-weight:700;border-top:2px solid #333':''}">${r.value==null?'':money(r.value)}</td></tr>`;
+  }).join('')+`</table>`;
+}
+function drawReport(){
+  const {fromS,toS}=reportRange();
+  const inRange=ALLTXNS.filter(t=>t.txn_date>=fromS && t.txn_date<=toS);
+  LAST_PERIOD=`${fmtDate(fromS)} — ${fmtDate(toS)}`;
+  let rows=[], csv=[['Mindora',REPORT_TYPE.toUpperCase(),LAST_PERIOD],[]];
+  if(REPORT_TYPE==='pnl'){
+    LAST_TITLE='Mindora Profit and Loss';
+    const inc={}, exp={};
+    inRange.forEach(t=>{const ty=accType(t.account_code);const g=Number(t.gross_amount||0);
+      if(ty==='income') inc[t.account_code]=(inc[t.account_code]||0)+g;
+      else if(ty==='expense') exp[t.account_code]=(exp[t.account_code]||0)+g;});
+    const incT=Object.values(inc).reduce((a,b)=>a+b,0), expT=Object.values(exp).reduce((a,b)=>a+b,0);
+    rows.push({head:true,label:'INCOME'}); csv.push(['INCOME']);
+    Object.keys(inc).sort().forEach(c=>{rows.push({label:accNm(c),value:inc[c]});csv.push([accNm(c),inc[c]]);});
+    rows.push({label:'Total income',value:incT,bold:true}); csv.push(['Total income',incT],[]);
+    rows.push({head:true,label:'EXPENSES'}); csv.push(['EXPENSES']);
+    Object.keys(exp).sort().forEach(c=>{rows.push({label:accNm(c),value:exp[c]});csv.push([accNm(c),exp[c]]);});
+    rows.push({label:'Total expenses',value:expT,bold:true}); csv.push(['Total expenses',expT],[]);
+    rows.push({label:'NET PROFIT / (LOSS)',value:incT-expT,bold:true}); csv.push(['NET PROFIT/(LOSS)',incT-expT]);
+  } else if(REPORT_TYPE==='cash'){
+    LAST_TITLE='Mindora Cash Flow';
+    const opening=ALLTXNS.filter(t=>t.txn_date<fromS).reduce((a,t)=>a+(t.direction==='in'?cashOf(t):-cashOf(t)),0);
+    const cin={}, cout={};
+    inRange.forEach(t=>{const c=cashOf(t); if(t.direction==='in')cin[t.account_code]=(cin[t.account_code]||0)+c; else cout[t.account_code]=(cout[t.account_code]||0)+c;});
+    const inT=Object.values(cin).reduce((a,b)=>a+b,0), outT=Object.values(cout).reduce((a,b)=>a+b,0);
+    rows.push({label:'Opening cash',value:opening,bold:true}); csv.push(['Opening cash',opening],[]);
+    rows.push({head:true,label:'CASH IN'}); csv.push(['CASH IN']);
+    Object.keys(cin).sort().forEach(c=>{rows.push({label:accNm(c),value:cin[c]});csv.push([accNm(c),cin[c]]);});
+    rows.push({label:'Total cash in',value:inT,bold:true}); csv.push(['Total cash in',inT],[]);
+    rows.push({head:true,label:'CASH OUT'}); csv.push(['CASH OUT']);
+    Object.keys(cout).sort().forEach(c=>{rows.push({label:accNm(c),value:cout[c]});csv.push([accNm(c),cout[c]]);});
+    rows.push({label:'Total cash out',value:outT,bold:true}); csv.push(['Total cash out',outT],[]);
+    rows.push({label:'Net movement',value:inT-outT,bold:true}); csv.push(['Net movement',inT-outT]);
+    rows.push({label:'CLOSING CASH',value:opening+inT-outT,bold:true}); csv.push(['CLOSING CASH',opening+inT-outT]);
+  } else {
+    LAST_TITLE='Mindora Tax Summary';
+    const vatOut=inRange.filter(t=>t.direction==='in').reduce((a,t)=>a+Number(t.vat_amount||0),0);
+    const vatIn=inRange.filter(t=>t.direction==='out').reduce((a,t)=>a+Number(t.vat_amount||0),0);
+    const vatRemit=inRange.filter(t=>t.direction==='out'&&t.account_code==='2200').reduce((a,t)=>a+Number(t.gross_amount||0),0);
+    const whtWith=inRange.filter(t=>t.direction==='out').reduce((a,t)=>a+Number(t.wht_amount||0),0);
+    const whtRemit=inRange.filter(t=>t.direction==='out'&&t.account_code==='2300').reduce((a,t)=>a+Number(t.gross_amount||0),0);
+    const whtRec=inRange.filter(t=>t.direction==='in').reduce((a,t)=>a+Number(t.wht_amount||0),0);
+    rows.push({head:true,label:'VAT'});
+    rows.push({label:'VAT collected on sales (output)',value:vatOut});
+    rows.push({label:'VAT paid on purchases (input)',value:vatIn});
+    rows.push({label:'VAT remitted to URA',value:vatRemit});
+    rows.push({label:'Net VAT due to URA',value:vatOut-vatIn-vatRemit,bold:true});
+    rows.push({head:true,label:'WITHHOLDING TAX'});
+    rows.push({label:'WHT you withheld',value:whtWith});
+    rows.push({label:'WHT remitted to URA',value:whtRemit});
+    rows.push({label:'WHT due to URA',value:whtWith-whtRemit,bold:true});
+    rows.push({label:'WHT withheld from you (credit)',value:whtRec});
+    csv.push(['VAT output',vatOut],['VAT input',vatIn],['VAT remitted',vatRemit],['Net VAT due',vatOut-vatIn-vatRemit],[],
+      ['WHT withheld',whtWith],['WHT remitted',whtRemit],['WHT due',whtWith-whtRemit],['WHT receivable',whtRec]);
+  }
+  LAST_CSV=csv;
+  $('#reportBody').innerHTML=`<div style="font-weight:700;font-size:15px;margin-bottom:2px">${escapeHtml(LAST_TITLE)}</div>
+    <div class="row-sub" style="margin-bottom:10px">${LAST_PERIOD}</div>${rowsToTable(rows)}`;
+}
+function downloadCSV(name,rows){
+  const csv=rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function printReport(){
+  const body=$('#reportBody'); if(!body)return;
+  const w=window.open('','_blank');
+  if(!w){toast('Allow pop-ups to print/save PDF, or use Download CSV.',true);return;}
+  w.document.write(`<html><head><title>${escapeHtml(LAST_TITLE)}</title><style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:32px;max-width:720px;margin:auto}
+    h1{color:#6C3483;margin:0;font-size:20px}.lh{border-bottom:3px solid #6C3483;padding-bottom:10px;margin-bottom:6px}
+    .muted{color:#666;font-size:12px;margin-top:4px}table{width:100%;border-collapse:collapse}
+  </style></head><body>
+    <div class="lh"><h1>Mindora Inclusive Child Development Services Co. Ltd</h1>
+    <div class="muted">Kisaasi / Kikaya, Kampala · mindoraicds@gmail.com · 0741 397 167</div></div>
+    ${body.innerHTML}
+    <p class="muted" style="margin-top:22px">Generated ${fmtDate(isoD(new Date()))} · Director-approved figures · UGX</p>
+    </body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
 }
 
 /* ===================== PLACEHOLDERS ===================== */
