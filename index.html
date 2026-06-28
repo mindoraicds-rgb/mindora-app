@@ -977,13 +977,14 @@ async function renderFinances(v){
   if(!isDirector()){ v.innerHTML=`<div class="coming"><h3>Finances</h3><p>This area is for the Director only.</p></div>`; return; }
   await loadAccounts();
   v.innerHTML=`<div class="searchbar" style="gap:8px;flex-wrap:wrap">
-      ${['overview','cash book','invoices','bills'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
+      ${['overview','cash book','invoices','bills','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
     </div><div id="finBody"><div class="loading"><div class="spin"></div> Loading…</div></div>`;
   document.querySelectorAll('.fintab').forEach(b=>b.onclick=()=>{FIN_TAB=b.dataset.t;renderFinances($('#view'));});
   const body=$('#finBody');
   if(FIN_TAB==='cash book')return finCashbook(body);
   if(FIN_TAB==='invoices')return finInvoices(body);
   if(FIN_TAB==='bills')return finBills(body);
+  if(FIN_TAB==='taxes')return finTaxes(body);
   return finOverview(body);
 }
 let ACCOUNTS=[], FIN_TAB='overview';
@@ -1026,34 +1027,70 @@ async function finCashbook(b){
   if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No transactions yet</h4><p>Record your first receipt or payment.</p></div>`;return;}
   rows.innerHTML='';
   const accName=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
-  data.forEach(t=>{const card=el(`<div class="row-card">
+  data.forEach(t=>{
+    const vat=Number(t.vat_amount||0), wht=Number(t.wht_amount||0);
+    const cash=Number(t.gross_amount||0)+vat-wht;
+    const taxNote=(vat||wht)?`<div class="row-sub" style="color:var(--purple)">${vat?'VAT '+money(vat):''}${vat&&wht?' · ':''}${wht?'WHT '+money(wht):''} · base ${money(t.gross_amount)}</div>`:'';
+    const card=el(`<div class="row-card">
     <div class="row-ava" style="background:${t.direction==='in'?'#E7F3EE':'#FBEAEC'};color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${t.direction==='in'?'+':'–'}</div>
     <div class="row-main"><div class="row-name">${escapeHtml(t.description||t.party||'Transaction')}</div>
-    <div class="row-sub">${fmtDate(t.txn_date)} · ${escapeHtml(accName(t.account_code))}${t.reference?' · '+escapeHtml(t.reference):''} · ${escapeHtml(t.channel||'')}</div></div>
-    <div style="font-weight:700;color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${money(t.gross_amount)}</div>
+    <div class="row-sub">${fmtDate(t.txn_date)} · ${escapeHtml(accName(t.account_code))}${t.reference?' · '+escapeHtml(t.reference):''} · ${escapeHtml(t.channel||'')}</div>${taxNote}</div>
+    <div style="font-weight:700;color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${money(cash)}</div>
   </div>`);
     card.addEventListener('click',()=>txnForm(t));
     rows.appendChild(card);
   });
 }
-function txnForm(t){
-  t=t||null; const edit=!!t;
+async function finTaxes(b){
+  const {data:s}=await sb.from('v_tax_summary').select('*').single();
+  const vatDue=Number(s?.vat_payable_net||0), whtDue=Number(s?.wht_payable||0);
+  b.innerHTML=`<div class="grid fin-grid" style="margin-bottom:18px">
+      <div class="fin ${vatDue>0?'due':''}"><div class="l">VAT due to URA</div><div class="n">${money(vatDue)}</div></div>
+      <div class="fin ${whtDue>0?'due':''}"><div class="l">WHT due to URA</div><div class="n">${money(whtDue)}</div></div>
+      <div class="fin"><div class="l">WHT withheld from us</div><div class="n">${money(s?.wht_receivable)}</div></div>
+    </div>
+    <div class="rows" style="margin-bottom:16px">
+      <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">VAT collected on sales (output)</div></div><div style="font-weight:700">${money(s?.vat_output)}</div></div>
+      <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">VAT paid on purchases (input, reclaimable)</div></div><div style="font-weight:700">${money(s?.vat_input)}</div></div>
+    </div>
+    <div class="section-head"><h3>Remit to URA</h3></div>
+    <div class="searchbar" style="flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" style="width:auto" id="remVat">Record VAT payment</button>
+      <button class="btn btn-ghost btn-sm" id="remWht">Record WHT payment</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:14px">These figures build automatically from the VAT/WHT you tick on each transaction. Recording a payment to URA reduces what's owed. Confirm rates and filing dates with your accountant.</p>`;
+  $('#remVat').onclick=()=>txnForm(null,{direction:'out',account_code:'2200'});
+  $('#remWht').onclick=()=>txnForm(null,{direction:'out',account_code:'2300'});
+}
+function txnForm(t,preset){
+  t=t||null; preset=preset||null; const edit=!!t;
   const today=new Date().toISOString().slice(0,10);
   const sel=(val,opt)=>val===opt?'selected':'';
+  const initDir = edit ? t.direction : (preset?preset.direction:'in');
+  const initAcct = edit ? t.account_code : (preset?preset.account_code:'');
+  // derive starting tax state for edit (rate back-computed from stored amounts)
+  const g0 = edit ? Number(t.gross_amount||0) : 0;
+  const vat0 = edit ? Number(t.vat_amount||0) : 0;
+  const wht0 = edit ? Number(t.wht_amount||0) : 0;
+  const vrate0 = (edit && g0>0 && vat0>0) ? +(vat0/g0*100).toFixed(2) : 18;
+  const wrate0 = (edit && g0>0 && wht0>0) ? +(wht0/g0*100).toFixed(2) : 6;
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit transaction':'Record money in / out'}</h3><div class="sub">Enter it once — it updates every book automatically.</div>
     <div class="form-row two">
-      <div><label>Type</label><select id="t_dir"><option value="in" ${edit&&sel(t.direction,'in')}>Money in (receipt)</option><option value="out" ${edit&&sel(t.direction,'out')}>Money out (payment)</option></select></div>
+      <div><label>Type</label><select id="t_dir"><option value="in" ${sel(initDir,'in')}>Money in (receipt)</option><option value="out" ${sel(initDir,'out')}>Money out (payment)</option></select></div>
       <div><label>Date</label><input id="t_date" type="date" value="${edit?(t.txn_date||today):today}"/></div>
     </div>
-    <div class="form-row"><label>Account (category)</label><select id="t_acct">${acctOptions(null,edit?t.account_code:'')}</select></div>
+    <div class="form-row"><label>Account (category)</label><select id="t_acct">${acctOptions(null,initAcct)}</select></div>
     <div class="form-row two">
       <div><label>Amount (UGX)</label><input id="t_amt" type="number" value="${edit?(t.gross_amount??''):''}" placeholder="0"/></div>
       <div><label>Channel</label><select id="t_chan"><option ${edit&&sel(t.channel,'cash')}>cash</option><option ${edit&&sel(t.channel,'bank')}>bank</option><option ${edit&&sel(t.channel,'mobile money')}>mobile money</option></select></div>
     </div>
-    <div class="form-row two">
-      <div><label>VAT (if any)</label><input id="t_vat" type="number" value="${edit?(t.vat_amount||0):0}"/></div>
-      <div><label>WHT (if any)</label><input id="t_wht" type="number" value="${edit?(t.wht_amount||0):0}"/></div>
+    <div class="form-row" style="background:#FAF7FC;border:1px solid var(--line);border-radius:12px;padding:12px">
+      <label style="margin-bottom:8px">Taxes — tick what applies</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="t_vat_on" ${vat0>0?'checked':''} style="width:auto"/> VAT&nbsp; <input id="t_vat_rate" type="number" step="0.1" value="${vrate0}" style="width:74px;padding:6px"/> %</label>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:6px;font-size:13px;color:var(--muted)"><input type="checkbox" id="t_vat_incl" style="width:auto"/> Amount already includes VAT</label>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="t_wht_on" ${wht0>0?'checked':''} style="width:auto"/> WHT&nbsp; <input id="t_wht_rate" type="number" step="0.1" value="${wrate0}" style="width:74px;padding:6px"/> %</label>
+      <div id="t_taxprev" class="row-sub" style="margin-top:10px;line-height:1.6"></div>
     </div>
     <div class="form-row"><label>Who / party</label><input id="t_party" value="${edit?escapeHtml(t.party||''):''}" placeholder="Who paid you / who you paid"/></div>
     <div class="form-row"><label>Description</label><input id="t_desc" value="${edit?escapeHtml(t.description||''):''}"/></div>
@@ -1062,24 +1099,54 @@ function txnForm(t){
     ${edit?'<button class="btn" id="t_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this transaction</button>':''}
   </div></div>`);
   document.body.appendChild(m);
+  const $$=id=>m.querySelector(id);
+  const calc=()=>{
+    const gEntered=parseFloat($$('#t_amt').value)||0;
+    const vatOn=$$('#t_vat_on').checked, incl=$$('#t_vat_incl').checked;
+    const vrate=parseFloat($$('#t_vat_rate').value)||0;
+    let base=gEntered, vat=0;
+    if(vatOn){
+      if(incl){ vat=Math.round(gEntered - gEntered/(1+vrate/100)); base=gEntered-vat; }
+      else { base=gEntered; vat=Math.round(base*vrate/100); }
+    }
+    const wht=$$('#t_wht_on').checked?Math.round(base*(parseFloat($$('#t_wht_rate').value)||0)/100):0;
+    const dir=$$('#t_dir').value;
+    const cash=base+vat-wht;
+    let lines=[];
+    if(vatOn) lines.push(`Value before VAT: <b>${money(base)}</b>`);
+    if(vat) lines.push(`VAT ${dir==='in'?'collected (→ VAT payable)':'paid (→ VAT recoverable)'}: <b>${money(vat)}</b>`);
+    if(wht) lines.push(`WHT ${dir==='in'?'withheld from you (→ WHT receivable)':'you withhold (→ WHT payable)'}: <b>${money(wht)}</b>`);
+    lines.push(`Actual cash ${dir==='in'?'received':'paid'}: <b>${money(cash)}</b>`);
+    $$('#t_taxprev').innerHTML=lines.join('<br>');
+    return {vat,wht,base};
+  };
+  const suggest=()=>{ // pre-tick from the account's tax tags (only for new entries)
+    if(edit||preset)return;
+    const a=ACCOUNTS.find(x=>x.code===$$('#t_acct').value);
+    if(a){ $$('#t_vat_on').checked=(a.tax_treatment==='standard'); $$('#t_wht_on').checked=!!a.wht_applicable; }
+    calc();
+  };
+  ['#t_amt','#t_vat_rate','#t_wht_rate'].forEach(id=>$$(id).addEventListener('input',calc));
+  ['#t_vat_on','#t_wht_on','#t_dir','#t_vat_incl'].forEach(id=>$$(id).addEventListener('change',calc));
+  $$('#t_acct').addEventListener('change',suggest);
+  suggest(); calc();
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
-  m.querySelector('#t_cancel').onclick=close;
-  if(edit){ m.querySelector('#t_del').onclick=async()=>{ if(!confirm('Delete this transaction permanently?'))return; const {error}=await sb.from('transactions').delete().eq('id',t.id); if(error){toast(error.message,true);return;} toast('Transaction deleted'); close(); renderFinances($('#view')); }; }
-  m.querySelector('#t_save').onclick=async()=>{
-    const amt=parseFloat(m.querySelector('#t_amt').value);
+  $$('#t_cancel').onclick=close;
+  if(edit){ $$('#t_del').onclick=async()=>{ if(!confirm('Delete this transaction permanently?'))return; const {error}=await sb.from('transactions').delete().eq('id',t.id); if(error){toast(error.message,true);return;} toast('Transaction deleted'); close(); renderFinances($('#view')); }; }
+  $$('#t_save').onclick=async()=>{
+    const amt=parseFloat($$('#t_amt').value);
     if(!amt||amt<=0){toast('Enter an amount.',true);return;}
-    const btn=m.querySelector('#t_save');btn.disabled=true;btn.textContent='Saving…';
+    const {vat,wht,base}=calc();
+    const btn=$$('#t_save');btn.disabled=true;btn.textContent='Saving…';
     const payload={
-      txn_date:m.querySelector('#t_date').value||today,
-      direction:m.querySelector('#t_dir').value,
-      account_code:m.querySelector('#t_acct').value,
-      gross_amount:amt,
-      vat_amount:parseFloat(m.querySelector('#t_vat').value)||0,
-      wht_amount:parseFloat(m.querySelector('#t_wht').value)||0,
-      channel:m.querySelector('#t_chan').value,
-      party:m.querySelector('#t_party').value.trim()||null,
-      description:m.querySelector('#t_desc').value.trim()||null,
-      reference:m.querySelector('#t_ref').value.trim()||null
+      txn_date:$$('#t_date').value||today,
+      direction:$$('#t_dir').value,
+      account_code:$$('#t_acct').value,
+      gross_amount:base, vat_amount:vat, wht_amount:wht,
+      channel:$$('#t_chan').value,
+      party:$$('#t_party').value.trim()||null,
+      description:$$('#t_desc').value.trim()||null,
+      reference:$$('#t_ref').value.trim()||null
     };
     let error;
     if(edit){ ({error}=await sb.from('transactions').update(payload).eq('id',t.id)); }
