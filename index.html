@@ -280,6 +280,7 @@ const NAV = {
     {k:'assignments',label:'Assignments',icon:'assign'},
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
     {k:'reports',label:'Reports',icon:'fin',directorOnly:true},
+    {k:'community',label:'Community',icon:'inst'},
     {k:'access',label:'People & access',icon:'prof',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
   ],
@@ -289,7 +290,12 @@ const NAV = {
   ],
   parent:[
     {k:'parent_home',label:'My child',icon:'child'},
+    {k:'parent_community',label:'Community',icon:'inst'},
     {k:'parent_billing',label:'Billing',icon:'fin'},
+  ],
+  institution:[
+    {k:'inst_home',label:'My institution',icon:'inst'},
+    {k:'inst_community',label:'Community',icon:'inst'},
   ]
 };
 
@@ -298,6 +304,8 @@ let ME={id:null,name:'',role:null};
 let currentView='dashboard';
 let MY_PROF_ID=null;
 let SELECTED_CHILD=null;
+let SELECTED_INST=null;
+let COMPANY=null;
 
 /* ===================== HELPERS ===================== */
 const $=s=>document.querySelector(s);
@@ -332,9 +340,11 @@ async function boot(){
   if(!['director','secretary'].includes(ME.role)){
     await sb.rpc('claim_professional_profile');
     await sb.rpc('claim_parent_profile');
+    await sb.rpc('claim_institution_profile');
     const {data:p2}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
     if(p2){ ME.role=p2.role; ME.name=p2.full_name||ME.name; }
   }
+  try{ const {data:cs}=await sb.from('company_settings').select('*').limit(1).single(); if(cs) COMPANY=cs; }catch(e){}
   MY_PROF_ID=null;
   if(ME.role==='professional'){
     const {data:pr}=await sb.from('professionals').select('id').eq('profile_id',ME.id).maybeSingle();
@@ -347,7 +357,7 @@ async function boot(){
   $('#avatar').textContent=initials(ME.name);
   $('#todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   buildNav();
-  go(isStaff()?'dashboard':(ME.role==='professional'?'pro_requests':(ME.role==='parent'?'parent_home':'portal')));
+  go(isStaff()?'dashboard':(ME.role==='professional'?'pro_requests':(ME.role==='parent'?'parent_home':(ME.role==='institution'?'inst_home':'portal'))));
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
@@ -377,6 +387,13 @@ function buildNav(){
       b.addEventListener('click',()=>{go(item.k);closeSide();});
       nav.appendChild(b);
     });
+  } else if(ME.role==='institution'){
+    nav.appendChild(el(`<div class="nav-label">My organisation</div>`));
+    NAV.institution.forEach(item=>{
+      const b=el(`<button class="nav-item" data-k="${item.k}">${icon(item.icon)}<span>${item.label}</span></button>`);
+      b.addEventListener('click',()=>{go(item.k);closeSide();});
+      nav.appendChild(b);
+    });
   }
   updateBadges();
 }
@@ -400,13 +417,13 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_billing:'Billing'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,access:renderAccess,settings:comingSoon('Settings'),portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_billing:renderParentBilling}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST)}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -674,7 +691,7 @@ function paintInsts(q){
       <div class="row-main"><div class="row-name">${escapeHtml(i.name)}</div>
       <div class="row-sub">${INST_TYPES[i.type]||'—'}${i.contact_person?' · '+escapeHtml(i.contact_person):''}</div></div>
       <span class="pill ${cls}">${escapeHtml(i.partnership_status||'active')}</span></div>`);
-    card.addEventListener('click',()=>openInstitutionForm(i));
+    card.addEventListener('click',()=>{SELECTED_INST=i;go('institution_detail');});
     rows.appendChild(card);
   });
 }
@@ -1041,6 +1058,232 @@ async function renderParentBilling(v){
     <div class="row-main"><div class="row-name">${money(i.amount)} · ${escapeHtml(i.description||'Program fee')}</div>
     <div class="row-sub">${escapeHtml(i.invoice_no||'')}${i.due_date?' · due '+fmtDate(i.due_date):''}</div></div>
     <span class="pill ${i.status==='paid'?'active':'enquiry'}">${i.status==='paid'?'paid':'due'}</span></div>`)));
+}
+
+/* ===================== COMMUNITY ===================== */
+function communityCard(c,manage){
+  const ev=c.kind==='event';
+  const card=el(`<div class="row-card" style="cursor:${manage?'pointer':'default'};flex-direction:column;align-items:stretch;gap:6px">
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="pill ${ev?'enquiry':'active'}">${ev?'Event':'Article'}</span>
+      <div class="row-name" style="flex:1">${escapeHtml(c.title)}</div>
+      ${!c.published?'<span class="pill exited">draft</span>':''}
+    </div>
+    ${ev&&c.event_date?`<div class="row-sub">📅 ${fmtDate(c.event_date)}</div>`:''}
+    ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="color:var(--purple);font-size:13px">Open link →</a>`:''}
+  </div>`);
+  if(manage) card.addEventListener('click',e=>{if(e.target.tagName!=='A')communityForm(c);});
+  return card;
+}
+async function renderCommunityFeed(v,aud,heading){
+  const {data,error}=await sb.from('community_content').select('*').order('created_at',{ascending:false});
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  const items=(data||[]).filter(c=>c.published&&(c.audience==='all'||c.audience===aud));
+  v.innerHTML=`<div class="welcome"><h1>${heading}</h1><p>News, resources and events from Mindora.</p></div><div class="rows" id="cfeed"></div>`;
+  const rows=$('#cfeed');
+  if(!items.length){rows.innerHTML=`<div class="empty"><h4>Nothing here yet</h4><p>Check back soon for updates and events.</p></div>`;return;}
+  items.forEach(c=>rows.appendChild(communityCard(c,false)));
+}
+const renderParentCommunity=v=>renderCommunityFeed(v,'parents','Community');
+const renderInstCommunity=v=>renderCommunityFeed(v,'institutions','Community');
+async function renderCommunity(v){
+  if(!isStaff()){v.innerHTML=`<div class="coming"><h3>Community</h3><p>Staff only.</p></div>`;return;}
+  const {data}=await sb.from('community_content').select('*').order('created_at',{ascending:false});
+  v.innerHTML=`<div class="section-head"><h3>Community content</h3><button class="btn btn-primary btn-sm" id="addC">+ New post</button></div>
+   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">Articles, resources and events shown to parents and/or institutions in their portals.</p>
+   <div class="rows" id="cmRows"></div>`;
+  $('#addC').onclick=()=>communityForm();
+  const rows=$('#cmRows');
+  if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No posts yet</h4><p>Create your first article or event.</p></div>`;return;}
+  data.forEach(c=>rows.appendChild(communityCard(c,true)));
+}
+function communityForm(c){
+  c=c||null; const edit=!!c; const sel=(a,b)=>a===b?'selected':'';
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${edit?'Edit post':'New post'}</h3>
+    <div class="form-row two">
+      <div><label>Type</label><select id="c_kind"><option value="article" ${edit?sel(c.kind,'article'):''}>Article / resource</option><option value="event" ${edit?sel(c.kind,'event'):''}>Event</option></select></div>
+      <div><label>Show to</label><select id="c_aud"><option value="all" ${edit?sel(c.audience,'all'):''}>Everyone</option><option value="parents" ${edit?sel(c.audience,'parents'):''}>Parents</option><option value="institutions" ${edit?sel(c.audience,'institutions'):''}>Institutions</option></select></div>
+    </div>
+    <div class="form-row"><label>Title</label><input id="c_title" value="${edit?escapeHtml(c.title||''):''}"/></div>
+    <div class="form-row"><label>Body / details</label><textarea id="c_body" style="min-height:110px">${edit?escapeHtml(c.body||''):''}</textarea></div>
+    <div class="form-row two">
+      <div><label>Event date (if event)</label><input id="c_date" type="date" value="${edit?(c.event_date||''):''}"/></div>
+      <div><label>Link (optional)</label><input id="c_link" value="${edit?escapeHtml(c.link||''):''}" placeholder="https://…"/></div>
+    </div>
+    <div class="form-row"><label style="display:flex;gap:9px;align-items:center;cursor:pointer"><input id="c_pub" type="checkbox" ${(!edit||c.published)?'checked':''} style="width:auto"/> Published (visible in portals)</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="c_cancel">Cancel</button><button class="btn btn-primary" id="c_save">${edit?'Save':'Post'}</button></div>
+    ${edit?'<button class="btn" id="c_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete</button>':''}
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#c_cancel').onclick=close;
+  if(edit){m.querySelector('#c_del').onclick=async()=>{if(!confirm('Delete this post?'))return;const {error}=await sb.from('community_content').delete().eq('id',c.id);if(error){toast(error.message,true);return;}toast('Deleted');close();renderCommunity($('#view'));};}
+  m.querySelector('#c_save').onclick=async()=>{
+    const title=m.querySelector('#c_title').value.trim();
+    if(!title){toast('Add a title.',true);return;}
+    const btn=m.querySelector('#c_save');btn.disabled=true;btn.textContent='Saving…';
+    const payload={kind:m.querySelector('#c_kind').value,audience:m.querySelector('#c_aud').value,title:title,
+      body:m.querySelector('#c_body').value.trim()||null,event_date:m.querySelector('#c_date').value||null,
+      link:m.querySelector('#c_link').value.trim()||null,published:m.querySelector('#c_pub').checked};
+    let error;
+    if(edit){({error}=await sb.from('community_content').update(payload).eq('id',c.id));}
+    else{payload.created_by=ME.id;({error}=await sb.from('community_content').insert(payload));}
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent=edit?'Save':'Post';return;}
+    toast('Saved'); close(); renderCommunity($('#view'));
+  };
+}
+
+/* ===================== INSTITUTION PORTAL ===================== */
+async function renderInstHome(v){
+  const {data:insts,error}=await sb.from('institutions').select('*');
+  if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
+  const inst=(insts||[])[0];
+  if(!inst){v.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><h4>Not linked yet</h4><p>Your login isn't linked to an institution record yet. Please contact Mindora.</p></div>`;return;}
+  const [{data:acts},{data:reqs}]=await Promise.all([
+    sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:false}),
+    sb.from('report_requests').select('*').eq('institution_id',inst.id).order('requested_at',{ascending:false})
+  ]);
+  v.innerHTML=`<div class="welcome"><h1>${escapeHtml(inst.name)}</h1><p>${escapeHtml(INST_TYPES[inst.type]||inst.type||'')}${inst.partnership_status?' · '+escapeHtml(inst.partnership_status):''}</p></div>
+   <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>
+   <div class="section-head" style="margin-top:24px"><h3>Activity with Mindora</h3></div><div class="rows" id="iAct"></div>`;
+  $('#reqRep').onclick=()=>reportRequestForm(inst);
+  const rr=$('#iReq');
+  rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:20px"><h4>No requests yet</h4><p>Ask Mindora for a monthly or termly report.</p></div>`;
+  (reqs||[]).forEach(r=>rr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml((r.report_type||'report'))}${r.period?' · '+escapeHtml(r.period):''}</div><span class="pill ${r.status==='fulfilled'?'active':(r.status==='declined'?'exited':'enquiry')}">${r.status}</span></div>
+    ${r.note?`<div class="row-sub" style="white-space:normal">${escapeHtml(r.note)}</div>`:''}
+    ${r.response_note?`<div class="row-sub" style="color:var(--teal);white-space:normal">Mindora: ${escapeHtml(r.response_note)}</div>`:''}</div>`)));
+  const ar=$('#iAct');
+  ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:20px"><h4>No activity yet</h4><p>Trainings, audits and visits logged by Mindora appear here.</p></div>`;
+  (acts||[]).forEach(a=>ar.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.title||a.kind||'Activity')}</div><span class="row-sub">${fmtDate(a.activity_date)}</span></div>
+    ${a.kind?`<div class="row-sub">${escapeHtml(a.kind)}</div>`:''}${a.detail?`<div class="row-sub" style="white-space:normal">${escapeHtml(a.detail)}</div>`:''}</div>`)));
+}
+function reportRequestForm(inst){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Request a report</h3><div class="sub">Mindora will prepare and send this to you.</div>
+    <div class="form-row two">
+      <div><label>Type</label><select id="q_type"><option value="monthly">Monthly</option><option value="termly">Termly</option><option value="other">Other</option></select></div>
+      <div><label>Period</label><input id="q_period" placeholder="e.g. June 2026 / Term 2"/></div>
+    </div>
+    <div class="form-row"><label>Note (optional)</label><textarea id="q_note"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="q_cancel">Cancel</button><button class="btn btn-primary" id="q_save">Send request</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#q_cancel').onclick=close;
+  m.querySelector('#q_save').onclick=async()=>{
+    const btn=m.querySelector('#q_save');btn.disabled=true;btn.textContent='Sending…';
+    const {error}=await sb.from('report_requests').insert({institution_id:inst.id,report_type:m.querySelector('#q_type').value,
+      period:m.querySelector('#q_period').value.trim()||null,note:m.querySelector('#q_note').value.trim()||null,requested_by:ME.id,status:'pending'});
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Send request';return;}
+    toast('Request sent'); close(); renderInstHome($('#view'));
+  };
+}
+
+/* ===================== INSTITUTION DETAIL (staff) ===================== */
+async function renderInstitutionDetail(v,inst){
+  if(!inst){go('institutions');return;}
+  const [{data:acts},{data:reqs}]=await Promise.all([
+    sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:false}),
+    sb.from('report_requests').select('*').eq('institution_id',inst.id).order('requested_at',{ascending:false})
+  ]);
+  v.innerHTML=`<button class="btn btn-ghost btn-sm" id="iBack" style="width:auto;margin-bottom:14px">← All institutions</button>
+   <div class="welcome"><h1>${escapeHtml(inst.name)}</h1><p>${escapeHtml(INST_TYPES[inst.type]||inst.type||'')}${inst.email?' · '+escapeHtml(inst.email):''}</p></div>
+   <div class="searchbar"><button class="btn btn-ghost btn-sm" id="iEdit" style="width:auto">Edit details</button>
+     <span class="row-sub" style="align-self:center">${inst.profile_id?'✓ login linked':'login not linked (add email + create login)'}</span></div>
+   <div class="section-head" style="margin-top:10px"><h3>Report requests</h3></div><div class="rows" id="dReq"></div>
+   <div class="section-head" style="margin-top:22px"><h3>Activity</h3><button class="btn btn-primary btn-sm" id="addAct">+ Log activity</button></div><div class="rows" id="dAct"></div>`;
+  $('#iBack').onclick=()=>go('institutions');
+  $('#iEdit').onclick=()=>openInstitutionForm(inst);
+  $('#addAct').onclick=()=>institutionActivityForm(inst);
+  const rr=$('#dReq');
+  rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:18px"><h4>No requests</h4></div>`;
+  (reqs||[]).forEach(r=>{
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(r.report_type||'report')}${r.period?' · '+escapeHtml(r.period):''}</div><span class="pill ${r.status==='fulfilled'?'active':(r.status==='declined'?'exited':'enquiry')}">${r.status}</span></div>
+      ${r.note?`<div class="row-sub" style="white-space:normal">${escapeHtml(r.note)}</div>`:''}
+      ${r.response_note?`<div class="row-sub" style="color:var(--teal)">You: ${escapeHtml(r.response_note)}</div>`:''}
+      ${r.status==='pending'?'<button class="btn btn-ghost btn-sm respond" style="align-self:flex-end">Respond</button>':''}</div>`);
+    const rb=card.querySelector('.respond'); if(rb) rb.onclick=()=>respondRequestForm(r,inst);
+    rr.appendChild(card);
+  });
+  const ar=$('#dAct');
+  ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:18px"><h4>No activity logged</h4></div>`;
+  (acts||[]).forEach(a=>ar.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.title||a.kind||'Activity')}</div><span class="row-sub">${fmtDate(a.activity_date)}</span></div>
+    ${a.detail?`<div class="row-sub" style="white-space:normal">${escapeHtml(a.detail)}</div>`:''}</div>`)));
+}
+function institutionActivityForm(inst){
+  const today=new Date().toISOString().slice(0,10);
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Log activity</h3><div class="sub">Visible to ${escapeHtml(inst.name)} in their portal.</div>
+    <div class="form-row two">
+      <div><label>Type</label><select id="a_kind"><option>training</option><option>audit</option><option>visit</option><option>session</option><option>other</option></select></div>
+      <div><label>Date</label><input id="a_date" type="date" value="${today}"/></div>
+    </div>
+    <div class="form-row"><label>Title</label><input id="a_title"/></div>
+    <div class="form-row"><label>Detail</label><textarea id="a_detail"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="a_cancel">Cancel</button><button class="btn btn-primary" id="a_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#a_cancel').onclick=close;
+  m.querySelector('#a_save').onclick=async()=>{
+    const btn=m.querySelector('#a_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('institution_activity').insert({institution_id:inst.id,kind:m.querySelector('#a_kind').value,
+      activity_date:m.querySelector('#a_date').value||today,title:m.querySelector('#a_title').value.trim()||null,
+      detail:m.querySelector('#a_detail').value.trim()||null,created_by:ME.id});
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
+    toast('Activity logged'); close(); renderInstitutionDetail($('#view'),inst);
+  };
+}
+function respondRequestForm(r,inst){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Respond to request</h3><div class="sub">${escapeHtml(r.report_type||'report')}${r.period?' · '+escapeHtml(r.period):''}</div>
+    <div class="form-row"><label>Note to institution</label><textarea id="r_note" placeholder="e.g. Report prepared and emailed on…"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="r_decline">Mark declined</button><button class="btn btn-primary" id="r_done">Mark fulfilled</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  const upd=async(status)=>{const {error}=await sb.from('report_requests').update({status:status,response_note:m.querySelector('#r_note').value.trim()||null}).eq('id',r.id);
+    if(error){toast(error.message,true);return;}toast('Updated');close();renderInstitutionDetail($('#view'),inst);};
+  m.querySelector('#r_done').onclick=()=>upd('fulfilled');
+  m.querySelector('#r_decline').onclick=()=>upd('declined');
+}
+
+/* ===================== SETTINGS (director) ===================== */
+async function renderSettings(v){
+  if(!isDirector()){v.innerHTML=`<div class="coming"><h3>Settings</h3><p>Director only.</p></div>`;return;}
+  const {data:cs}=await sb.from('company_settings').select('*').eq('id',1).single();
+  const c=cs||{};
+  const F=(id,label,val,ph)=>`<div class="form-row"><label>${label}</label><input id="${id}" value="${escapeHtml(val||'')}" placeholder="${ph||''}"/></div>`;
+  v.innerHTML=`<div class="section-head"><h3>Company details</h3></div>
+   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">These appear on your report letterheads and branding.</p>
+   ${F('s_name','Company name',c.company_name)}
+   ${F('s_tag','Tagline',c.tagline,'Home, Hope & Harmony')}
+   <div class="form-row two"><div><label>Email</label><input id="s_email" value="${escapeHtml(c.email||'')}"/></div><div><label>Phone</label><input id="s_phone" value="${escapeHtml(c.phone||'')}"/></div></div>
+   ${F('s_addr','Address',c.address)}
+   <div class="form-row two"><div><label>Reg. no.</label><input id="s_reg" value="${escapeHtml(c.reg_no||'')}"/></div><div><label>TIN</label><input id="s_tin" value="${escapeHtml(c.tin||'')}"/></div></div>
+   ${F('s_web','Website',c.website,'https://mindoraicds.com')}
+   ${F('s_logo','Logo URL',c.logo_url,'https://…')}
+   <div class="section-head" style="margin-top:14px"><h3>Social links</h3></div>
+   ${F('s_fb','Facebook',c.facebook)}
+   ${F('s_ig','Instagram',c.instagram)}
+   ${F('s_li','LinkedIn',c.linkedin)}
+   <button class="btn btn-primary" id="s_save" style="margin-top:14px">Save settings</button>`;
+  $('#s_save').onclick=async()=>{
+    const btn=$('#s_save');btn.disabled=true;btn.textContent='Saving…';
+    const payload={company_name:$('#s_name').value.trim()||null,tagline:$('#s_tag').value.trim()||null,
+      email:$('#s_email').value.trim()||null,phone:$('#s_phone').value.trim()||null,address:$('#s_addr').value.trim()||null,
+      reg_no:$('#s_reg').value.trim()||null,tin:$('#s_tin').value.trim()||null,website:$('#s_web').value.trim()||null,
+      logo_url:$('#s_logo').value.trim()||null,facebook:$('#s_fb').value.trim()||null,instagram:$('#s_ig').value.trim()||null,linkedin:$('#s_li').value.trim()||null};
+    const {error}=await sb.from('company_settings').update(payload).eq('id',1);
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save settings';return;}
+    COMPANY=Object.assign(COMPANY||{},payload); toast('Settings saved'); btn.disabled=false; btn.textContent='Save settings';
+  };
 }
 
 /* ===================== FINANCES (director) ===================== */
@@ -1513,8 +1756,8 @@ function printReport(){
     h1{color:#6C3483;margin:0;font-size:20px}.lh{border-bottom:3px solid #6C3483;padding-bottom:10px;margin-bottom:6px}
     .muted{color:#666;font-size:12px;margin-top:4px}table{width:100%;border-collapse:collapse}
   </style></head><body>
-    <div class="lh"><h1>Mindora Inclusive Child Development Services Co. Ltd</h1>
-    <div class="muted">Kisaasi / Kikaya, Kampala · mindoraicds@gmail.com · 0741 397 167</div></div>
+    <div class="lh"><h1>${escapeHtml((COMPANY&&COMPANY.company_name)||'Mindora Inclusive Child Development Services Co. Ltd')}</h1>
+    <div class="muted">${escapeHtml((COMPANY&&COMPANY.address)||'Kisaasi / Kikaya, Kampala')}${COMPANY&&COMPANY.email?' · '+escapeHtml(COMPANY.email):' · mindoraicds@gmail.com'}${COMPANY&&COMPANY.phone?' · '+escapeHtml(COMPANY.phone):' · 0741 397 167'}</div></div>
     ${body.innerHTML}
     <p class="muted" style="margin-top:22px">Generated ${fmtDate(isoD(new Date()))} · Director-approved figures · UGX</p>
     </body></html>`);
