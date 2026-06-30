@@ -200,6 +200,73 @@ a{color:var(--purple)}
   .content{padding:20px 16px 70px}
   .modal{max-width:none}
 }
+
+/* ===================== STAGE 10 COMPONENTS ===================== */
+/* progress ring */
+.plan-ring-wrap{display:flex;align-items:center;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
+.plan-ring{--p:0;width:120px;height:120px;border-radius:50%;flex:none;
+  background:conic-gradient(var(--accent) calc(var(--p)*1%), var(--accent-soft) 0);
+  display:grid;place-items:center}
+.plan-ring-inner{width:88px;height:88px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center}
+.plan-ring-pct{font-family:'Fraunces';font-size:26px;color:var(--accent);font-weight:600;line-height:1}
+.plan-ring-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+.plan-big{font-family:'Fraunces';font-size:34px;color:var(--ink);line-height:1}
+.plan-big span{font-size:20px;color:var(--muted)}
+.plan-sub{font-size:13.5px;color:var(--muted);margin-top:4px}
+.bar{height:9px;border-radius:6px;background:var(--accent-soft);overflow:hidden}
+.bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent-grad1),var(--accent-grad2));transition:width .4s}
+
+/* chat */
+.chat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);max-height:54vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.bubble-row{display:flex}
+.bubble-row.me{justify-content:flex-end}
+.bubble{max-width:78%;background:var(--accent-soft);border-radius:14px;padding:10px 13px}
+.bubble-row.me .bubble{background:linear-gradient(135deg,var(--accent-grad1),var(--accent-grad2));color:#fff}
+.bubble-meta{font-size:11px;color:var(--muted);margin-bottom:3px}
+.bubble-row.me .bubble-meta{color:rgba(255,255,255,.85)}
+.bubble-body{font-size:14.5px;white-space:pre-wrap;line-height:1.45}
+.chat-compose{display:flex;gap:10px;margin-top:14px;align-items:flex-end}
+.chat-compose textarea{flex:1;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fff;resize:vertical}
+.chat-compose textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+
+/* team grid + cards */
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.team-card{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:16px;padding:22px 16px;text-align:center;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s,border-color .14s}
+.team-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.team-photo{width:78px;height:78px;border-radius:50%;margin:0 auto 12px;overflow:hidden;background:linear-gradient(135deg,var(--accent-grad1),var(--accent-grad2));display:grid;place-items:center;color:#fff;font-family:'Fraunces';font-size:26px;font-weight:600}
+.team-photo img{width:100%;height:100%;object-fit:cover}
+.team-name{font-weight:700;font-size:15.5px;color:var(--ink)}
+.team-role{font-size:12.5px;color:var(--accent);font-weight:600;margin-top:2px}
+.team-headline{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+.profile-hero{display:flex;align-items:center;gap:20px;background:linear-gradient(120deg,var(--accent-grad1),var(--accent-grad2));border-radius:var(--radius);padding:26px;box-shadow:0 14px 34px rgba(74,30,99,.22)}
+.profile-photo{width:96px;height:96px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.2);display:grid;place-items:center;color:#fff;font-family:'Fraunces';font-size:34px;flex:none;border:3px solid rgba(255,255,255,.6)}
+.profile-photo img{width:100%;height:100%;object-fit:cover}
+
+/* program cards */
+.prog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.prog-card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);overflow:hidden}
+.prog-bar{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
+.prog-name{font-family:'Fraunces';font-size:17px;color:var(--ink);margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.prog-desc{font-size:13.5px;color:var(--muted);line-height:1.5}
+.prog-live{font-size:10.5px;font-weight:700;color:#0F6E56;background:#DCF1EA;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+.prog-soon{font-size:10.5px;font-weight:700;color:var(--warn);background:#FDF3E3;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+
+/* form card */
+.form-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;box-shadow:var(--shadow)}
+
+/* impact tiles */
+.impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.impact{background:linear-gradient(135deg,var(--accent-grad1),var(--accent-grad2));color:#fff;border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(74,30,99,.18)}
+.impact .n{font-family:'Fraunces';font-size:30px;line-height:1}
+.impact .l{font-size:12px;opacity:.92;margin-top:6px;text-transform:uppercase;letter-spacing:.04em}
+.model-badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;background:var(--accent-soft);color:var(--accent-deep);text-transform:uppercase;letter-spacing:.04em}
+
+/* quick action chips on child detail */
+.qa-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 20px}
+.qa{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600;font-size:13.5px;color:var(--accent-deep);cursor:pointer;transition:border-color .14s,transform .08s}
+.qa:hover{border-color:var(--accent)}
+.qa:active{transform:scale(.98)}
+
 </style>
 </head>
 <body>
@@ -297,6 +364,8 @@ const NAV = {
     {k:'professionals',label:'Professionals',icon:'prof'},
     {k:'institutions',label:'Institutions',icon:'inst'},
     {k:'assignments',label:'Assignments',icon:'assign'},
+    {k:'programs',label:'Programs',icon:'dash'},
+    {k:'team',label:'Team profiles',icon:'prof'},
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
     {k:'reports',label:'Reports',icon:'fin',directorOnly:true},
     {k:'community',label:'Community',icon:'inst'},
@@ -306,6 +375,8 @@ const NAV = {
   professional:[
     {k:'pro_requests',label:'Requests',icon:'assign'},
     {k:'pro_children',label:'My children',icon:'child'},
+    {k:'team',label:'Team',icon:'prof'},
+    {k:'my_profile',label:'My profile',icon:'set'},
   ],
   parent:[
     {k:'parent_home',label:'My child',icon:'child'},
@@ -314,12 +385,14 @@ const NAV = {
   ],
   institution:[
     {k:'inst_home',label:'My institution',icon:'inst'},
+    {k:'team',label:'Mindora team',icon:'prof'},
     {k:'inst_community',label:'Community',icon:'inst'},
   ]
 };
 
 /* ===================== STATE ===================== */
-let ME={id:null,name:'',role:null};
+let ME={id:null,name:'',email:'',role:null};
+let SELECTED_PERSON=null;
 let currentView='dashboard';
 let MY_PROF_ID=null;
 let SELECTED_CHILD=null;
@@ -352,16 +425,18 @@ async function boot(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){ document.body.classList.remove('role-director','role-secretary','role-professional','role-parent','role-institution'); $('#login').classList.remove('hidden'); $('#app').style.display='none'; return; }
   // load profile
-  const {data:prof,error}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
+  const {data:prof,error}=await sb.from('profiles').select('full_name,display_name,role').eq('id',session.user.id).single();
   if(error||!prof){ toast('Could not load your profile.',true); return; }
-  ME={id:session.user.id,name:prof.full_name||session.user.email,role:prof.role};
+  ME={id:session.user.id,
+      name:prof.display_name||prof.full_name||deriveName(session.user.email),
+      email:session.user.email, role:prof.role};
   // If not staff, try to link a professional record created for this email
   if(!['director','secretary'].includes(ME.role)){
     await sb.rpc('claim_professional_profile');
     await sb.rpc('claim_parent_profile');
     await sb.rpc('claim_institution_profile');
-    const {data:p2}=await sb.from('profiles').select('full_name,role').eq('id',session.user.id).single();
-    if(p2){ ME.role=p2.role; ME.name=p2.full_name||ME.name; }
+    const {data:p2}=await sb.from('profiles').select('full_name,display_name,role').eq('id',session.user.id).single();
+    if(p2){ ME.role=p2.role; ME.name=p2.display_name||p2.full_name||ME.name; }
   }
   try{ const {data:cs}=await sb.from('company_settings').select('*').limit(1).single(); if(cs) COMPANY=cs; }catch(e){}
   applyBranding();
@@ -383,6 +458,15 @@ async function boot(){
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
+// Turn an email into a friendly name when no name is set: 'clintonkelvin64@gmail.com' -> 'Clinton'
+function deriveName(email){
+  if(!email) return 'there';
+  let local=String(email).split('@')[0];
+  local=local.replace(/[._-]+/g,' ').replace(/[0-9]+/g,' ').trim();
+  const first=(local.split(' ').filter(Boolean)[0]||'there');
+  return first.charAt(0).toUpperCase()+first.slice(1);
+}
+function firstName(){ return (ME.name||'there').split(' ')[0]; }
 
 /* ===================== NAV ===================== */
 function applyBranding(){
@@ -445,13 +529,19 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST)}[view]||(()=>{}))(v);
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
+   programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile,
+   person_profile:(vv)=>renderPersonProfile(vv,SELECTED_PERSON),
+   child_plan:(vv)=>renderChildPlan(vv,SELECTED_CHILD),
+   child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
+   child_chat:(vv)=>renderChildChat(vv,SELECTED_CHILD),
+   staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -478,7 +568,7 @@ async function renderDashboard(v){
   }
   v.innerHTML=`
     <div class="welcome">
-      <h1>Hello, ${escapeHtml(ME.name.split(' ')[0])} 👋</h1>
+      <h1>Hello, ${escapeHtml(firstName())} 👋</h1>
       <p>This is your live operations workspace. Everything you and your team enter here is shared and saved securely. Tap a card or use the menu to get started.</p>
     </div>
     <div class="grid stats">
@@ -534,7 +624,7 @@ function paintClients(q){
       ${band}
       <span class="pill ${c.status||'enquiry'}">${(c.status||'enquiry').replace('_',' ')}</span>
     </div>`);
-    card.addEventListener('click',()=>openClientForm(c));
+    card.addEventListener('click',()=>{SELECTED_CHILD=c;go('staff_child');});
     rows.appendChild(card);
   });
 }
@@ -908,6 +998,13 @@ async function renderProChild(v,c){
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
       <p>${c.dob?'Born '+fmtDate(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${escapeHtml(c.presenting_needs||'No needs recorded yet')}</p></div>
 
+    <div class="qa-row">
+      <div class="qa" id="qaPlan">📊 Service plan & progress</div>
+      <div class="qa" id="qaSched">🗓️ Schedule</div>
+      <div class="qa" id="qaChat">💬 Care team chat</div>
+      <div class="qa" id="qaReview">📝 Monthly review</div>
+    </div>
+
     <div class="section-head"><h3>Sessions</h3><button class="btn btn-primary btn-sm" id="logSession">+ Log a session</button></div>
     <div class="rows" id="sessRows"></div>
 
@@ -916,6 +1013,10 @@ async function renderProChild(v,c){
   $('#backBtn').onclick=()=>go('pro_children');
   $('#logSession').onclick=()=>sessionForm(c);
   $('#addHP').onclick=()=>homeProgramForm(c);
+  $('#qaPlan').onclick=()=>{SELECTED_CHILD=c;go('child_plan');};
+  $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
+  $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
+  $('#qaReview').onclick=()=>opFormModal('review',{client_id:c.id,client_name:c.full_name,professional_id:MY_PROF_ID,after:()=>toast('Review saved')});
 
   const sr=$('#sessRows');
   sr.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:26px"><h4>No sessions yet</h4><p>Log your first session — it replaces the paper summary.</p></div>`;
@@ -948,6 +1049,13 @@ function sessionForm(c){
       <div><label>Date</label><input id="s_date" type="date" value="${today}"/></div>
       <div><label>Service units</label><input id="s_units" type="number" step="0.5" value="1"/></div>
     </div>
+    <div class="form-row"><label>Counts toward</label><select id="s_act">
+      <option value="direct_session">Direct session</option>
+      <option value="caregiver">Caregiver guidance</option>
+      <option value="school_checkin">School / teacher liaison</option>
+      <option value="coordination">Inter-professional meeting</option>
+      <option value="documentation">Documentation</option>
+    </select></div>
     <div class="form-row"><label>Session type</label><input id="s_type" placeholder="e.g. Speech therapy — individual"/></div>
     <div class="form-row"><label>Goals worked on</label><textarea id="s_goals"></textarea></div>
     <div class="form-row"><label>Summary</label><textarea id="s_sum" placeholder="What happened in the session"></textarea></div>
@@ -964,6 +1072,8 @@ function sessionForm(c){
     const {error}=await sb.from('session_logs').insert({
       client_id:c.id, professional_id:MY_PROF_ID,
       session_date:m.querySelector('#s_date').value||today,
+      activity_key:m.querySelector('#s_act').value||'direct_session',
+      period_month:(m.querySelector('#s_date').value||today).slice(0,8)+'01',
       service_units:m.querySelector('#s_units').value||0,
       session_type:m.querySelector('#s_type').value.trim()||null,
       goals_worked:m.querySelector('#s_goals').value.trim()||null,
@@ -1035,7 +1145,7 @@ async function renderParentHome(v){
   const {data,error}=await sb.from('clients').select('*').order('full_name');
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
   const kids=data||[];
-  v.innerHTML=`<div class="welcome"><h1>Welcome${ME.name?', '+escapeHtml(ME.name.split(' ')[0]):''}</h1><p>Your child's progress and the home activities shared by the Mindora team.</p></div><div class="rows" id="pkids"></div>`;
+  v.innerHTML=`<div class="welcome"><h1>Hello, ${escapeHtml(firstName())}</h1><p>Your child's progress and the home activities shared by the Mindora team.</p></div><div class="rows" id="pkids"></div>`;
   const rows=$('#pkids');
   if(!kids.length){ rows.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg><h4>No child linked yet</h4><p>Your account isn't linked to a child record yet. Please contact Mindora so they can connect your login.</p></div>`; return; }
   kids.forEach(c=>{
@@ -1057,9 +1167,15 @@ async function renderParentChild(v,c){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="pBack" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>${c.presenting_needs?escapeHtml(c.presenting_needs):'Progress shared by your therapy team.'}</p></div>
+    <div class="qa-row">
+      <div class="qa" id="qaSched">🗓️ This month's schedule</div>
+      <div class="qa" id="qaChat">💬 Message the team</div>
+    </div>
     <div class="section-head"><h3>Progress</h3></div><div class="rows" id="pSess"></div>
     <div class="section-head" style="margin-top:24px"><h3>Home activities</h3></div><div class="rows" id="pHp"></div>`;
   $('#pBack').onclick=()=>go('parent_home');
+  $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
+  $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
   const ss=$('#pSess');
   ss.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:24px"><h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
   (sessions||[]).forEach(s=>ss.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
@@ -1169,11 +1285,22 @@ async function renderInstHome(v){
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
   const inst=(insts||[])[0];
   if(!inst){v.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><h4>Not linked yet</h4><p>Your login isn't linked to an institution record yet. Please contact Mindora.</p></div>`;return;}
-  const [{data:acts},{data:reqs}]=await Promise.all([
+  const [{data:acts},{data:reqs},{data:impactArr}]=await Promise.all([
     sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:false}),
-    sb.from('report_requests').select('*').eq('institution_id',inst.id).order('requested_at',{ascending:false})
+    sb.from('report_requests').select('*').eq('institution_id',inst.id).order('requested_at',{ascending:false}),
+    sb.from('v_institution_impact').select('*').eq('institution_id',inst.id)
   ]);
-  v.innerHTML=`<div class="welcome"><h1>${escapeHtml(inst.name)}</h1><p>${escapeHtml(INST_TYPES[inst.type]||inst.type||'')}${inst.partnership_status?' · '+escapeHtml(inst.partnership_status):''}</p></div>
+  const im=(impactArr&&impactArr[0])||{};
+  const isModelB=(inst.type==='school_model_b');
+  v.innerHTML=`<div class="welcome"><h1>${escapeHtml(inst.name)}</h1>
+     <p>${escapeHtml(INST_TYPES[inst.type]||inst.type||'')}${inst.partnership_status?' · '+escapeHtml(inst.partnership_status):''}</p>
+     <div style="margin-top:10px"><span class="model-badge">${isModelB?'Model B · Full inclusion partner':'Partnership'}</span></div></div>
+   <div class="impact-grid">
+     <div class="impact"><div class="n">${im.children_supported||0}</div><div class="l">Children supported</div></div>
+     <div class="impact"><div class="n">${im.active_children||0}</div><div class="l">Active this term</div></div>
+     <div class="impact"><div class="n">${im.sessions_this_month||0}</div><div class="l">Sessions this month</div></div>
+     <div class="impact"><div class="n">${im.activity_entries||0}</div><div class="l">Joint activities</div></div>
+   </div>
    <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>
    <div class="section-head" style="margin-top:24px"><h3>Activity with Mindora</h3></div><div class="rows" id="iAct"></div>`;
   $('#reqRep').onclick=()=>reportRequestForm(inst);
@@ -1793,15 +1920,378 @@ function printReport(){
   setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
 }
 
+/* ===================== STAGE 10 SCREENS ===================== */
+/* ---------- STAFF CHILD DETAIL ---------- */
+async function renderStaffChild(v,c){
+  if(!c){ go('clients'); return; }
+  const [{data:sessions},{data:assigns}]=await Promise.all([
+    sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}).limit(8),
+    sb.from('assignments').select('*,professionals(full_name,discipline)').eq('client_id',c.id).eq('status','accepted')
+  ]);
+  const team=(assigns||[]).map(a=>a.professionals?a.professionals.full_name:'').filter(Boolean);
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to children</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
+      <p>${c.child_no?escapeHtml(c.child_no)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.delivery_channel||'direct'} channel${team.length?' · Team: '+escapeHtml(team.join(', ')):''}</p></div>
+
+    <div class="qa-row">
+      <div class="qa" id="qaPlan">📊 Service plan & progress</div>
+      <div class="qa" id="qaSched">🗓️ Monthly schedule</div>
+      <div class="qa" id="qaChat">💬 Care team chat</div>
+      <div class="qa" id="qaEdit">✏️ Edit details</div>
+    </div>
+
+    <div class="section-head"><h3>Forms</h3></div>
+    <div class="qa-row">
+      <div class="qa" data-form="intake">Intake & referral</div>
+      <div class="qa" data-form="eligibility">Eligibility & scope</div>
+      <div class="qa" data-form="band_alloc">Band allocation</div>
+      <div class="qa" data-form="review">Monthly review</div>
+      <div class="qa" data-form="exit">Case exit</div>
+      <div class="qa" data-form="safeguard" style="color:var(--danger);border-color:#F3C9CB">⚠ Safeguarding</div>
+    </div>
+
+    <div class="section-head" style="margin-top:8px"><h3>Recent sessions</h3></div>
+    <div class="rows" id="recentSess"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Submitted forms</h3></div>
+    <div class="rows" id="formsList"></div>`;
+  $('#backBtn').onclick=()=>go('clients');
+  $('#qaPlan').onclick=()=>{SELECTED_CHILD=c;go('child_plan');};
+  $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
+  $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
+  $('#qaEdit').onclick=()=>openClientForm(c);
+  v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
+
+  const rs=$('#recentSess');
+  rs.innerHTML=(sessions&&sessions.length)?'':'<div class="empty" style="padding:24px"><h4>No sessions logged yet</h4></div>';
+  (sessions||[]).forEach(s=>rs.appendChild(el(`<div class="row-card" style="cursor:default">
+    <div class="row-main"><div class="row-name">${escapeHtml(s.session_type||'Session')}</div>
+      <div class="row-sub">${fmtDate(s.session_date)}${s.activity_key?' · '+escapeHtml(s.activity_key.replace('_',' ')):''}</div></div>
+    <span class="pill band">${s.service_units||0} unit${s.service_units==1?'':'s'}</span></div>`)));
+
+  const {data:forms}=await sb.from('op_forms').select('*').eq('client_id',c.id).order('created_at',{ascending:false});
+  const fl=$('#formsList');
+  fl.innerHTML=(forms&&forms.length)?'':'<div class="empty" style="padding:24px"><h4>No forms submitted yet</h4></div>';
+  (forms||[]).forEach(f=>fl.appendChild(el(`<div class="row-card" style="cursor:default">
+    <div class="row-main"><div class="row-name">${escapeHtml(f.title||f.kind)}</div>
+      <div class="row-sub">${fmtDate(f.created_at)}</div></div>
+    <span class="pill ${f.kind==='safeguard'?'enquiry':'assessment'}">${escapeHtml(f.kind.replace('_',' '))}</span></div>`)));
+}
+
+
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthLabel(d){ const x=new Date(d); return MONTHS[x.getMonth()]+' '+x.getFullYear(); }
+function thisMonthISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10); }
+const canEditPlan=()=>['director','secretary'].includes(ME.role);
+
+/* ---------- CHILD SERVICE PLAN & LIVE PROGRESS ---------- */
+async function renderChildPlan(v,c){
+  if(!c){ go(isStaff()?'clients':'pro_children'); return; }
+  if(ME.role==='parent'){ v.innerHTML='<div class="empty"><h4>Not available</h4><p>This area is for the care team.</p></div>'; return; }
+  const period=thisMonthISO();
+  const {data:rows}=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order');
+  const list=rows||[];
+  const totDone=list.reduce((s,r)=>s+Number(r.done_count||0),0);
+  const totTarget=list.reduce((s,r)=>s+Number(r.target_count||0),0);
+  const pct=totTarget?Math.min(100,Math.round(totDone/totTarget*100)):0;
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1>
+      <p>${c.assessed_band?'Band '+c.assessed_band+' · ':''}Live tracking for ${monthLabel(period)}. ${canEditPlan()?'You can edit targets and confirm activities.':'Targets are set by Mindora.'}</p></div>
+
+    <div class="plan-ring-wrap">
+      <div class="plan-ring" style="--p:${pct}">
+        <div class="plan-ring-inner"><div class="plan-ring-pct">${pct}%</div><div class="plan-ring-lbl">this month</div></div>
+      </div>
+      <div class="plan-ring-side">
+        <div class="plan-big">${totDone}<span>/${totTarget}</span></div>
+        <div class="plan-sub">activities completed this month</div>
+        ${!c.assessed_band?'<div class="row-sub" style="color:var(--warn);margin-top:6px">No band assigned yet — assign a band to activate the tracker.</div>':''}
+      </div>
+    </div>
+
+    <div class="section-head" style="margin-top:24px"><h3>Activities</h3>${canEditPlan()&&c.assessed_band?'<button class="btn btn-ghost btn-sm" id="editTargets" style="width:auto">Edit targets</button>':''}</div>
+    <div class="rows" id="planRows"></div>`;
+  $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
+  const pr=$('#planRows');
+  if(!list.length){ pr.innerHTML='<div class="empty" style="padding:26px"><h4>No plan yet</h4><p>Assign a band to this child to generate the monthly service-unit plan.</p></div>'; return; }
+  list.forEach(r=>{
+    const done=Number(r.done_count||0), target=Number(r.target_count||0);
+    const p=target?Math.min(100,Math.round(done/target*100)):0;
+    const complete=done>=target&&target>0;
+    pr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="row-name" style="flex:1">${escapeHtml(r.label)}</div>
+        <span class="pill ${complete?'active':'band'}">${done}/${target}</span>
+        ${canEditPlan()?`<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="checkbox" class="confChk" data-k="${escapeHtml(r.activity_key)}" ${r.staff_confirmed?'checked':''} style="width:auto"/> confirm</label>`:(r.staff_confirmed?'<span class="row-sub" style="color:var(--teal)">confirmed</span>':'')}
+      </div>
+      <div class="bar"><div class="bar-fill" style="width:${p}%"></div></div>
+    </div>`));
+  });
+  // confirm checkboxes
+  if(canEditPlan()){
+    pr.querySelectorAll('.confChk').forEach(chk=>{
+      chk.onchange=async()=>{
+        const k=chk.dataset.k;
+        const {error}=await sb.from('unit_confirmations').upsert({
+          client_id:c.id, period_month:period, activity_key:k,
+          confirmed:chk.checked, confirmed_by:ME.id, confirmed_at:new Date().toISOString()
+        },{onConflict:'client_id,period_month,activity_key'});
+        if(error){toast(error.message,true);chk.checked=!chk.checked;return;}
+        toast(chk.checked?'Activity confirmed':'Confirmation removed');
+      };
+    });
+    const et=$('#editTargets'); if(et) et.onclick=()=>editTargetsForm(c,list);
+  }
+}
+function editTargetsForm(c,list){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Edit monthly targets</h3><div class="sub">For ${escapeHtml(c.full_name)}. Overrides the band default for this child.</div>
+    ${list.map(r=>`<div class="form-row"><label>${escapeHtml(r.label)}</label><input type="number" step="1" min="0" class="tgt" data-k="${escapeHtml(r.activity_key)}" data-l="${escapeHtml(r.label)}" value="${Number(r.target_count||0)}"/></div>`).join('')}
+    <div class="modal-actions"><button class="btn btn-ghost" id="t_cancel">Cancel</button><button class="btn btn-primary" id="t_save">Save targets</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#t_cancel').onclick=close;
+  m.querySelector('#t_save').onclick=async()=>{
+    const btn=m.querySelector('#t_save');btn.disabled=true;btn.textContent='Saving…';
+    const rows=[...m.querySelectorAll('.tgt')].map((i,idx)=>({client_id:c.id,activity_key:i.dataset.k,label:i.dataset.l,target_count:Number(i.value)||0,sort_order:idx}));
+    const {error}=await sb.from('child_unit_targets').upsert(rows,{onConflict:'client_id,activity_key'});
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save targets';return;}
+    toast('Targets updated'); close(); renderChildPlan($('#view'),c);
+  };
+}
+
+/* ---------- MONTHLY SCHEDULE ---------- */
+async function renderChildSchedule(v,c){
+  if(!c){ go(isStaff()?'clients':'pro_children'); return; }
+  const period=thisMonthISO();
+  const {data:items}=await sb.from('child_schedules').select('*').eq('client_id',c.id).eq('period_month',period).order('id');
+  const canEdit=isStaff()||ME.role==='professional';
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Schedule</h1><p>Proposed plan for ${monthLabel(period)}. Visible to the family, school, and care team.</p></div>
+    <div class="section-head"><h3>This month</h3>${canEdit?'<button class="btn btn-primary btn-sm" id="addSched" style="width:auto">+ Add slot</button>':''}</div>
+    <div class="rows" id="schedRows"></div>`;
+  $('#backBtn').onclick=()=>go(isStaff()?'clients':(ME.role==='professional'?'pro_children':(ME.role==='parent'?'parent_home':'inst_home')));
+  const sr=$('#schedRows');
+  if(!items||!items.length){ sr.innerHTML='<div class="empty" style="padding:26px"><h4>No schedule yet</h4><p>'+(canEdit?'Add the first slot for this month.':'The team will publish the schedule soon.')+'</p></div>'; }
+  (items||[]).forEach(s=>{
+    sr.appendChild(el(`<div class="row-card" style="cursor:default">
+      <div class="row-ava" style="font-size:12px">${escapeHtml((s.day_of_week||'•'))}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(s.activity)}</div>
+        <div class="row-sub">${[s.time_text,s.location,s.scheduled_date?fmtDate(s.scheduled_date):''].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>
+      ${canEdit?`<button class="btn btn-ghost btn-sm delSlot" data-id="${s.id}" style="width:auto;padding:6px 10px">Remove</button>`:''}
+    </div>`));
+  });
+  if(canEdit){
+    const a=$('#addSched'); if(a) a.onclick=()=>scheduleForm(c,period);
+    sr.querySelectorAll('.delSlot').forEach(b=>b.onclick=async()=>{ await sb.from('child_schedules').delete().eq('id',b.dataset.id); toast('Slot removed'); renderChildSchedule($('#view'),c); });
+  }
+}
+function scheduleForm(c,period){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Add schedule slot</h3><div class="sub">For ${escapeHtml(c.full_name)} · ${monthLabel(period)}</div>
+    <div class="form-row"><label>Activity</label><input id="sc_act" placeholder="e.g. Speech therapy session"/></div>
+    <div class="form-row two"><div><label>Day</label><select id="sc_day"><option value="">—</option>${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<option>${d}</option>`).join('')}</select></div>
+      <div><label>Time / format</label><input id="sc_time" placeholder="e.g. 10:00, 60 min"/></div></div>
+    <div class="form-row two"><div><label>Specific date (optional)</label><input id="sc_date" type="date"/></div>
+      <div><label>Location</label><select id="sc_loc"><option value="">—</option><option>Home</option><option>School</option><option>Clinic</option><option>Online</option></select></div></div>
+    <div class="form-row"><label>Note</label><input id="sc_note" placeholder="optional"/></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="sc_cancel">Cancel</button><button class="btn btn-primary" id="sc_save">Add slot</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#sc_cancel').onclick=close;
+  m.querySelector('#sc_save').onclick=async()=>{
+    const act=m.querySelector('#sc_act').value.trim(); if(!act){toast('Add an activity name',true);return;}
+    const btn=m.querySelector('#sc_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('child_schedules').insert({
+      client_id:c.id, period_month:period, activity:act,
+      day_of_week:m.querySelector('#sc_day').value||null,
+      time_text:m.querySelector('#sc_time').value.trim()||null,
+      scheduled_date:m.querySelector('#sc_date').value||null,
+      location:m.querySelector('#sc_loc').value||null,
+      note:m.querySelector('#sc_note').value.trim()||null,
+      created_by:ME.id });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Add slot';return;}
+    toast('Slot added'); close(); renderChildSchedule($('#view'),c);
+  };
+}
+
+/* ---------- CARE TEAM CHAT ---------- */
+async function renderChildChat(v,c){
+  if(!c){ go(isStaff()?'clients':'pro_children'); return; }
+  const {data:msgs}=await sb.from('care_messages').select('*').eq('client_id',c.id).order('created_at');
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Care team chat</h1><p>A shared space for the team and family. Not visible to schools.</p></div>
+    <div class="chat" id="chatBox"></div>
+    <div class="chat-compose"><textarea id="chatInput" placeholder="Write a message…" rows="2"></textarea><button class="btn btn-primary" id="chatSend" style="width:auto">Send</button></div>`;
+  $('#backBtn').onclick=()=>go(isStaff()?'clients':(ME.role==='professional'?'pro_children':'parent_home'));
+  const box=$('#chatBox');
+  function paint(rows){
+    box.innerHTML = (rows&&rows.length)?'':'<div class="empty" style="padding:30px"><h4>No messages yet</h4><p>Start the conversation.</p></div>';
+    (rows||[]).forEach(msg=>{
+      const mine=msg.author_id===ME.id;
+      box.appendChild(el(`<div class="bubble-row ${mine?'me':''}">
+        <div class="bubble">
+          <div class="bubble-meta">${escapeHtml(msg.author_name||'Someone')} · <span style="text-transform:capitalize">${escapeHtml(msg.author_role||'')}</span> · ${new Date(msg.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          <div class="bubble-body">${escapeHtml(msg.body)}</div>
+        </div></div>`));
+    });
+    box.scrollTop=box.scrollHeight;
+  }
+  paint(msgs);
+  $('#chatSend').onclick=async()=>{
+    const t=$('#chatInput').value.trim(); if(!t)return;
+    $('#chatSend').disabled=true;
+    const {error}=await sb.from('care_messages').insert({client_id:c.id,author_id:ME.id,author_name:ME.name,author_role:ME.role,body:t});
+    $('#chatSend').disabled=false;
+    if(error){toast(error.message,true);return;}
+    $('#chatInput').value='';
+    const {data:fresh}=await sb.from('care_messages').select('*').eq('client_id',c.id).order('created_at');
+    paint(fresh);
+  };
+  $('#chatInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ $('#chatSend').click(); } });
+}
+
+/* ---------- PUBLIC PROFILES (LinkedIn-style) ---------- */
+async function renderTeam(v){
+  const {data:people}=await sb.from('v_public_profiles').select('*').order('role');
+  v.innerHTML=`<div class="welcome"><h1>The Mindora team</h1><p>Meet the people behind Mindora's programs.</p></div>
+    <div class="team-grid" id="teamGrid"></div>`;
+  const g=$('#teamGrid');
+  if(!people||!people.length){ g.innerHTML='<div class="empty"><h4>No public profiles yet</h4><p>Team members can complete their profile to appear here.</p></div>'; return; }
+  people.forEach(p=>{
+    const card=el(`<div class="team-card">
+      <div class="team-photo">${p.photo_url?`<img src="${escapeHtml(p.photo_url)}" alt=""/>`:`<span>${escapeHtml(initials(p.name))}</span>`}</div>
+      <div class="team-name">${escapeHtml(p.name||'Mindora team')}</div>
+      <div class="team-role">${escapeHtml(p.discipline||p.role||'')}</div>
+      ${p.headline?`<div class="team-headline">${escapeHtml(p.headline)}</div>`:''}
+    </div>`);
+    card.onclick=()=>{ SELECTED_PERSON=p; go('person_profile'); };
+    g.appendChild(card);
+  });
+}
+async function renderPersonProfile(v,p){
+  if(!p){ go('team'); return; }
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to team</button>
+    <div class="profile-hero">
+      <div class="profile-photo">${p.photo_url?`<img src="${escapeHtml(p.photo_url)}" alt=""/>`:`<span>${escapeHtml(initials(p.name))}</span>`}</div>
+      <div><h1 style="font-family:'Fraunces';color:#fff;font-size:26px">${escapeHtml(p.name||'')}</h1>
+        <div style="color:rgba(255,255,255,.9);margin-top:4px">${escapeHtml(p.discipline||p.role||'')}</div>
+        ${p.headline?`<div style="color:rgba(255,255,255,.85);margin-top:6px;font-size:14.5px">${escapeHtml(p.headline)}</div>`:''}</div>
+    </div>
+    <div class="grid" style="gap:14px;margin-top:18px">
+      ${p.bio?`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch"><div class="row-name">About</div><div class="row-sub" style="white-space:normal;margin-top:6px">${escapeHtml(p.bio)}</div></div>`:''}
+      ${p.qualifications?`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch"><div class="row-name">Qualifications</div><div class="row-sub" style="white-space:normal;margin-top:6px">${escapeHtml(p.qualifications)}</div></div>`:''}
+      ${(p.public_email||p.public_phone||p.linkedin)?`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch"><div class="row-name">Contact</div>
+        ${p.public_email?`<div class="row-sub">${escapeHtml(p.public_email)}</div>`:''}
+        ${p.public_phone?`<div class="row-sub">${escapeHtml(p.public_phone)}</div>`:''}
+        ${p.linkedin?`<a href="${escapeHtml(p.linkedin)}" target="_blank" rel="noopener" style="font-size:13px">LinkedIn →</a>`:''}</div>`:''}
+    </div>`;
+  $('#backBtn').onclick=()=>go('team');
+}
+async function renderMyProfile(v){
+  const {data:me}=await sb.from('profiles').select('*').eq('id',ME.id).single();
+  const p=me||{};
+  v.innerHTML=`<div class="welcome"><h1>My profile</h1><p>This is how you appear on the team page. Filling it in is optional.</p></div>
+    <div class="form-card">
+      <div class="form-row two"><div><label>Display name</label><input id="p_name" value="${escapeHtml(p.display_name||p.full_name||'')}" placeholder="e.g. Clinton Byambabazi"/></div>
+        <div><label>Discipline / title</label><input id="p_disc" value="${escapeHtml(p.discipline||'')}" placeholder="e.g. Speech & Language Therapist"/></div></div>
+      <div class="form-row"><label>Headline</label><input id="p_head" value="${escapeHtml(p.headline||'')}" placeholder="One line about what you do"/></div>
+      <div class="form-row"><label>Photo URL</label><input id="p_photo" value="${escapeHtml(p.photo_url||'')}" placeholder="https://… (paste an image link)"/></div>
+      <div class="form-row"><label>About</label><textarea id="p_bio" style="min-height:90px">${escapeHtml(p.bio||'')}</textarea></div>
+      <div class="form-row"><label>Qualifications</label><textarea id="p_qual">${escapeHtml(p.qualifications||'')}</textarea></div>
+      <div class="form-row two"><div><label>Public email</label><input id="p_pemail" value="${escapeHtml(p.public_email||'')}"/></div>
+        <div><label>Public phone</label><input id="p_pphone" value="${escapeHtml(p.public_phone||'')}"/></div></div>
+      <div class="form-row"><label>LinkedIn URL</label><input id="p_li" value="${escapeHtml(p.linkedin||'')}"/></div>
+      <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="p_show" type="checkbox" ${p.show_profile!==false?'checked':''} style="width:auto"/> Show my profile on the team page</label></div>
+      <div class="modal-actions"><button class="btn btn-primary" id="p_save">Save profile</button></div>
+    </div>`;
+  $('#p_save').onclick=async()=>{
+    const btn=$('#p_save');btn.disabled=true;btn.textContent='Saving…';
+    const payload={display_name:$('#p_name').value.trim()||null,discipline:$('#p_disc').value.trim()||null,
+      headline:$('#p_head').value.trim()||null,photo_url:$('#p_photo').value.trim()||null,
+      bio:$('#p_bio').value.trim()||null,qualifications:$('#p_qual').value.trim()||null,
+      public_email:$('#p_pemail').value.trim()||null,public_phone:$('#p_pphone').value.trim()||null,
+      linkedin:$('#p_li').value.trim()||null,show_profile:$('#p_show').checked};
+    const {error}=await sb.from('profiles').update(payload).eq('id',ME.id);
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save profile';return;}
+    if(payload.display_name){ ME.name=payload.display_name; $('#whoName').textContent=ME.name; $('#avatar').textContent=initials(ME.name); }
+    toast('Profile saved'); btn.disabled=false;btn.textContent='Save profile';
+  };
+}
+
+/* ---------- PROGRAMS OVERVIEW ---------- */
+async function renderPrograms(v){
+  const progs=[
+    {n:'Child Program',d:'Direct developmental and inclusion support for children across Bands 1–4, delivered at home, school, or clinic.',c:'var(--purple)',live:true},
+    {n:'Institution Program',d:'School and clinic partnerships — full inclusion (Model B) and consultative support.',c:'var(--blue)',live:true},
+    {n:'Parent Program',d:'Structured guidance, training, and coaching for parents and caregivers.',c:'var(--gold)',live:false},
+    {n:'Professionals',d:'Our network of engaged professionals — recruitment, allocation, and development.',c:'var(--teal)',live:true},
+    {n:'Consultancy & Advisory',d:'Advisory services for organisations on inclusion, child development, and program design.',c:'var(--coral)',live:false},
+    {n:'Innovation & Research',d:'Practice-based research and new service development.',c:'var(--violet)',live:false},
+    {n:'Mindora Cloud',d:'This workspace, the website, and MINDA — the Mindora digital backbone.',c:'var(--plum)',live:true},
+  ];
+  v.innerHTML=`<div class="welcome"><h1>Mindora programs</h1><p>Home, Hope & Harmony — the seven programs that make up Mindora.</p></div>
+    <div class="prog-grid">${progs.map(p=>`
+      <div class="prog-card" style="--c:${p.c}">
+        <div class="prog-bar"></div>
+        <div class="prog-name">${escapeHtml(p.n)} ${p.live?'<span class="prog-live">Active</span>':'<span class="prog-soon">Planned</span>'}</div>
+        <div class="prog-desc">${escapeHtml(p.d)}</div>
+      </div>`).join('')}</div>`;
+}
+
+/* ---------- OPERATIONAL FORMS (generic engine) ---------- */
+const FORM_DEFS={
+  intake:{title:'Intake & referral',fields:[['referrer','Referred by'],['relationship','Relationship to child'],['reason','Reason for referral','area'],['concerns','Main concerns','area'],['contact','Best contact']]},
+  eligibility:{title:'Eligibility & scope',fields:[['eligible','Eligible? (yes/no/needs review)'],['scope','Agreed scope','area'],['exclusions','Out of scope','area'],['notes','Notes','area']]},
+  band_alloc:{title:'Band allocation',fields:[['proposed_band','Proposed band (1-4)'],['rationale','Rationale','area'],['review_date','Next review date']]},
+  review:{title:'Monthly program review',fields:[['period','Month reviewed'],['progress','Progress summary','area'],['concerns','Concerns','area'],['adjustments','Adjustments to plan','area'],['next','Next steps','area']]},
+  exit:{title:'Case exit & transition',fields:[['reason','Reason for exit'],['summary','Summary of work done','area'],['handover','Handover / onward referral','area'],['exit_date','Exit date']]},
+  safeguard:{title:'Safeguarding incident (MND-REC-10)',fields:[['date','Date of incident'],['what','What happened','area'],['who','Who was involved','area'],['action','Action taken','area'],['reported_to','Reported to']]},
+  parent_inst_comm:{title:'Parent–institution communication',fields:[['to','Message to (school / parent)'],['subject','Subject'],['message','Message','area']]},
+};
+function opFormModal(kind, ctx){ // ctx: {client_id, institution_id, professional_id}
+  const def=FORM_DEFS[kind]; if(!def){toast('Unknown form',true);return;}
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${escapeHtml(def.title)}</h3><div class="sub">${ctx.client_name?'For '+escapeHtml(ctx.client_name):''}</div>
+    ${def.fields.map(f=>f[2]==='area'
+      ? `<div class="form-row"><label>${escapeHtml(f[1])}</label><textarea data-f="${f[0]}"></textarea></div>`
+      : `<div class="form-row"><label>${escapeHtml(f[1])}</label><input data-f="${f[0]}"/></div>`).join('')}
+    <div class="modal-actions"><button class="btn btn-ghost" id="of_cancel">Cancel</button><button class="btn btn-primary" id="of_save">Submit</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#of_cancel').onclick=close;
+  m.querySelector('#of_save').onclick=async()=>{
+    const btn=m.querySelector('#of_save');btn.disabled=true;btn.textContent='Submitting…';
+    const data={}; m.querySelectorAll('[data-f]').forEach(i=>data[i.dataset.f]=i.value.trim());
+    const {error}=await sb.from('op_forms').insert({
+      kind, client_id:ctx.client_id||null, institution_id:ctx.institution_id||null,
+      professional_id:ctx.professional_id||null, period_month: kind==='review'?thisMonthISO():null,
+      title:def.title, data, created_by:ME.id });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Submit';return;}
+    toast(def.title+' submitted'); close();
+    if(typeof ctx.after==='function') ctx.after();
+  };
+}
+
+
 /* ===================== PLACEHOLDERS ===================== */
 function comingSoon(name){return (v)=>{v.innerHTML=`<div class="coming"><h3>${name}</h3><p>This screen is part of your system and is being built next. Your data and security are already in place behind it.</p></div>`;};}
 function renderPortal(v){
   $('#nav').innerHTML='';
   if(!ME.role){
-    v.innerHTML=`<div class="coming"><h3>Welcome, ${escapeHtml((ME.name||'').split(' ')[0]||'there')}</h3><p>Your account is set up, but access hasn't been granted yet. The Director will assign your role shortly — please check back after that.</p></div>`;
+    v.innerHTML=`<div class="coming"><h3>Hello, ${escapeHtml(firstName())}</h3><p>Your account is set up, but access hasn't been granted yet. The Director will assign your role shortly — please check back after that.</p></div>`;
     return;
   }
-  v.innerHTML=`<div class="coming"><h3>Welcome, ${escapeHtml(ME.name.split(' ')[0])}</h3><p>Your ${escapeHtml(ME.role)} portal is being built and will appear here soon. You'll see exactly what's shared with you.</p></div>`;
+  v.innerHTML=`<div class="coming"><h3>Hello, ${escapeHtml(firstName())}</h3><p>Your ${escapeHtml(ME.role)} portal is being built and will appear here soon. You'll see exactly what's shared with you.</p></div>`;
 }
 
 /* ===================== START ===================== */
