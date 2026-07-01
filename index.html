@@ -415,6 +415,7 @@ const NAV = {
   professional:[
     {k:'pro_requests',label:'Requests',icon:'requests'},
     {k:'pro_children',label:'My children',icon:'child'},
+    {k:'pro_program',label:'Program & CPD',icon:'programs'},
     {k:'team',label:'Team',icon:'team'},
     {k:'my_profile',label:'My profile',icon:'profile'},
   ],
@@ -621,7 +622,7 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
@@ -633,7 +634,8 @@ function go(view){
    child_plan:(vv)=>renderChildPlan(vv,SELECTED_CHILD),
    child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
    child_chat:(vv)=>renderChildChat(vv,SELECTED_CHILD),
-   staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
+   staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD),
+   pro_program:renderProProgram}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -1121,6 +1123,116 @@ function declineModal(a){
     toast('Assignment declined'); close(); renderProRequests($('#view'));
   };
 }
+async function renderProProgram(v){
+  // Load community content for professionals + this professional's CPD log
+  const [{data:cc},{data:cpd}]=await Promise.all([
+    sb.from('community_content').select('*').order('event_date',{ascending:true}),
+    sb.from('cpd_log').select('*').eq('profile_id',ME.id).order('activity_date',{ascending:false})
+  ]);
+  const proItems=(cc||[]).filter(c=>c.published&&(c.audience==='professionals'||c.audience==='all'));
+  const today=isoD(new Date());
+  const events=proItems.filter(c=>c.kind==='event').filter(c=>!c.event_date||c.event_date>=today);
+  const training=proItems.filter(c=>c.kind==='cpd');
+  const resources=proItems.filter(c=>c.kind==='article');
+  const totalHours=(cpd||[]).reduce((s,e)=>s+Number(e.hours||0),0);
+  const yearHours=(cpd||[]).filter(e=>e.activity_date&&e.activity_date.slice(0,4)===String(new Date().getFullYear())).reduce((s,e)=>s+Number(e.hours||0),0);
+
+  v.innerHTML=`
+    <div class="welcome"><h1>Professional Program</h1><p>Your development with Mindora — training, events, resources, and your CPD record.</p></div>
+
+    <div class="grid stats" style="margin-bottom:8px">
+      <div class="stat" style="--accent:var(--teal)"><div class="n">${yearHours}</div><div class="l">CPD hours this year</div><div class="s">${new Date().getFullYear()}</div></div>
+      <div class="stat" style="--accent:var(--purple)"><div class="n">${totalHours}</div><div class="l">CPD hours (all time)</div></div>
+      <div class="stat" style="--accent:var(--gold)"><div class="n">${events.length}</div><div class="l">Upcoming events</div></div>
+      <div class="stat" style="--accent:var(--blue)"><div class="n">${training.length}</div><div class="l">Training available</div></div>
+    </div>
+
+    <div class="section-head"><h3>Upcoming events</h3></div>
+    <div class="rows" id="pgEvents"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Training & CPD opportunities</h3></div>
+    <div class="rows" id="pgTraining"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Resources</h3></div>
+    <div class="rows" id="pgResources"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>My CPD record</h3><button class="btn btn-primary btn-sm" id="addCpd" style="width:auto">+ Log CPD</button></div>
+    <div class="rows" id="pgCpd"></div>`;
+
+  const evBox=$('#pgEvents');
+  if(!events.length){ evBox.innerHTML='<div class="empty" style="padding:22px"><h4>No upcoming events</h4><p>New events from Mindora will appear here.</p></div>'; }
+  events.forEach(c=>evBox.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px;align-items:center"><div class="row-name" style="flex:1">${escapeHtml(c.title)}</div>${c.event_date?`<span class="pill band">${fmtDate(c.event_date)}</span>`:''}</div>
+    ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="font-size:13px">More details →</a>`:''}</div>`)));
+
+  const trBox=$('#pgTraining');
+  if(!training.length){ trBox.innerHTML='<div class="empty" style="padding:22px"><h4>No training listed yet</h4><p>CPD and training opportunities will appear here.</p></div>'; }
+  training.forEach(c=>trBox.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div class="row-name">${escapeHtml(c.title)}</div>
+    ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="font-size:13px">Learn more →</a>`:''}</div>`)));
+
+  const rsBox=$('#pgResources');
+  if(!resources.length){ rsBox.innerHTML='<div class="empty" style="padding:22px"><h4>No resources yet</h4><p>Guides and materials shared with the network appear here.</p></div>'; }
+  resources.forEach(c=>rsBox.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div class="row-name">${escapeHtml(c.title)}</div>
+    ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="font-size:13px">Open →</a>`:''}</div>`)));
+
+  const cpdBox=$('#pgCpd');
+  function paintCpd(list){
+    cpdBox.innerHTML=(list&&list.length)?'':'<div class="empty" style="padding:22px"><h4>No CPD logged yet</h4><p>Record courses, workshops, reading, and supervision to build your CPD record.</p></div>';
+    (list||[]).forEach(e=>{
+      const row=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="row-name" style="flex:1">${escapeHtml(e.activity_title)}</div>
+          <span class="pill band">${Number(e.hours||0)} hr${Number(e.hours)===1?'':'s'}</span>
+          <button class="btn btn-ghost btn-sm cpdDel" data-id="${e.id}" style="width:auto;padding:5px 9px;color:var(--danger)">Remove</button>
+        </div>
+        <div class="row-sub">${[e.activity_type&&prettyKey(e.activity_type),e.provider,e.activity_date&&fmtDate(e.activity_date)].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+        ${e.reflection?`<div class="row-sub" style="white-space:normal">${escapeHtml(e.reflection)}</div>`:''}</div>`);
+      row.querySelector('.cpdDel').onclick=async()=>{ if(!confirm('Remove this CPD entry?'))return; await sb.from('cpd_log').delete().eq('id',e.id); toast('Removed'); renderProProgram($('#view')); };
+      cpdBox.appendChild(row);
+    });
+  }
+  paintCpd(cpd);
+  $('#addCpd').onclick=()=>cpdForm();
+}
+function cpdForm(){
+  const today=isoD(new Date());
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Log CPD activity</h3><div class="sub">Record training, courses, reading, supervision or conferences.</div>
+    <div class="form-row"><label>Activity title *</label><input id="cp_title" placeholder="e.g. Autism & communication workshop"/></div>
+    <div class="form-row two">
+      <div><label>Type</label><select id="cp_type">${['course','workshop','reading','supervision','conference','other'].map(t=>`<option value="${t}">${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select></div>
+      <div><label>Hours</label><input id="cp_hours" type="number" step="0.5" min="0" value="1"/></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Provider</label><input id="cp_prov" placeholder="e.g. Mindora / external body"/></div>
+      <div><label>Date</label><input id="cp_date" type="date" value="${today}"/></div>
+    </div>
+    <div class="form-row"><label>Reflection <span style="color:var(--muted);font-weight:400">(optional)</span></label><textarea id="cp_reflect" placeholder="What you learned and how you'll apply it"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cp_cancel">Cancel</button><button class="btn btn-primary" id="cp_save">Save CPD</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#cp_cancel').onclick=close;
+  m.querySelector('#cp_save').onclick=async()=>{
+    const title=m.querySelector('#cp_title').value.trim();
+    if(!title){toast('Add an activity title',true);return;}
+    const btn=m.querySelector('#cp_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('cpd_log').insert({
+      professional_id:MY_PROF_ID, profile_id:ME.id,
+      activity_title:title, activity_type:m.querySelector('#cp_type').value,
+      provider:m.querySelector('#cp_prov').value.trim()||null,
+      hours:Number(m.querySelector('#cp_hours').value)||0,
+      activity_date:m.querySelector('#cp_date').value||null,
+      reflection:m.querySelector('#cp_reflect').value.trim()||null });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save CPD';return;}
+    toast('CPD logged'); close(); renderProProgram($('#view'));
+  };
+}
 async function renderProChildren(v){
   const {data,error}=await sb.from('clients').select('*').order('full_name');
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load children</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
@@ -1397,7 +1509,7 @@ async function renderCommunity(v){
   if(!isStaff()){v.innerHTML=`<div class="coming"><h3>Community</h3><p>Staff only.</p></div>`;return;}
   const {data}=await sb.from('community_content').select('*').order('created_at',{ascending:false});
   v.innerHTML=`<div class="section-head"><h3>Community content</h3><button class="btn btn-primary btn-sm" id="addC">+ New post</button></div>
-   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">Articles, resources and events shown to parents and/or institutions in their portals.</p>
+   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">Articles, resources, CPD/training and events shown to parents, institutions and/or the professional network in their portals.</p>
    <div class="rows" id="cmRows"></div>`;
   $('#addC').onclick=()=>communityForm();
   const rows=$('#cmRows');
@@ -1409,8 +1521,8 @@ function communityForm(c){
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit post':'New post'}</h3>
     <div class="form-row two">
-      <div><label>Type</label><select id="c_kind"><option value="article" ${edit?sel(c.kind,'article'):''}>Article / resource</option><option value="event" ${edit?sel(c.kind,'event'):''}>Event</option></select></div>
-      <div><label>Show to</label><select id="c_aud"><option value="all" ${edit?sel(c.audience,'all'):''}>Everyone</option><option value="parents" ${edit?sel(c.audience,'parents'):''}>Parents</option><option value="institutions" ${edit?sel(c.audience,'institutions'):''}>Institutions</option></select></div>
+      <div><label>Type</label><select id="c_kind"><option value="article" ${edit?sel(c.kind,'article'):''}>Article / resource</option><option value="event" ${edit?sel(c.kind,'event'):''}>Event</option><option value="cpd" ${edit?sel(c.kind,'cpd'):''}>CPD / training</option></select></div>
+      <div><label>Show to</label><select id="c_aud"><option value="all" ${edit?sel(c.audience,'all'):''}>Everyone</option><option value="parents" ${edit?sel(c.audience,'parents'):''}>Parents</option><option value="institutions" ${edit?sel(c.audience,'institutions'):''}>Institutions</option><option value="professionals" ${edit?sel(c.audience,'professionals'):''}>Professionals</option></select></div>
     </div>
     <div class="form-row"><label>Title</label><input id="c_title" value="${edit?escapeHtml(c.title||''):''}"/></div>
     <div class="form-row"><label>Body / details</label><textarea id="c_body" style="min-height:110px">${edit?escapeHtml(c.body||''):''}</textarea></div>
