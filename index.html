@@ -420,6 +420,7 @@ const NAV = {
   ],
   parent:[
     {k:'parent_home',label:'My child',icon:'child'},
+    {k:'team',label:'Care team',icon:'team'},
     {k:'parent_community',label:'Community',icon:'inst'},
     {k:'parent_billing',label:'Billing',icon:'fin'},
   ],
@@ -1328,12 +1329,14 @@ async function renderParentChild(v,c){
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>${c.presenting_needs?escapeHtml(c.presenting_needs):'Progress shared by your therapy team.'}</p></div>
     <div class="qa-row">
       <div class="qa" id="qaSched">${icon('schedule')} This month's schedule</div>
+      <div class="qa" id="qaTeam">${icon('team')} Care team</div>
       <div class="qa" id="qaChat">${icon('chat')} Message the team</div>
     </div>
     <div class="section-head"><h3>Progress</h3></div><div class="rows" id="pSess"></div>
     <div class="section-head" style="margin-top:24px"><h3>Home activities</h3></div><div class="rows" id="pHp"></div>`;
   $('#pBack').onclick=()=>go('parent_home');
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
+  $('#qaTeam').onclick=()=>go('team');
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
   const ss=$('#pSess');
   ss.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:24px"><h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
