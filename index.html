@@ -416,6 +416,7 @@ const NAV = {
     {k:'pro_requests',label:'Requests',icon:'requests'},
     {k:'pro_children',label:'My children',icon:'child'},
     {k:'pro_program',label:'Program & CPD',icon:'programs'},
+    {k:'pro_community',label:'Community',icon:'chat'},
     {k:'team',label:'Team',icon:'team'},
     {k:'my_profile',label:'My profile',icon:'profile'},
   ],
@@ -622,13 +623,13 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,pro_community:renderProCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
    programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile,
    person_profile:(vv)=>renderPersonProfile(vv,SELECTED_PERSON),
    child_plan:(vv)=>renderChildPlan(vv,SELECTED_CHILD),
@@ -1505,6 +1506,7 @@ async function renderCommunityFeed(v,aud,heading){
 }
 const renderParentCommunity=v=>renderCommunityFeed(v,'parents','Community');
 const renderInstCommunity=v=>renderCommunityFeed(v,'institutions','Community');
+const renderProCommunity=v=>renderCommunityFeed(v,'professionals','Community');
 async function renderCommunity(v){
   if(!isStaff()){v.innerHTML=`<div class="coming"><h3>Community</h3><p>Staff only.</p></div>`;return;}
   const {data}=await sb.from('community_content').select('*').order('created_at',{ascending:false});
