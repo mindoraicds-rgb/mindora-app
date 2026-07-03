@@ -14,7 +14,7 @@
   /* tinted, no-longer-white surfaces */
   --bg:#F5EEFA; --bg2:#FBF5EF; --card:#FFFFFF; --ink:#2A2330; --muted:#6B6475; --line:#E6D8EE;
   --ok:#16B69A; --warn:#B45309; --danger:#E5484D;
-  --shadow:0 1px 2px rgba(74,30,99,.05),0 8px 24px rgba(74,30,99,.07);
+  --shadow:0 1px 2px rgba(74,30,99,.04),0 6px 18px rgba(74,30,99,.06);
   --radius:18px;
   /* per-role accent — overridden by body.role-* below */
   --accent:#6C3483; --accent-deep:#4A1E63; --accent-soft:#F0E6F7; --accent-grad1:#6C3483; --accent-grad2:#9B4FC0;
@@ -113,7 +113,8 @@ a{color:var(--purple)}
 /* stat cards */
 .grid{display:grid;gap:16px}
 .stats{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:22px}
-.stat{position:relative;overflow:hidden;background:var(--card);border:1px solid var(--line);border-top:5px solid var(--accent,var(--violet));border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+.stat{position:relative;overflow:hidden;background:var(--card);border:1px solid var(--line);border-top:5px solid var(--accent,var(--violet));border-radius:14px;padding:18px 18px 16px;box-shadow:var(--shadow);transition:transform .14s,box-shadow .16s}
+.stat:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(74,30,99,.09),0 18px 36px rgba(74,30,99,.10)}
 .stat::after{content:"";position:absolute;right:-26px;top:-26px;width:84px;height:84px;border-radius:50%;background:var(--accent,var(--violet));opacity:.10}
 .stat .n{font-family:'Fraunces';font-size:32px;font-weight:600;color:var(--accent,var(--ink));line-height:1;position:relative}
 .stat .l{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:8px}
@@ -133,10 +134,10 @@ a{color:var(--purple)}
 
 /* list cards */
 .rows{display:flex;flex-direction:column;gap:10px}
-.row-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);transition:border-color .14s,transform .08s;cursor:pointer}
-.row-card:hover{border-color:var(--accent)}
-.row-card:active{transform:scale(.997)}
-.row-ava{width:42px;height:42px;border-radius:12px;background:var(--accent-soft);display:grid;place-items:center;font-weight:700;color:var(--accent);flex:none;font-size:15px}
+.row-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);transition:border-color .16s,transform .12s,box-shadow .16s;cursor:pointer;position:relative}
+.row-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 10px rgba(74,30,99,.08),0 14px 30px rgba(74,30,99,.10)}
+.row-card:active{transform:translateY(0) scale(.998)}
+.row-ava{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--accent-soft),#fff);display:grid;place-items:center;font-weight:700;color:var(--accent);flex:none;font-size:15px;box-shadow:inset 0 0 0 1px var(--line)}
 .row-main{min-width:0;flex:1}
 .row-name{font-weight:600;font-size:15.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row-sub{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -283,6 +284,14 @@ a{color:var(--purple)}
 /* unread chat badge */
 .chat-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:8px;border-radius:9px;background:var(--coral);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
 .qa .chat-badge{margin-left:2px}
+/* community comments */
+.cm-wrap{border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+.cm-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.cm-item{background:var(--accent-soft);border-radius:10px;padding:8px 11px;font-size:13.5px}
+.cm-meta{font-size:11px;color:var(--muted);margin-bottom:2px}
+.cm-compose{display:flex;gap:8px}
+.cm-compose input{flex:1;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;font-size:13.5px}
+.cm-compose input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
 </style>
 </head>
@@ -613,6 +622,8 @@ async function updateBadges(){
   if(isStaff()){
     const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
     setBadge('assignments',count||0);
+    const {count:pend}=await sb.from('community_content').select('*',{count:'exact',head:true}).eq('status','pending');
+    setBadge('community',pend||0);
   } else if(ME.role==='professional'){
     const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
     setBadge('pro_requests',count||0);
@@ -1480,29 +1491,92 @@ async function renderParentBilling(v){
 }
 
 /* ===================== COMMUNITY ===================== */
+const KIND_LABEL={event:'Event',cpd:'CPD / Training',article:'Article'};
 function communityCard(c,manage){
   const ev=c.kind==='event';
+  const kindPill=KIND_LABEL[c.kind]||'Article';
+  const statusPill = c.status==='pending' ? '<span class="pill enquiry">Awaiting approval</span>'
+    : c.status==='rejected' ? '<span class="pill exited">Not approved</span>'
+    : (!c.published?'<span class="pill exited">draft</span>':'');
   const card=el(`<div class="row-card" style="cursor:${manage?'pointer':'default'};flex-direction:column;align-items:stretch;gap:6px">
-    <div style="display:flex;gap:10px;align-items:center">
-      <span class="pill ${ev?'enquiry':'active'}">${ev?'Event':'Article'}</span>
-      <div class="row-name" style="flex:1">${escapeHtml(c.title)}</div>
-      ${!c.published?'<span class="pill exited">draft</span>':''}
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="pill ${ev?'enquiry':'active'}">${kindPill}</span>
+      <div class="row-name" style="flex:1;min-width:140px">${escapeHtml(c.title)}</div>
+      ${statusPill}
     </div>
+    ${c.author_name?`<div class="row-sub">By ${escapeHtml(c.author_name)}${c.author_role&&c.author_role!=='director'&&c.author_role!=='secretary'?' · '+escapeHtml(c.author_role):''}</div>`:''}
     ${ev&&c.event_date?`<div class="row-sub">📅 ${fmtDate(c.event_date)}</div>`:''}
     ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
-    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="color:var(--purple);font-size:13px">Open link →</a>`:''}
+    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:13px">Open link →</a>`:''}
+    ${(!manage && c.status==='approved')?`<button class="btn btn-ghost btn-sm cmToggle" style="width:auto;align-self:flex-start;padding:5px 10px">💬 Comments</button><div class="cm-wrap" style="display:none"></div>`:''}
+    ${c.status==='rejected'&&c.review_note?`<div class="row-sub" style="color:var(--danger)">Feedback: ${escapeHtml(c.review_note)}</div>`:''}
   </div>`);
-  if(manage) card.addEventListener('click',e=>{if(e.target.tagName!=='A')communityForm(c);});
+  if(manage) card.addEventListener('click',e=>{if(e.target.tagName!=='A'&&!e.target.closest('.cmToggle')&&!e.target.closest('.cm-wrap'))communityForm(c);});
+  const tgl=card.querySelector('.cmToggle');
+  if(tgl){
+    const wrap=card.querySelector('.cm-wrap');
+    tgl.onclick=(e)=>{ e.stopPropagation(); if(wrap.style.display==='none'){ wrap.style.display='block'; loadComments(c.id,wrap); } else { wrap.style.display='none'; } };
+  }
   return card;
+}
+async function loadComments(contentId,wrap){
+  wrap.innerHTML='<div class="row-sub" style="padding:6px 0">Loading…</div>';
+  const {data:cms}=await sb.from('community_comments').select('*').eq('content_id',contentId).order('created_at');
+  wrap.innerHTML=`<div class="cm-list">${(cms||[]).map(m=>`<div class="cm-item"><div class="cm-meta">${escapeHtml(m.author_name||'Someone')}${m.author_role?' · '+escapeHtml(m.author_role):''} · ${new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div><div>${escapeHtml(m.body)}</div></div>`).join('')||'<div class="row-sub">No comments yet.</div>'}</div>
+    <div class="cm-compose"><input class="cmInput" placeholder="Add a comment…"/><button class="btn btn-primary btn-sm cmSend" style="width:auto">Post</button></div>`;
+  const inp=wrap.querySelector('.cmInput'), send=wrap.querySelector('.cmSend');
+  const doSend=async()=>{
+    const t=inp.value.trim(); if(!t)return; send.disabled=true;
+    const {error}=await sb.from('community_comments').insert({content_id:contentId,author_id:ME.id,author_name:displayName(),author_role:ME.role,body:t});
+    send.disabled=false;
+    if(error){toast(error.message,true);return;}
+    inp.value=''; loadComments(contentId,wrap);
+  };
+  send.onclick=doSend;
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter')doSend();});
 }
 async function renderCommunityFeed(v,aud,heading){
   const {data,error}=await sb.from('community_content').select('*').order('created_at',{ascending:false});
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
-  const items=(data||[]).filter(c=>c.published&&(c.audience==='all'||c.audience===aud));
-  v.innerHTML=`<div class="welcome"><h1>${heading}</h1><p>News, resources and events from Mindora.</p></div><div class="rows" id="cfeed"></div>`;
+  const all=data||[];
+  // approved+published for my audience, plus my own pending/rejected (professionals only)
+  const items=all.filter(c=>(c.status==='approved'&&c.published&&(c.audience==='all'||c.audience===aud)) || (c.author_id===ME.id));
+  const canPost=(ME.role==='professional');
+  v.innerHTML=`<div class="welcome"><h1>${heading}</h1><p>News, resources and events from Mindora${canPost?' — and share your own with the network.':'.'}</p></div>
+    ${canPost?'<div class="section-head"><h3>Posts</h3><button class="btn btn-primary btn-sm" id="proPost" style="width:auto">+ Share a post</button></div>':''}
+    <div class="rows" id="cfeed"></div>`;
+  if(canPost) $('#proPost').onclick=()=>proPostForm();
   const rows=$('#cfeed');
-  if(!items.length){rows.innerHTML=`<div class="empty"><h4>Nothing here yet</h4><p>Check back soon for updates and events.</p></div>`;return;}
+  if(!items.length){rows.innerHTML=`<div class="empty"><h4>Nothing here yet</h4><p>${canPost?'Be the first to share something with the network.':'Check back soon for updates and events.'}</p></div>`;return;}
   items.forEach(c=>rows.appendChild(communityCard(c,false)));
+}
+// Professional's own post submission (always pending, always kind chosen, audience chosen)
+function proPostForm(){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Share a post</h3><div class="sub">Your post is reviewed by Mindora before it appears to the audience you choose.</div>
+    <div class="form-row two">
+      <div><label>Type</label><select id="pp_kind"><option value="article">Article / research / innovation</option><option value="event">Event</option><option value="cpd">CPD / training</option></select></div>
+      <div><label>Share with</label><select id="pp_aud"><option value="professionals">Professionals</option><option value="all">Everyone</option><option value="parents">Parents</option><option value="institutions">Schools</option></select></div>
+    </div>
+    <div class="form-row"><label>Title *</label><input id="pp_title" placeholder="A clear headline"/></div>
+    <div class="form-row"><label>Body / details</label><textarea id="pp_body" style="min-height:120px"></textarea></div>
+    <div class="form-row"><label>Link (optional)</label><input id="pp_link" placeholder="https://…"/></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="pp_cancel">Cancel</button><button class="btn btn-primary" id="pp_save">Submit for review</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#pp_cancel').onclick=close;
+  m.querySelector('#pp_save').onclick=async()=>{
+    const title=m.querySelector('#pp_title').value.trim();
+    if(!title){toast('Add a title.',true);return;}
+    const btn=m.querySelector('#pp_save');btn.disabled=true;btn.textContent='Submitting…';
+    const {error}=await sb.from('community_content').insert({
+      kind:m.querySelector('#pp_kind').value, audience:m.querySelector('#pp_aud').value,
+      title, body:m.querySelector('#pp_body').value.trim()||null, link:m.querySelector('#pp_link').value.trim()||null,
+      published:true, status:'pending', author_id:ME.id, author_name:displayName(), author_role:ME.role });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Submit for review';return;}
+    toast('Submitted for review'); close(); renderProCommunity($('#view'));
+  };
 }
 const renderParentCommunity=v=>renderCommunityFeed(v,'parents','Community');
 const renderInstCommunity=v=>renderCommunityFeed(v,'institutions','Community');
@@ -1510,13 +1584,49 @@ const renderProCommunity=v=>renderCommunityFeed(v,'professionals','Community');
 async function renderCommunity(v){
   if(!isStaff()){v.innerHTML=`<div class="coming"><h3>Community</h3><p>Staff only.</p></div>`;return;}
   const {data}=await sb.from('community_content').select('*').order('created_at',{ascending:false});
-  v.innerHTML=`<div class="section-head"><h3>Community content</h3><button class="btn btn-primary btn-sm" id="addC">+ New post</button></div>
-   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">Articles, resources, CPD/training and events shown to parents, institutions and/or the professional network in their portals.</p>
+  const all=data||[];
+  const pending=all.filter(c=>c.status==='pending');
+  const others=all.filter(c=>c.status!=='pending');
+  v.innerHTML=`
+   ${pending.length?`<div class="section-head"><h3>Awaiting approval <span class="chat-badge" style="background:var(--gold)">${pending.length}</span></h3></div>
+   <div class="rows" id="pendRows"></div>`:''}
+   <div class="section-head" ${pending.length?'style="margin-top:22px"':''}><h3>Community content</h3><button class="btn btn-primary btn-sm" id="addC">+ New post</button></div>
+   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">Articles, resources, CPD/training and events shown to parents, institutions and/or the professional network. Posts from professionals appear above for your approval.</p>
    <div class="rows" id="cmRows"></div>`;
   $('#addC').onclick=()=>communityForm();
+  const pr=$('#pendRows');
+  if(pr){ pending.forEach(c=>pr.appendChild(approvalCard(c))); }
   const rows=$('#cmRows');
-  if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No posts yet</h4><p>Create your first article or event.</p></div>`;return;}
-  data.forEach(c=>rows.appendChild(communityCard(c,true)));
+  if(!others.length){rows.innerHTML=`<div class="empty"><h4>No posts yet</h4><p>Create your first article or event.</p></div>`;}
+  others.forEach(c=>rows.appendChild(communityCard(c,true)));
+}
+function approvalCard(c){
+  const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;border-left:4px solid var(--gold)">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="pill enquiry">${KIND_LABEL[c.kind]||'Article'}</span>
+      <div class="row-name" style="flex:1;min-width:140px">${escapeHtml(c.title)}</div>
+      <span class="pill band">→ ${escapeHtml(c.audience==='all'?'Everyone':c.audience)}</span>
+    </div>
+    <div class="row-sub">Submitted by ${escapeHtml(c.author_name||'a professional')}${c.author_role?' · '+escapeHtml(c.author_role):''}</div>
+    ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:13px">Open link →</a>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+      <button class="btn btn-primary btn-sm apprYes" style="width:auto">Approve & publish</button>
+      <button class="btn btn-ghost btn-sm apprNo" style="width:auto;color:var(--danger)">Reject…</button>
+    </div></div>`);
+  card.querySelector('.apprYes').onclick=async()=>{
+    const {error}=await sb.from('community_content').update({status:'approved',reviewed_by:ME.id,reviewed_at:new Date().toISOString()}).eq('id',c.id);
+    if(error){toast(error.message,true);return;}
+    toast('Approved & published'); renderCommunity($('#view'));
+  };
+  card.querySelector('.apprNo').onclick=async()=>{
+    const note=prompt('Optional feedback to the author (why it wasn\'t approved):','');
+    if(note===null) return; // cancelled
+    const {error}=await sb.from('community_content').update({status:'rejected',review_note:note||null,reviewed_by:ME.id,reviewed_at:new Date().toISOString()}).eq('id',c.id);
+    if(error){toast(error.message,true);return;}
+    toast('Post rejected'); renderCommunity($('#view'));
+  };
+  return card;
 }
 function communityForm(c){
   c=c||null; const edit=!!c; const sel=(a,b)=>a===b?'selected':'';
