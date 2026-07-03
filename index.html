@@ -227,6 +227,7 @@ a{color:var(--purple)}
 .bubble-row.me .bubble-meta{color:rgba(255,255,255,.85)}
 .bubble-body{font-size:14.5px;white-space:pre-wrap;line-height:1.45}
 .chat-compose{display:flex;gap:10px;margin-top:14px;align-items:flex-end}
+.chat-att:not(:empty){margin-top:12px}
 .chat-compose textarea{flex:1;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fff;resize:vertical}
 .chat-compose textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 
@@ -1411,6 +1412,7 @@ async function renderProChild(v,c){
     hr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
       <div class="row-name">${escapeHtml(p.title||'Home program')}</div>
       ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
+      ${attachmentsView(p.attachments)}
       <div class="row-sub">${fmtDate(p.issued_date)}${p.visible_to_parent?' · shared with parent':''}</div>
     </div>`));
   });
@@ -1464,10 +1466,12 @@ function homeProgramForm(c){
     <h3>New home program</h3><div class="sub">Guidance for ${escapeHtml(c.full_name)}'s family to use at home.</div>
     <div class="form-row"><label>Title</label><input id="h_title" placeholder="e.g. Daily communication practice"/></div>
     <div class="form-row"><label>Instructions</label><textarea id="h_inst" style="min-height:120px"></textarea></div>
+    <div class="form-row"><label>Attachments <span style="color:var(--muted);font-weight:400">— demo videos, picture cards, worksheets</span></label><div id="h_att"></div></div>
     <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="h_vis" type="checkbox" checked style="width:auto"/> Share this with the parent</label></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="h_cancel">Cancel</button><button class="btn btn-primary" id="h_save">Save program</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  attachmentUploader('h_att','homeProg','homeprograms',[]);
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#h_cancel').onclick=close;
@@ -1478,6 +1482,7 @@ function homeProgramForm(c){
     const {error}=await sb.from('home_programs').insert({
       client_id:c.id, professional_id:MY_PROF_ID, title:title,
       instructions:m.querySelector('#h_inst').value.trim()||null,
+      attachments:ATTACH_STATE['homeProg']||[],
       visible_to_parent:m.querySelector('#h_vis').checked
     });
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save program';return;}
@@ -1568,6 +1573,7 @@ async function renderParentChild(v,c){
   (programs||[]).forEach(p=>hp.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
     <div class="row-name">${escapeHtml(p.title||'Home activity')}</div>
     ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
+    ${attachmentsView(p.attachments)}
     <div class="row-sub">${fmtDate(p.issued_date)}</div>
   </div>`)));
 }
@@ -2737,8 +2743,10 @@ async function renderChildChat(v,c){
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)} — Care team chat</h1><p>A shared space for the team and family. Not visible to schools.</p></div>
     <div class="chat" id="chatBox"></div>
+    <div id="chatAtt" class="chat-att"></div>
     <div class="chat-compose"><textarea id="chatInput" placeholder="Write a message…" rows="2"></textarea><button class="btn btn-primary" id="chatSend" style="width:auto">Send</button></div>`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':(ME.role==='professional'?'pro_children':'parent_home'));
+  attachmentUploader('chatAtt','chatMsg','chat',[]);
   const box=$('#chatBox');
   function paint(rows){
     box.innerHTML = (rows&&rows.length)?'':'<div class="empty" style="padding:30px"><h4>No messages yet</h4><p>Start the conversation.</p></div>';
@@ -2747,19 +2755,23 @@ async function renderChildChat(v,c){
       box.appendChild(el(`<div class="bubble-row ${mine?'me':''}">
         <div class="bubble">
           <div class="bubble-meta">${escapeHtml(msg.author_name||'Someone')} · <span style="text-transform:capitalize">${escapeHtml(msg.author_role||'')}</span> · ${new Date(msg.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
-          <div class="bubble-body">${escapeHtml(msg.body)}</div>
+          ${msg.body?`<div class="bubble-body">${escapeHtml(msg.body)}</div>`:''}
+          ${attachmentsView(msg.attachments)}
         </div></div>`));
     });
     box.scrollTop=box.scrollHeight;
   }
   paint(msgs);
   $('#chatSend').onclick=async()=>{
-    const t=$('#chatInput').value.trim(); if(!t)return;
+    const t=$('#chatInput').value.trim();
+    const atts=ATTACH_STATE['chatMsg']||[];
+    if(!t && !atts.length) return;
     $('#chatSend').disabled=true;
-    const {error}=await sb.from('care_messages').insert({client_id:c.id,author_id:ME.id,author_name:displayName(),author_role:ME.role,body:t});
+    const {error}=await sb.from('care_messages').insert({client_id:c.id,author_id:ME.id,author_name:displayName(),author_role:ME.role,body:t,attachments:atts});
     $('#chatSend').disabled=false;
     if(error){toast(error.message,true);return;}
     $('#chatInput').value='';
+    attachmentUploader('chatAtt','chatMsg','chat',[]); // reset picker
     const {data:fresh}=await sb.from('care_messages').select('*').eq('client_id',c.id).order('created_at');
     paint(fresh);
   };
