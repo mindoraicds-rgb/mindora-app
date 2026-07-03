@@ -292,6 +292,28 @@ a{color:var(--purple)}
 .cm-compose{display:flex;gap:8px}
 .cm-compose input{flex:1;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;font-size:13.5px}
 .cm-compose input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+/* attachment uploader */
+.att-picker{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.att-hint{font-size:12px;color:var(--muted)}
+.att-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.att-chip{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border-radius:10px;padding:8px 10px}
+.att-thumb{width:38px;height:38px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:18px;background:#fff;overflow:hidden}
+.att-thumb.img{background:var(--line)}
+.att-thumb img{width:100%;height:100%;object-fit:cover}
+.att-info{flex:1;min-width:0}
+.att-name{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.att-size{font-size:11px;color:var(--muted)}
+.att-remove{border:none;background:none;color:var(--danger);font-size:15px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.att-remove:hover{background:rgba(229,72,77,.1)}
+.att-status{font-size:12.5px;margin-top:6px}
+/* attachment display (read-only) */
+.att-view{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0}
+.att-media{display:block;border-radius:12px;overflow:hidden;max-width:220px;border:1px solid var(--line)}
+.att-media img{display:block;width:100%;height:auto;max-height:220px;object-fit:cover}
+.att-video{max-width:320px;width:100%;background:#000}
+.att-doc{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);border-radius:10px;padding:9px 13px;font-size:13.5px;color:var(--accent-deep);font-weight:600;text-decoration:none}
+.att-doc:hover{background:var(--line)}
+.att-doc .att-size{font-weight:400}
 
 </style>
 </head>
@@ -445,6 +467,7 @@ const NAV = {
 /* ===================== STATE ===================== */
 let ME={id:null,name:'',email:'',role:null};
 let SELECTED_PERSON=null;
+const ATTACH_STATE={};
 let currentView='dashboard';
 let MY_PROF_ID=null;
 let SELECTED_CHILD=null;
@@ -569,6 +592,77 @@ function photoUploader(containerId, hiddenInputId, currentUrl, prefix){
       status.textContent = /bucket/i.test(err.message||'') ? 'Storage not set up yet — see setup.' : ('Upload failed: '+(err.message||'error'));
     }
   };
+}
+
+/* ---------- MULTI-FILE ATTACHMENTS (documents, images, video) ---------- */
+const MAX_ATTACH_MB=50; // matches Supabase default per-file cap; raise the bucket limit to allow bigger
+function fileKind(type,name){
+  const t=(type||'').toLowerCase(); const n=(name||'').toLowerCase();
+  if(t.startsWith('image/')||/\.(png|jpe?g|gif|webp|heic)$/.test(n)) return 'image';
+  if(t.startsWith('video/')||/\.(mp4|mov|webm|m4v|3gp)$/.test(n)) return 'video';
+  if(/pdf/.test(t)||/\.pdf$/.test(n)) return 'pdf';
+  return 'file';
+}
+function fmtBytes(b){ if(!b) return ''; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+// Renders a multi-file picker into containerId. Results kept as JSON on hidden input.
+// ATTACH_STATE[stateKey] holds the live array (declared with early globals).
+function attachmentUploader(containerId, stateKey, prefix, existing){
+  ATTACH_STATE[stateKey]=Array.isArray(existing)?existing.slice():[];
+  const wrap=document.getElementById(containerId); if(!wrap) return;
+  function render(){
+    const list=ATTACH_STATE[stateKey];
+    wrap.innerHTML=`
+      <div class="att-picker">
+        <button type="button" class="btn btn-ghost btn-sm" id="${containerId}_btn" style="width:auto">📎 Add files</button>
+        <span class="att-hint">Photos, PDFs, documents or video · up to ${MAX_ATTACH_MB}MB each</span>
+        <input type="file" multiple id="${containerId}_file" style="display:none"/>
+      </div>
+      <div class="att-list" id="${containerId}_list">${list.map((a,i)=>attChip(a,i,containerId,true)).join('')}</div>
+      <div class="att-status" id="${containerId}_st"></div>`;
+    document.getElementById(containerId+'_btn').onclick=()=>document.getElementById(containerId+'_file').click();
+    document.getElementById(containerId+'_file').onchange=(e)=>handleFiles(e.target.files);
+    wrap.querySelectorAll('.att-remove').forEach(btn=>btn.onclick=()=>{ ATTACH_STATE[stateKey].splice(Number(btn.dataset.i),1); render(); });
+  }
+  async function handleFiles(files){
+    const status=document.getElementById(containerId+'_st');
+    for(const file of files){
+      if(file.size>MAX_ATTACH_MB*1024*1024){ status.style.color='var(--danger)'; status.textContent=`"${file.name}" is too large (max ${MAX_ATTACH_MB}MB).`; continue; }
+      status.style.color='var(--muted)'; status.textContent='Uploading '+file.name+'…';
+      try{
+        const ext=(file.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'')||'bin';
+        const path=`${prefix}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const {error:upErr}=await sb.storage.from('photos').upload(path,file,{cacheControl:'3600',upsert:false});
+        if(upErr) throw upErr;
+        const {data:pub}=sb.storage.from('photos').getPublicUrl(path);
+        ATTACH_STATE[stateKey].push({url:pub.publicUrl,name:file.name,type:file.type||'',size:file.size,kind:fileKind(file.type,file.name)});
+        status.style.color='var(--teal)'; status.textContent='Added ✓';
+        render();
+      }catch(err){
+        status.style.color='var(--danger)';
+        status.textContent = /bucket/i.test(err.message||'')||/exceeded/i.test(err.message||'') ? 'Upload failed — check storage is set up and the file size limit is raised.' : ('Upload failed: '+(err.message||'error'));
+      }
+    }
+  }
+  render();
+}
+function attChip(a,i,containerId,removable){
+  const icon = a.kind==='image' ? `<img src="${escapeHtml(a.url)}" alt=""/>`
+    : a.kind==='video' ? '🎬' : a.kind==='pdf' ? '📄' : '📎';
+  return `<div class="att-chip">
+    <div class="att-thumb ${a.kind==='image'?'img':''}">${icon}</div>
+    <div class="att-info"><div class="att-name">${escapeHtml(a.name||'file')}</div><div class="att-size">${fmtBytes(a.size)}</div></div>
+    ${removable?`<button type="button" class="att-remove" data-i="${i}" title="Remove">✕</button>`:''}
+  </div>`;
+}
+// Read-only render of attachments (for displaying on cards/messages)
+function attachmentsView(list){
+  if(!list||!list.length) return '';
+  return `<div class="att-view">${list.map(a=>{
+    if(a.kind==='image') return `<a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="att-media"><img src="${escapeHtml(a.url)}" alt="${escapeHtml(a.name||'')}"/></a>`;
+    if(a.kind==='video') return `<video src="${escapeHtml(a.url)}" controls preload="metadata" class="att-media att-video"></video>`;
+    const ic=a.kind==='pdf'?'📄':'📎';
+    return `<a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" class="att-doc">${ic} <span>${escapeHtml(a.name||'Download')}</span> <span class="att-size">${fmtBytes(a.size)}</span></a>`;
+  }).join('')}</div>`;
 }
 
 /* ===================== NAV ===================== */
@@ -1507,6 +1601,7 @@ function communityCard(c,manage){
     ${c.author_name?`<div class="row-sub">By ${escapeHtml(c.author_name)}${c.author_role&&c.author_role!=='director'&&c.author_role!=='secretary'?' · '+escapeHtml(c.author_role):''}</div>`:''}
     ${ev&&c.event_date?`<div class="row-sub">📅 ${fmtDate(c.event_date)}</div>`:''}
     ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${attachmentsView(c.attachments)}
     ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:13px">Open link →</a>`:''}
     ${(!manage && c.status==='approved')?`<button class="btn btn-ghost btn-sm cmToggle" style="width:auto;align-self:flex-start;padding:5px 10px">💬 Comments</button><div class="cm-wrap" style="display:none"></div>`:''}
     ${c.status==='rejected'&&c.review_note?`<div class="row-sub" style="color:var(--danger)">Feedback: ${escapeHtml(c.review_note)}</div>`:''}
@@ -1560,10 +1655,12 @@ function proPostForm(){
     </div>
     <div class="form-row"><label>Title *</label><input id="pp_title" placeholder="A clear headline"/></div>
     <div class="form-row"><label>Body / details</label><textarea id="pp_body" style="min-height:120px"></textarea></div>
-    <div class="form-row"><label>Link (optional)</label><input id="pp_link" placeholder="https://…"/></div>
+    <div class="form-row"><label>Attachments</label><div id="pp_att"></div></div>
+    <div class="form-row"><label>External link (optional)</label><input id="pp_link" placeholder="https://… e.g. a YouTube video or long article"/></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="pp_cancel">Cancel</button><button class="btn btn-primary" id="pp_save">Submit for review</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  attachmentUploader('pp_att','proPost','posts',[]);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#pp_cancel').onclick=close;
   m.querySelector('#pp_save').onclick=async()=>{
@@ -1573,6 +1670,7 @@ function proPostForm(){
     const {error}=await sb.from('community_content').insert({
       kind:m.querySelector('#pp_kind').value, audience:m.querySelector('#pp_aud').value,
       title, body:m.querySelector('#pp_body').value.trim()||null, link:m.querySelector('#pp_link').value.trim()||null,
+      attachments:ATTACH_STATE['proPost']||[],
       published:true, status:'pending', author_id:ME.id, author_name:displayName(), author_role:ME.role });
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Submit for review';return;}
     toast('Submitted for review'); close(); renderProCommunity($('#view'));
@@ -1609,6 +1707,7 @@ function approvalCard(c){
     </div>
     <div class="row-sub">Submitted by ${escapeHtml(c.author_name||'a professional')}${c.author_role?' · '+escapeHtml(c.author_role):''}</div>
     ${c.body?`<div class="row-sub" style="white-space:normal">${escapeHtml(c.body)}</div>`:''}
+    ${attachmentsView(c.attachments)}
     ${c.link?`<a href="${escapeHtml(c.link)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:13px">Open link →</a>`:''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
       <button class="btn btn-primary btn-sm apprYes" style="width:auto">Approve & publish</button>
@@ -1642,11 +1741,13 @@ function communityForm(c){
       <div><label>Event date (if event)</label><input id="c_date" type="date" value="${edit?(c.event_date||''):''}"/></div>
       <div><label>Link (optional)</label><input id="c_link" value="${edit?escapeHtml(c.link||''):''}" placeholder="https://…"/></div>
     </div>
+    <div class="form-row"><label>Attachments</label><div id="c_att"></div></div>
     <div class="form-row"><label style="display:flex;gap:9px;align-items:center;cursor:pointer"><input id="c_pub" type="checkbox" ${(!edit||c.published)?'checked':''} style="width:auto"/> Published (visible in portals)</label></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="c_cancel">Cancel</button><button class="btn btn-primary" id="c_save">${edit?'Save':'Post'}</button></div>
     ${edit?'<button class="btn" id="c_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete</button>':''}
   </div></div>`);
   document.body.appendChild(m);
+  attachmentUploader('c_att','staffPost','posts', edit&&Array.isArray(c.attachments)?c.attachments:[]);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#c_cancel').onclick=close;
   if(edit){m.querySelector('#c_del').onclick=async()=>{if(!confirm('Delete this post?'))return;const {error}=await sb.from('community_content').delete().eq('id',c.id);if(error){toast(error.message,true);return;}toast('Deleted');close();renderCommunity($('#view'));};}
@@ -1656,7 +1757,7 @@ function communityForm(c){
     const btn=m.querySelector('#c_save');btn.disabled=true;btn.textContent='Saving…';
     const payload={kind:m.querySelector('#c_kind').value,audience:m.querySelector('#c_aud').value,title:title,
       body:m.querySelector('#c_body').value.trim()||null,event_date:m.querySelector('#c_date').value||null,
-      link:m.querySelector('#c_link').value.trim()||null,published:m.querySelector('#c_pub').checked};
+      link:m.querySelector('#c_link').value.trim()||null,attachments:ATTACH_STATE['staffPost']||[],published:m.querySelector('#c_pub').checked};
     let error;
     if(edit){({error}=await sb.from('community_content').update(payload).eq('id',c.id));}
     else{payload.created_by=ME.id;({error}=await sb.from('community_content').insert(payload));}
