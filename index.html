@@ -315,6 +315,11 @@ a{color:var(--purple)}
 .att-doc{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);border-radius:10px;padding:9px 13px;font-size:13.5px;color:var(--accent-deep);font-weight:600;text-decoration:none}
 .att-doc:hover{background:var(--line)}
 .att-doc .att-size{font-weight:400}
+/* checkbox list (report sections) */
+.chk-list{display:flex;flex-direction:column;gap:8px;background:var(--accent-soft);border-radius:10px;padding:12px}
+.chk-row{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer}
+.chk-row input{width:auto}
+.sec-body{background:var(--accent-soft);border-radius:8px;padding:10px 12px}
 
 </style>
 </head>
@@ -447,6 +452,7 @@ const NAV = {
   professional:[
     {k:'pro_requests',label:'Requests',icon:'requests'},
     {k:'pro_children',label:'My children',icon:'child'},
+    {k:'pro_reports',label:'Report tasks',icon:'schedule'},
     {k:'pro_program',label:'Program & CPD',icon:'programs'},
     {k:'pro_community',label:'Community',icon:'chat'},
     {k:'team',label:'Team',icon:'team'},
@@ -469,6 +475,7 @@ const NAV = {
 let ME={id:null,name:'',email:'',role:null};
 let SELECTED_PERSON=null;
 const ATTACH_STATE={};
+let SELECTED_REPORT=null;
 let currentView='dashboard';
 let MY_PROF_ID=null;
 let SELECTED_CHILD=null;
@@ -722,6 +729,10 @@ async function updateBadges(){
   } else if(ME.role==='professional'){
     const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
     setBadge('pro_requests',count||0);
+    if(MY_PROF_ID){
+      const {count:rc}=await sb.from('report_sections').select('*',{count:'exact',head:true}).eq('profile_id',ME.id).eq('requested',true).neq('status','submitted');
+      setBadge('pro_reports',rc||0);
+    }
   }
 }
 function setActiveNav(){document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.k===currentView));}
@@ -729,7 +740,7 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
@@ -742,7 +753,10 @@ function go(view){
    child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
    child_chat:(vv)=>renderChildChat(vv,SELECTED_CHILD),
    staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD),
-   pro_program:renderProProgram}[view]||(()=>{}))(v);
+   pro_program:renderProProgram,
+   child_reports:(vv)=>renderChildReports(vv,SELECTED_CHILD),
+   report_edit:(vv)=>renderReportEdit(vv,SELECTED_REPORT),
+   pro_reports:renderProReports}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -1799,10 +1813,21 @@ async function renderInstHome(v){
   $('#reqRep').onclick=()=>reportRequestForm(inst);
   const rr=$('#iReq');
   rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:20px"><h4>No requests yet</h4><p>Ask Mindora for a monthly or termly report.</p></div>`;
-  (reqs||[]).forEach(r=>rr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml((r.report_type||'report'))}${r.period?' · '+escapeHtml(r.period):''}</div><span class="pill ${r.status==='fulfilled'?'active':(r.status==='declined'?'exited':'enquiry')}">${r.status}</span></div>
+  (reqs||[]).forEach(r=>{
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml((r.report_type||'report'))}${r.period?' · '+escapeHtml(r.period):''}</div><span class="pill ${r.status==='fulfilled'?'active':(r.status==='declined'?'exited':(r.status==='cancelled'?'exited':'enquiry'))}">${r.status}</span></div>
     ${r.note?`<div class="row-sub" style="white-space:normal">${escapeHtml(r.note)}</div>`:''}
-    ${r.response_note?`<div class="row-sub" style="color:var(--teal);white-space:normal">Mindora: ${escapeHtml(r.response_note)}</div>`:''}</div>`)));
+    ${r.response_note?`<div class="row-sub" style="color:var(--teal);white-space:normal">Mindora: ${escapeHtml(r.response_note)}</div>`:''}
+    ${r.status==='pending'?'<button class="btn btn-ghost btn-sm cancelReq" style="width:auto;align-self:flex-end;color:var(--danger)">Cancel / recall request</button>':''}</div>`);
+    const cb=card.querySelector('.cancelReq');
+    if(cb) cb.onclick=async()=>{
+      if(!confirm('Recall this report request? Mindora will see it as cancelled.'))return;
+      const {error}=await sb.from('report_requests').update({status:'cancelled',cancelled_at:new Date().toISOString(),cancelled_by:ME.id}).eq('id',r.id);
+      if(error){toast(error.message,true);return;}
+      toast('Request recalled'); renderInstHome($('#view'));
+    };
+    rr.appendChild(card);
+  });
   const ar=$('#iAct');
   ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:20px"><h4>No activity yet</h4><p>Trainings, audits and visits logged by Mindora appear here.</p></div>`;
   (acts||[]).forEach(a=>ar.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
@@ -2488,6 +2513,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
       <div class="qa" id="qaSched">${icon('schedule')} Monthly schedule</div>
       <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
+      <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
     </div>
 
@@ -2517,6 +2543,7 @@ async function renderStaffChild(v,c){
   $('#qaPlan').onclick=()=>{SELECTED_CHILD=c;go('child_plan');};
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
+  $('#qaReports').onclick=()=>{SELECTED_CHILD=c;go('child_reports');};
   $('#qaEdit').onclick=()=>openClientForm(c);
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
@@ -2732,6 +2759,190 @@ async function unreadCounts(clientIds){
     });
   }catch(e){}
   return out;
+}
+
+/* ===================== CHILD REPORTS (self-generating, multi-section) ===================== */
+async function renderChildReports(v,c){
+  if(!c){ go(isStaff()?'clients':'pro_children'); return; }
+  const {data:reports}=await sb.from('child_reports').select('*').eq('client_id',c.id).order('created_at',{ascending:false});
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Reports</h1><p>Build reports from the team's session notes. Each professional edits their own section.</p></div>
+    <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="newRep" style="width:auto">+ New report</button></div>
+    <div class="rows" id="repRows"></div>`;
+  $('#backBtn').onclick=()=>{SELECTED_CHILD=c;go('staff_child');};
+  $('#newRep').onclick=()=>newReportForm(c);
+  const rows=$('#repRows');
+  if(!reports||!reports.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No reports yet</h4><p>Create a report and assign sections to the professionals on this child.</p></div>'; return; }
+  reports.forEach(r=>{
+    const statusPill = r.status==='final'?'<span class="pill active">Final</span>':r.status==='in_review'?'<span class="pill enquiry">In review</span>':'<span class="pill assessment">Draft</span>';
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${icon('schedule')}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(r.title)}</div><div class="row-sub">${r.period?escapeHtml(r.period)+' · ':''}${fmtDate(r.created_at)}</div></div>
+      ${statusPill}</div>`);
+    card.onclick=()=>{ SELECTED_REPORT=r; SELECTED_CHILD=c; go('report_edit'); };
+    rows.appendChild(card);
+  });
+}
+async function newReportForm(c){
+  // load accepted professionals on this child
+  const {data:asg}=await sb.from('assignments').select('professional_id,professionals(id,full_name,discipline,profile_id)').eq('client_id',c.id).eq('status','accepted');
+  const pros=(asg||[]).map(a=>a.professionals).filter(Boolean);
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>New report</h3><div class="sub">For ${escapeHtml(c.full_name)}. Choose which professionals contribute a section.</div>
+    <div class="form-row"><label>Report title *</label><input id="nr_title" placeholder="e.g. Termly progress report"/></div>
+    <div class="form-row"><label>Period</label><input id="nr_period" placeholder="e.g. Term 2 2026"/></div>
+    <div class="form-row"><label>Sections (one per professional)</label>
+      <div class="chk-list">${pros.length?pros.map(p=>`<label class="chk-row"><input type="checkbox" class="secChk" data-pid="${p.id}" data-prof="${p.profile_id||''}" data-disc="${escapeHtml(p.discipline||'')}" data-name="${escapeHtml(p.full_name||'')}" checked/> ${escapeHtml(p.full_name)}${p.discipline?' · '+escapeHtml(p.discipline):''}</label>`).join(''):'<div class="row-sub">No accepted professionals on this child yet. Assign one first.</div>'}</div>
+    </div>
+    ${isStaff()?`<div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="nr_request" type="checkbox" style="width:auto"/> Mark these as <b>requested</b> (notifies each professional to complete their section)</label></div>`:''}
+    <div class="modal-actions"><button class="btn btn-ghost" id="nr_cancel">Cancel</button><button class="btn btn-primary" id="nr_save">Create report</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#nr_cancel').onclick=close;
+  m.querySelector('#nr_save').onclick=async()=>{
+    const title=m.querySelector('#nr_title').value.trim();
+    if(!title){toast('Add a report title.',true);return;}
+    const chosen=[...m.querySelectorAll('.secChk:checked')];
+    if(!chosen.length){toast('Select at least one professional.',true);return;}
+    const btn=m.querySelector('#nr_save');btn.disabled=true;btn.textContent='Creating…';
+    const requested=m.querySelector('#nr_request')?m.querySelector('#nr_request').checked:false;
+    const {data:rep,error}=await sb.from('child_reports').insert({client_id:c.id,title,period:m.querySelector('#nr_period').value.trim()||null,status:'draft',created_by:ME.id}).select().single();
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Create report';return;}
+    // create a section per chosen professional, pre-filled from their sessions
+    for(const ch of chosen){
+      const draft=await autoDraftSection(c.id, ch.dataset.pid);
+      await sb.from('report_sections').insert({
+        report_id:rep.id, professional_id:ch.dataset.pid, profile_id:ch.dataset.prof||null,
+        heading:ch.dataset.disc||ch.dataset.name||'Section', body:draft,
+        requested, requested_note:requested?'Please complete your section.':null,
+        status:'pending' });
+    }
+    toast(requested?'Report created & professionals notified':'Report created'); close();
+    SELECTED_REPORT=rep; SELECTED_CHILD=c; go('report_edit');
+  };
+}
+// Build a starter draft from a professional's sessions + progress notes for this child
+async function autoDraftSection(clientId, professionalId){
+  const {data:ss}=await sb.from('session_logs').select('*').eq('client_id',clientId).eq('professional_id',professionalId).order('session_date',{ascending:true});
+  if(!ss||!ss.length) return '';
+  const bits=[];
+  const summaries=ss.filter(s=>s.summary).map(s=>`• ${fmtDate(s.session_date)}: ${s.summary}`);
+  const progress=ss.filter(s=>s.progress_notes).map(s=>s.progress_notes);
+  bits.push(`Sessions this period: ${ss.length}.`);
+  if(summaries.length){ bits.push('\nSession highlights:\n'+summaries.join('\n')); }
+  if(progress.length){ bits.push('\nProgress observed:\n'+progress.map(p=>'• '+p).join('\n')); }
+  return bits.join('\n');
+}
+async function renderReportEdit(v,r){
+  if(!r){ go('clients'); return; }
+  const c=SELECTED_CHILD;
+  const {data:secs}=await sb.from('report_sections').select('*').eq('report_id',r.id).order('id');
+  const mine=(secs||[]).filter(s=>s.profile_id===ME.id);
+  const staff=isStaff();
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(r.title)}</h1><p>${c?escapeHtml(c.full_name)+' · ':''}${r.period?escapeHtml(r.period)+' · ':''}Status: ${escapeHtml(r.status)}</p></div>
+    ${staff?`<div class="qa-row">
+      <div class="qa" id="repPdf">${icon('schedule')} Download PDF</div>
+      ${r.status!=='final'?`<div class="qa" id="repFinal">${icon('assign')} Mark final</div>`:''}
+      <div class="qa" id="repDel" style="color:var(--danger);border-color:#F3C9CB">Delete report</div>
+    </div>`:''}
+    <div class="rows" id="secRows"></div>`;
+  $('#backBtn').onclick=()=>{ if(staff){SELECTED_CHILD=c;go('child_reports');} else {go('pro_reports');} };
+  const rows=$('#secRows');
+  const list = staff ? (secs||[]) : mine;
+  if(!list.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No sections for you here</h4></div>'; }
+  list.forEach(s=>{
+    const canEdit = staff || s.profile_id===ME.id;
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="row-name" style="flex:1">${escapeHtml(s.heading)}</div>
+        ${s.requested&&s.status!=='submitted'?'<span class="pill enquiry">Requested</span>':''}
+        <span class="pill ${s.status==='submitted'?'active':'assessment'}">${s.status==='submitted'?'Submitted':'Draft'}</span>
+      </div>
+      ${s.requested_note&&s.status!=='submitted'?`<div class="row-sub" style="color:var(--accent)">${escapeHtml(s.requested_note)}</div>`:''}
+      <div class="sec-body" style="white-space:pre-wrap;font-size:14px">${escapeHtml(s.body||'(empty)')}</div>
+      ${canEdit?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm secEdit" style="width:auto">Edit my section</button>${s.status!=='submitted'?`<button class="btn btn-primary btn-sm secSubmit" style="width:auto">Mark section done</button>`:''}</div>`:''}
+    </div>`);
+    const eb=card.querySelector('.secEdit'); if(eb) eb.onclick=()=>editSectionForm(s,r);
+    const sb2=card.querySelector('.secSubmit'); if(sb2) sb2.onclick=async()=>{ await sb.from('report_sections').update({status:'submitted',updated_at:new Date().toISOString()}).eq('id',s.id); toast('Section marked done'); renderReportEdit($('#view'),r); };
+    rows.appendChild(card);
+  });
+  if(staff){
+    const pdf=$('#repPdf'); if(pdf) pdf.onclick=()=>printChildReport(r,c,secs||[]);
+    const fin=$('#repFinal'); if(fin) fin.onclick=async()=>{ await sb.from('child_reports').update({status:'final',finalized_at:new Date().toISOString()}).eq('id',r.id); toast('Report marked final'); renderReportEdit($('#view'),{...r,status:'final'}); };
+    const del=$('#repDel'); if(del) del.onclick=async()=>{ if(!confirm('Delete this whole report?'))return; await sb.from('child_reports').delete().eq('id',r.id); toast('Report deleted'); SELECTED_CHILD=c; go('child_reports'); };
+  }
+}
+function editSectionForm(s,r){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${escapeHtml(s.heading)}</h3><div class="sub">Edit your section. It was pre-filled from your session notes — adjust freely.</div>
+    <div class="form-row"><label>Section content</label><textarea id="se_body" style="min-height:220px">${escapeHtml(s.body||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="se_cancel">Cancel</button><button class="btn btn-primary" id="se_save">Save section</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#se_cancel').onclick=close;
+  m.querySelector('#se_save').onclick=async()=>{
+    const btn=m.querySelector('#se_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('report_sections').update({body:m.querySelector('#se_body').value,updated_at:new Date().toISOString()}).eq('id',s.id);
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save section';return;}
+    toast('Section saved'); close(); renderReportEdit($('#view'),r);
+  };
+}
+function printChildReport(r,c,secs){
+  const w=window.open('','_blank');
+  if(!w){toast('Allow pop-ups to save the PDF.',true);return;}
+  const body=secs.map(s=>`<div class="rsec"><h3>${escapeHtml(s.heading)}</h3><div class="rbody">${escapeHtml(s.body||'—').replace(/\n/g,'<br>')}</div></div>`).join('');
+  w.document.write(`<html><head><title>${escapeHtml(r.title)}</title><style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:34px;max-width:720px;margin:auto}
+    h1{color:#6C3483;margin:0;font-size:19px}
+    .lh{border-bottom:4px solid #6C3483;box-shadow:0 3px 0 #FFB020;padding-bottom:10px;margin-bottom:16px}
+    .muted{color:#666;font-size:12px;margin-top:4px}
+    .rtitle{font-size:17px;font-weight:700;color:#4A1E63;margin:16px 0 2px}
+    .rmeta{color:#666;font-size:12px;margin-bottom:16px}
+    .rsec{margin-bottom:18px} .rsec h3{color:#0F6E56;font-size:14px;margin:0 0 4px;border-bottom:1px solid #eee;padding-bottom:3px}
+    .rbody{font-size:13.5px;white-space:normal;line-height:1.5}
+    .sig{margin-top:40px;display:flex;justify-content:space-between;gap:30px}
+    .sig div{flex:1;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#555}
+  </style></head><body>
+    <div class="lh"><img src="${LOGO_FULL}" alt="Mindora" style="height:60px;display:block;margin-bottom:8px"/>
+    <h1>${escapeHtml((COMPANY&&COMPANY.company_name)||'Mindora Inclusive Child Development Services Co. Ltd')}</h1>
+    <div class="muted">${escapeHtml((COMPANY&&COMPANY.address)||'Kisaasi / Kikaya, Kampala')} · mindoraicds@gmail.com · 0741 397 167</div></div>
+    <div class="rtitle">${escapeHtml(r.title)}</div>
+    <div class="rmeta">${c?('Child: '+escapeHtml(c.full_name)+' · '):''}${r.period?escapeHtml(r.period)+' · ':''}Prepared ${fmtDate(isoD(new Date()))}</div>
+    ${body}
+    <div class="sig"><div>Prepared by</div><div>Reviewed by</div><div>Date</div></div>
+    <p class="muted" style="margin-top:24px">Confidential · Mindora Inclusive Child Development Services · Home, Hope &amp; Harmony</p>
+    </body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
+}
+// Professional's report tasks (sections assigned/requested of them)
+async function renderProReports(v){
+  const {data:secs}=await sb.from('report_sections').select('*, child_reports(id,title,period,client_id,status)').eq('profile_id',ME.id).order('updated_at',{ascending:false});
+  const list=(secs||[]).filter(s=>s.child_reports);
+  v.innerHTML=`<div class="welcome"><h1>Report tasks</h1><p>Report sections assigned to you. Requested ones are flagged.</p></div>
+    <div class="rows" id="prRows"></div>`;
+  const rows=$('#prRows');
+  if(!list.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No report tasks</h4><p>When a report needs your input, it appears here.</p></div>'; return; }
+  list.forEach(s=>{
+    const r=s.child_reports;
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${icon('schedule')}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(r.title)}${s.requested&&s.status!=='submitted'?' <span class="chat-badge" style="background:var(--coral)">!</span>':''}</div>
+      <div class="row-sub">${escapeHtml(s.heading)}${r.period?' · '+escapeHtml(r.period):''}</div></div>
+      <span class="pill ${s.status==='submitted'?'active':'assessment'}">${s.status==='submitted'?'Done':'To do'}</span></div>`);
+    card.onclick=async()=>{
+      // load the parent report + child for context
+      const {data:rep}=await sb.from('child_reports').select('*').eq('id',r.id).single();
+      const {data:ch}=await sb.from('clients').select('*').eq('id',r.client_id).maybeSingle();
+      SELECTED_REPORT=rep; SELECTED_CHILD=ch; go('report_edit');
+    };
+    rows.appendChild(card);
+  });
 }
 
 async function renderChildChat(v,c){
