@@ -320,6 +320,10 @@ a{color:var(--purple)}
 .chk-row{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer}
 .chk-row input{width:auto}
 .sec-body{background:var(--accent-soft);border-radius:8px;padding:10px 12px}
+.sec-sub{margin-bottom:8px;font-size:14px}
+.sec-sub:last-child{margin-bottom:0}
+.sec-sub-h{font-weight:700;color:var(--accent-deep);font-size:12.5px;margin-bottom:2px}
+.tmpl-hint{margin:-4px 0 12px;display:flex;align-items:center;gap:8px}
 
 </style>
 </head>
@@ -740,7 +744,7 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
@@ -755,6 +759,7 @@ function go(view){
    staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD),
    pro_program:renderProProgram,
    child_reports:(vv)=>renderChildReports(vv,SELECTED_CHILD),
+   child_goals:(vv)=>renderChildGoals(vv,SELECTED_CHILD),
    report_edit:(vv)=>renderReportEdit(vv,SELECTED_REPORT),
    pro_reports:renderProReports}[view]||(()=>{}))(v);
 }
@@ -1391,6 +1396,7 @@ async function renderProChild(v,c){
       <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
       <div class="qa" id="qaSched">${icon('schedule')} Schedule</div>
       <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
+      <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaReview">${icon('assign')} Monthly review</div>
     </div>
 
@@ -1405,6 +1411,7 @@ async function renderProChild(v,c){
   $('#qaPlan').onclick=()=>{SELECTED_CHILD=c;go('child_plan');};
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
+  $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   $('#qaReview').onclick=()=>opFormModal('review',{client_id:c.id,client_name:c.full_name,professional_id:MY_PROF_ID,after:()=>toast('Review saved')});
 
   const sr=$('#sessRows');
@@ -2514,6 +2521,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaSched">${icon('schedule')} Monthly schedule</div>
       <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
       <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
+      <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
     </div>
 
@@ -2544,6 +2552,7 @@ async function renderStaffChild(v,c){
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
   $('#qaReports').onclick=()=>{SELECTED_CHILD=c;go('child_reports');};
+  $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   $('#qaEdit').onclick=()=>openClientForm(c);
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
@@ -2761,6 +2770,74 @@ async function unreadCounts(clientIds){
   return out;
 }
 
+/* ===================== GOALS (structured, per child) ===================== */
+const GOAL_STATUS={active:'Active',achieved:'Achieved',modified:'Modified',discontinued:'Discontinued'};
+async function renderChildGoals(v,c){
+  if(!c){ go(isStaff()?'clients':'pro_children'); return; }
+  const {data:goals}=await sb.from('goals').select('*').eq('client_id',c.id).order('started_on',{ascending:false});
+  const canAdd = isStaff() || ME.role==='professional';
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Goals</h1><p>Therapy goals tracked over time. These feed the Goals &amp; Progress section of reports.</p></div>
+    <div class="section-head"><h3>Goals</h3>${canAdd?'<button class="btn btn-primary btn-sm" id="addGoal" style="width:auto">+ New goal</button>':''}</div>
+    <div class="rows" id="goalRows"></div>`;
+  $('#backBtn').onclick=()=>{ SELECTED_CHILD=c; go(isStaff()?'staff_child':'pro_child'); };
+  if(canAdd) $('#addGoal').onclick=()=>goalForm(c,null);
+  const rows=$('#goalRows');
+  if(!goals||!goals.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No goals yet</h4><p>Add measurable goals with a baseline and target.</p></div>'; return; }
+  goals.forEach(g=>{
+    const canEdit = isStaff() || g.profile_id===ME.id;
+    const stPill = g.status==='achieved'?'active':g.status==='discontinued'?'exited':g.status==='modified'?'enquiry':'assessment';
+    const card=el(`<div class="row-card" style="cursor:${canEdit?'pointer':'default'};flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        ${g.domain?`<span class="pill band">${escapeHtml(g.domain)}</span>`:''}
+        <div class="row-name" style="flex:1;min-width:140px">${escapeHtml(g.goal)}</div>
+        <span class="pill ${stPill}">${GOAL_STATUS[g.status]||g.status}</span>
+      </div>
+      ${g.baseline?`<div class="row-sub"><b>Baseline:</b> ${escapeHtml(g.baseline)}</div>`:''}
+      ${g.target?`<div class="row-sub"><b>Target:</b> ${escapeHtml(g.target)}</div>`:''}
+      ${g.progress_note?`<div class="row-sub" style="color:var(--teal);white-space:normal"><b>Progress:</b> ${escapeHtml(g.progress_note)}</div>`:''}
+    </div>`);
+    if(canEdit) card.onclick=()=>goalForm(c,g);
+    rows.appendChild(card);
+  });
+}
+function goalForm(c,g){
+  const edit=!!g; g=g||{};
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${edit?'Edit goal':'New goal'}</h3><div class="sub">For ${escapeHtml(c.full_name)}. Keep goals measurable.</div>
+    <div class="form-row two">
+      <div><label>Domain</label><input id="g_domain" value="${escapeHtml(g.domain||'')}" placeholder="e.g. Expressive language"/></div>
+      <div><label>Status</label><select id="g_status">${Object.keys(GOAL_STATUS).map(k=>`<option value="${k}" ${g.status===k?'selected':''}>${GOAL_STATUS[k]}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row"><label>Goal *</label><textarea id="g_goal" placeholder="e.g. Use 2-word phrases to request items">${escapeHtml(g.goal||'')}</textarea></div>
+    <div class="form-row two">
+      <div><label>Baseline</label><input id="g_base" value="${escapeHtml(g.baseline||'')}" placeholder="Starting point"/></div>
+      <div><label>Target</label><input id="g_target" value="${escapeHtml(g.target||'')}" placeholder="Measurable target"/></div>
+    </div>
+    <div class="form-row"><label>Latest progress</label><textarea id="g_prog">${escapeHtml(g.progress_note||'')}</textarea></div>
+    <div class="modal-actions">${edit?'<button class="btn btn-ghost" id="g_del" style="color:var(--danger)">Delete</button>':''}<button class="btn btn-ghost" id="g_cancel">Cancel</button><button class="btn btn-primary" id="g_save">${edit?'Save':'Add goal'}</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#g_cancel').onclick=close;
+  if(edit) m.querySelector('#g_del').onclick=async()=>{ if(!confirm('Delete this goal?'))return; await sb.from('goals').delete().eq('id',g.id); toast('Goal deleted'); close(); renderChildGoals($('#view'),c); };
+  m.querySelector('#g_save').onclick=async()=>{
+    const goal=m.querySelector('#g_goal').value.trim();
+    if(!goal){toast('Enter the goal.',true);return;}
+    const btn=m.querySelector('#g_save');btn.disabled=true;btn.textContent='Saving…';
+    const payload={client_id:c.id,domain:m.querySelector('#g_domain').value.trim()||null,goal,
+      baseline:m.querySelector('#g_base').value.trim()||null,target:m.querySelector('#g_target').value.trim()||null,
+      status:m.querySelector('#g_status').value,progress_note:m.querySelector('#g_prog').value.trim()||null,
+      updated_at:new Date().toISOString()};
+    let error;
+    if(edit){ ({error}=await sb.from('goals').update(payload).eq('id',g.id)); }
+    else { payload.professional_id=MY_PROF_ID||null; payload.profile_id=ME.id; ({error}=await sb.from('goals').insert(payload)); }
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent=edit?'Save':'Add goal';return;}
+    toast('Goal saved'); close(); renderChildGoals($('#view'),c);
+  };
+}
+
 /* ===================== CHILD REPORTS (self-generating, multi-section) ===================== */
 async function renderChildReports(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
@@ -2785,20 +2862,36 @@ async function renderChildReports(v,c){
   });
 }
 async function newReportForm(c){
-  // load accepted professionals on this child
   const {data:asg}=await sb.from('assignments').select('professional_id,professionals(id,full_name,discipline,profile_id)').eq('client_id',c.id).eq('status','accepted');
   const pros=(asg||[]).map(a=>a.professionals).filter(Boolean);
+  const today=isoD(new Date());
+  const monthAgo=isoD(new Date(Date.now()-30*86400000));
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>New report</h3><div class="sub">For ${escapeHtml(c.full_name)}. Choose which professionals contribute a section.</div>
+    <h3>New report</h3><div class="sub">For ${escapeHtml(c.full_name)}. The format is chosen automatically: a full clinical report for a month or more, or a SOAP note for shorter periods.</div>
     <div class="form-row"><label>Report title *</label><input id="nr_title" placeholder="e.g. Termly progress report"/></div>
-    <div class="form-row"><label>Period</label><input id="nr_period" placeholder="e.g. Term 2 2026"/></div>
-    <div class="form-row"><label>Sections (one per professional)</label>
+    <div class="form-row two">
+      <div><label>Period from</label><input id="nr_start" type="date" value="${monthAgo}"/></div>
+      <div><label>Period to</label><input id="nr_end" type="date" value="${today}"/></div>
+    </div>
+    <div class="form-row"><label>Period label (optional)</label><input id="nr_period" placeholder="e.g. Term 2 2026 / June 2026"/></div>
+    <div id="nr_tmpl" class="tmpl-hint"></div>
+    <div class="form-row"><label>Contributing professionals (one section each)</label>
       <div class="chk-list">${pros.length?pros.map(p=>`<label class="chk-row"><input type="checkbox" class="secChk" data-pid="${p.id}" data-prof="${p.profile_id||''}" data-disc="${escapeHtml(p.discipline||'')}" data-name="${escapeHtml(p.full_name||'')}" checked/> ${escapeHtml(p.full_name)}${p.discipline?' · '+escapeHtml(p.discipline):''}</label>`).join(''):'<div class="row-sub">No accepted professionals on this child yet. Assign one first.</div>'}</div>
     </div>
     ${isStaff()?`<div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="nr_request" type="checkbox" style="width:auto"/> Mark these as <b>requested</b> (notifies each professional to complete their section)</label></div>`:''}
     <div class="modal-actions"><button class="btn btn-ghost" id="nr_cancel">Cancel</button><button class="btn btn-primary" id="nr_save">Create report</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  function pickTemplate(){
+    const s=m.querySelector('#nr_start').value, e=m.querySelector('#nr_end').value;
+    let tmpl='comprehensive', days=999;
+    if(s&&e){ days=Math.round((new Date(e)-new Date(s))/86400000); tmpl = days<28?'soap':'comprehensive'; }
+    m.querySelector('#nr_tmpl').innerHTML = `<span class="pill ${tmpl==='soap'?'assessment':'active'}">${tmpl==='soap'?'SOAP note':'Comprehensive clinical report'}</span> <span class="row-sub">${s&&e?('period ≈ '+days+' days'):''}</span>`;
+    return tmpl;
+  }
+  m.querySelector('#nr_start').onchange=pickTemplate;
+  m.querySelector('#nr_end').onchange=pickTemplate;
+  pickTemplate();
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#nr_cancel').onclick=close;
   m.querySelector('#nr_save').onclick=async()=>{
@@ -2808,32 +2901,57 @@ async function newReportForm(c){
     if(!chosen.length){toast('Select at least one professional.',true);return;}
     const btn=m.querySelector('#nr_save');btn.disabled=true;btn.textContent='Creating…';
     const requested=m.querySelector('#nr_request')?m.querySelector('#nr_request').checked:false;
-    const {data:rep,error}=await sb.from('child_reports').insert({client_id:c.id,title,period:m.querySelector('#nr_period').value.trim()||null,status:'draft',created_by:ME.id}).select().single();
+    const tmpl=pickTemplate();
+    const pstart=m.querySelector('#nr_start').value||null, pend=m.querySelector('#nr_end').value||null;
+    const {data:rep,error}=await sb.from('child_reports').insert({
+      client_id:c.id,title,period:m.querySelector('#nr_period').value.trim()||null,
+      period_start:pstart,period_end:pend,template:tmpl,
+      referral_reason:c.presenting_needs||null,status:'draft',created_by:ME.id}).select().single();
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Create report';return;}
-    // create a section per chosen professional, pre-filled from their sessions
     for(const ch of chosen){
-      const draft=await autoDraftSection(c.id, ch.dataset.pid);
-      await sb.from('report_sections').insert({
+      const draft=await autoDraftSection(c.id, ch.dataset.pid, pstart, pend, tmpl);
+      await sb.from('report_sections').insert(Object.assign({
         report_id:rep.id, professional_id:ch.dataset.pid, profile_id:ch.dataset.prof||null,
-        heading:ch.dataset.disc||ch.dataset.name||'Section', body:draft,
+        heading:ch.dataset.disc||ch.dataset.name||'Section',
         requested, requested_note:requested?'Please complete your section.':null,
-        status:'pending' });
+        status:'pending' }, draft));
     }
     toast(requested?'Report created & professionals notified':'Report created'); close();
     SELECTED_REPORT=rep; SELECTED_CHILD=c; go('report_edit');
   };
 }
-// Build a starter draft from a professional's sessions + progress notes for this child
-async function autoDraftSection(clientId, professionalId){
-  const {data:ss}=await sb.from('session_logs').select('*').eq('client_id',clientId).eq('professional_id',professionalId).order('session_date',{ascending:true});
-  if(!ss||!ss.length) return '';
-  const bits=[];
-  const summaries=ss.filter(s=>s.summary).map(s=>`• ${fmtDate(s.session_date)}: ${s.summary}`);
-  const progress=ss.filter(s=>s.progress_notes).map(s=>s.progress_notes);
-  bits.push(`Sessions this period: ${ss.length}.`);
-  if(summaries.length){ bits.push('\nSession highlights:\n'+summaries.join('\n')); }
-  if(progress.length){ bits.push('\nProgress observed:\n'+progress.map(p=>'• '+p).join('\n')); }
-  return bits.join('\n');
+// Build structured draft fields from a professional's sessions + goals for the period
+async function autoDraftSection(clientId, professionalId, pstart, pend, tmpl){
+  let sq=sb.from('session_logs').select('*').eq('client_id',clientId).eq('professional_id',professionalId).order('session_date',{ascending:true});
+  if(pstart) sq=sq.gte('session_date',pstart);
+  if(pend) sq=sq.lte('session_date',pend);
+  const {data:ss}=await sq;
+  const {data:goals}=await sb.from('goals').select('*').eq('client_id',clientId).eq('professional_id',professionalId);
+  const sessions=ss||[];
+  const summaries=sessions.filter(s=>s.summary).map(s=>`• ${fmtDate(s.session_date)}: ${s.summary}`);
+  const progress=sessions.filter(s=>s.progress_notes).map(s=>s.progress_notes);
+  const goalLines=(goals||[]).map(g=>{
+    const st=({not_started:'Not started',active:'In progress',in_progress:'In progress',achieved:'Achieved',modified:'Modified',discontinued:'Discontinued'})[g.status]||g.status||'';
+    return `• ${g.domain?g.domain+': ':''}${g.goal}${g.baseline?` (baseline: ${g.baseline})`:''}${g.target?` (target: ${g.target})`:''} — ${st}${g.progress_note?`. ${g.progress_note}`:''}`;
+  });
+  if(tmpl==='soap'){
+    // SOAP fields
+    return {
+      soap_s: '', // clinician fills subjective (caregiver report) 
+      soap_o: sessions.length? `Sessions in period: ${sessions.length}.`+(summaries.length?'\n'+summaries.join('\n'):'') : '',
+      soap_a: progress.length? progress.map(p=>'• '+p).join('\n') : '',
+      soap_p: '',
+      body:''
+    };
+  }
+  // comprehensive structured fields
+  return {
+    assessment: sessions.length? `Based on ${sessions.length} session(s) this period.`+(progress.length?'\n\nObservations:\n'+progress.map(p=>'• '+p).join('\n'):'') : '',
+    goals_progress: goalLines.length? goalLines.join('\n') : '',
+    plan: '',
+    recommendations: '',
+    body: summaries.length? 'Session summary:\n'+summaries.join('\n') : ''
+  };
 }
 async function renderReportEdit(v,r){
   if(!r){ go('clients'); return; }
@@ -2841,11 +2959,13 @@ async function renderReportEdit(v,r){
   const {data:secs}=await sb.from('report_sections').select('*').eq('report_id',r.id).order('id');
   const mine=(secs||[]).filter(s=>s.profile_id===ME.id);
   const staff=isStaff();
+  const isSoap=(r.template==='soap');
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(r.title)}</h1><p>${c?escapeHtml(c.full_name)+' · ':''}${r.period?escapeHtml(r.period)+' · ':''}Status: ${escapeHtml(r.status)}</p></div>
+    <div class="welcome"><h1>${escapeHtml(r.title)}</h1><p>${c?escapeHtml(c.full_name)+' · ':''}${r.period?escapeHtml(r.period)+' · ':''}<span class="pill ${isSoap?'assessment':'active'}" style="vertical-align:middle">${isSoap?'SOAP note':'Comprehensive'}</span> · Status: ${escapeHtml(r.status)}</p></div>
     ${staff?`<div class="qa-row">
       <div class="qa" id="repPdf">${icon('schedule')} Download PDF</div>
+      <div class="qa" id="repMeta">${icon('profile')} Background &amp; recommendations</div>
       ${r.status!=='final'?`<div class="qa" id="repFinal">${icon('assign')} Mark final</div>`:''}
       <div class="qa" id="repDel" style="color:var(--danger);border-color:#F3C9CB">Delete report</div>
     </div>`:''}
@@ -2856,6 +2976,10 @@ async function renderReportEdit(v,r){
   if(!list.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No sections for you here</h4></div>'; }
   list.forEach(s=>{
     const canEdit = staff || s.profile_id===ME.id;
+    const preview = isSoap
+      ? [['S — Subjective',s.soap_s],['O — Objective',s.soap_o],['A — Assessment',s.soap_a],['P — Plan',s.soap_p]]
+      : [['Assessment & clinical impressions',s.assessment],['Goals & progress',s.goals_progress],['Plan',s.plan],['Recommendations',s.recommendations],['Notes',s.body]];
+    const previewHtml = preview.filter(([_,val])=>val&&val.trim()).map(([lbl,val])=>`<div class="sec-sub"><div class="sec-sub-h">${lbl}</div><div style="white-space:pre-wrap">${escapeHtml(val)}</div></div>`).join('') || '<div class="row-sub">(empty — click Edit to complete)</div>';
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <div class="row-name" style="flex:1">${escapeHtml(s.heading)}</div>
@@ -2863,7 +2987,7 @@ async function renderReportEdit(v,r){
         <span class="pill ${s.status==='submitted'?'active':'assessment'}">${s.status==='submitted'?'Submitted':'Draft'}</span>
       </div>
       ${s.requested_note&&s.status!=='submitted'?`<div class="row-sub" style="color:var(--accent)">${escapeHtml(s.requested_note)}</div>`:''}
-      <div class="sec-body" style="white-space:pre-wrap;font-size:14px">${escapeHtml(s.body||'(empty)')}</div>
+      <div class="sec-body">${previewHtml}</div>
       ${canEdit?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm secEdit" style="width:auto">Edit my section</button>${s.status!=='submitted'?`<button class="btn btn-primary btn-sm secSubmit" style="width:auto">Mark section done</button>`:''}</div>`:''}
     </div>`);
     const eb=card.querySelector('.secEdit'); if(eb) eb.onclick=()=>editSectionForm(s,r);
@@ -2872,14 +2996,47 @@ async function renderReportEdit(v,r){
   });
   if(staff){
     const pdf=$('#repPdf'); if(pdf) pdf.onclick=()=>printChildReport(r,c,secs||[]);
+    const meta=$('#repMeta'); if(meta) meta.onclick=()=>reportMetaForm(r);
     const fin=$('#repFinal'); if(fin) fin.onclick=async()=>{ await sb.from('child_reports').update({status:'final',finalized_at:new Date().toISOString()}).eq('id',r.id); toast('Report marked final'); renderReportEdit($('#view'),{...r,status:'final'}); };
     const del=$('#repDel'); if(del) del.onclick=async()=>{ if(!confirm('Delete this whole report?'))return; await sb.from('child_reports').delete().eq('id',r.id); toast('Report deleted'); SELECTED_CHILD=c; go('child_reports'); };
   }
 }
-function editSectionForm(s,r){
+// Staff edits shared background + overall recommendations
+function reportMetaForm(r){
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>${escapeHtml(s.heading)}</h3><div class="sub">Edit your section. It was pre-filled from your session notes — adjust freely.</div>
-    <div class="form-row"><label>Section content</label><textarea id="se_body" style="min-height:220px">${escapeHtml(s.body||'')}</textarea></div>
+    <h3>Background &amp; recommendations</h3><div class="sub">Shared context that appears once at the top and bottom of the report.</div>
+    <div class="form-row"><label>Referral reason</label><textarea id="rm_ref" style="min-height:70px">${escapeHtml(r.referral_reason||'')}</textarea></div>
+    <div class="form-row"><label>Background / history</label><textarea id="rm_bg" style="min-height:110px">${escapeHtml(r.background||'')}</textarea></div>
+    <div class="form-row"><label>Overall recommendations</label><textarea id="rm_rec" style="min-height:110px">${escapeHtml(r.overall_recommendations||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="rm_cancel">Cancel</button><button class="btn btn-primary" id="rm_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#rm_cancel').onclick=close;
+  m.querySelector('#rm_save').onclick=async()=>{
+    const btn=m.querySelector('#rm_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('child_reports').update({referral_reason:m.querySelector('#rm_ref').value.trim()||null,background:m.querySelector('#rm_bg').value.trim()||null,overall_recommendations:m.querySelector('#rm_rec').value.trim()||null}).eq('id',r.id);
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
+    toast('Saved'); close();
+    const {data:fresh}=await sb.from('child_reports').select('*').eq('id',r.id).single();
+    SELECTED_REPORT=fresh; renderReportEdit($('#view'),fresh);
+  };
+}
+function editSectionForm(s,r){
+  const isSoap=(r.template==='soap');
+  const fields = isSoap
+    ? `<div class="form-row"><label>S — Subjective <span class="row-sub">(caregiver/child report)</span></label><textarea id="f_soap_s" style="min-height:70px">${escapeHtml(s.soap_s||'')}</textarea></div>
+       <div class="form-row"><label>O — Objective <span class="row-sub">(what you observed/measured)</span></label><textarea id="f_soap_o" style="min-height:90px">${escapeHtml(s.soap_o||'')}</textarea></div>
+       <div class="form-row"><label>A — Assessment <span class="row-sub">(clinical impression)</span></label><textarea id="f_soap_a" style="min-height:90px">${escapeHtml(s.soap_a||'')}</textarea></div>
+       <div class="form-row"><label>P — Plan</label><textarea id="f_soap_p" style="min-height:70px">${escapeHtml(s.soap_p||'')}</textarea></div>`
+    : `<div class="form-row"><label>Assessment &amp; clinical impressions</label><textarea id="f_assessment" style="min-height:100px">${escapeHtml(s.assessment||'')}</textarea></div>
+       <div class="form-row"><label>Goals &amp; progress <span class="row-sub">(pre-filled from tracked goals)</span></label><textarea id="f_goals" style="min-height:100px">${escapeHtml(s.goals_progress||'')}</textarea></div>
+       <div class="form-row"><label>Plan of care</label><textarea id="f_plan" style="min-height:80px">${escapeHtml(s.plan||'')}</textarea></div>
+       <div class="form-row"><label>Recommendations</label><textarea id="f_rec" style="min-height:80px">${escapeHtml(s.recommendations||'')}</textarea></div>
+       <div class="form-row"><label>Additional notes <span class="row-sub">(optional)</span></label><textarea id="f_body" style="min-height:70px">${escapeHtml(s.body||'')}</textarea></div>`;
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
+    <h3>${escapeHtml(s.heading)}</h3><div class="sub">${isSoap?'SOAP note format.':'Complete the clinical section for this discipline.'} Pre-filled from your notes — edit freely.</div>
+    ${fields}
     <div class="modal-actions"><button class="btn btn-ghost" id="se_cancel">Cancel</button><button class="btn btn-primary" id="se_save">Save section</button></div>
   </div></div>`);
   document.body.appendChild(m);
@@ -2887,35 +3044,87 @@ function editSectionForm(s,r){
   m.querySelector('#se_cancel').onclick=close;
   m.querySelector('#se_save').onclick=async()=>{
     const btn=m.querySelector('#se_save');btn.disabled=true;btn.textContent='Saving…';
-    const {error}=await sb.from('report_sections').update({body:m.querySelector('#se_body').value,updated_at:new Date().toISOString()}).eq('id',s.id);
+    const payload = isSoap
+      ? {soap_s:m.querySelector('#f_soap_s').value||null,soap_o:m.querySelector('#f_soap_o').value||null,soap_a:m.querySelector('#f_soap_a').value||null,soap_p:m.querySelector('#f_soap_p').value||null,updated_at:new Date().toISOString()}
+      : {assessment:m.querySelector('#f_assessment').value||null,goals_progress:m.querySelector('#f_goals').value||null,plan:m.querySelector('#f_plan').value||null,recommendations:m.querySelector('#f_rec').value||null,body:m.querySelector('#f_body').value||null,updated_at:new Date().toISOString()};
+    const {error}=await sb.from('report_sections').update(payload).eq('id',s.id);
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save section';return;}
     toast('Section saved'); close(); renderReportEdit($('#view'),r);
   };
 }
+function calcAge(dob){ if(!dob)return''; const d=new Date(dob),n=new Date(); let y=n.getFullYear()-d.getFullYear(); const mm=n.getMonth()-d.getMonth(); if(mm<0||(mm===0&&n.getDate()<d.getDate()))y--; let months=(mm+12)%12; return y+'y'+(months?' '+months+'m':''); }
 function printChildReport(r,c,secs){
   const w=window.open('','_blank');
   if(!w){toast('Allow pop-ups to save the PDF.',true);return;}
-  const body=secs.map(s=>`<div class="rsec"><h3>${escapeHtml(s.heading)}</h3><div class="rbody">${escapeHtml(s.body||'—').replace(/\n/g,'<br>')}</div></div>`).join('');
-  w.document.write(`<html><head><title>${escapeHtml(r.title)}</title><style>
-    body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:34px;max-width:720px;margin:auto}
-    h1{color:#6C3483;margin:0;font-size:19px}
-    .lh{border-bottom:4px solid #6C3483;box-shadow:0 3px 0 #FFB020;padding-bottom:10px;margin-bottom:16px}
-    .muted{color:#666;font-size:12px;margin-top:4px}
-    .rtitle{font-size:17px;font-weight:700;color:#4A1E63;margin:16px 0 2px}
-    .rmeta{color:#666;font-size:12px;margin-bottom:16px}
-    .rsec{margin-bottom:18px} .rsec h3{color:#0F6E56;font-size:14px;margin:0 0 4px;border-bottom:1px solid #eee;padding-bottom:3px}
-    .rbody{font-size:13.5px;white-space:normal;line-height:1.5}
-    .sig{margin-top:40px;display:flex;justify-content:space-between;gap:30px}
-    .sig div{flex:1;border-top:1px solid #999;padding-top:6px;font-size:12px;color:#555}
+  c=c||{};
+  const isSoap=(r.template==='soap');
+  const esc=escapeHtml, br=(t)=>esc(t||'').replace(/\n/g,'<br>');
+  // Biodata table
+  const bio=[
+    ['Full name',c.full_name],['Child no.',c.child_no],
+    ['Date of birth',c.dob?fmtDate(c.dob):''],['Age',calcAge(c.dob)],
+    ['Sex',c.sex],['Delivery channel',c.delivery_channel],
+    ['Parent / guardian',c.parent_name],['Guardian contact',[c.parent_phone,c.parent_email].filter(Boolean).join(' · ')],
+    ['School',c.school_name],['Class / stream',[c.school_class&&('Class '+c.school_class),c.school_stream&&('Stream '+c.school_stream)].filter(Boolean).join(' · ')],
+    ['Band',c.assessed_band?('Band '+c.assessed_band):''],['Report period',r.period||[r.period_start&&fmtDate(r.period_start),r.period_end&&fmtDate(r.period_end)].filter(Boolean).join(' – ')],
+  ].filter(([_,v])=>v&&String(v).trim());
+  const bioRows=bio.map(([k,v])=>`<tr><td class="bk">${esc(k)}</td><td class="bv">${esc(v)}</td></tr>`).join('');
+
+  // Section bodies
+  let sectionsHtml='';
+  (secs||[]).forEach(s=>{
+    if(isSoap){
+      const parts=[['S — Subjective',s.soap_s],['O — Objective',s.soap_o],['A — Assessment',s.soap_a],['P — Plan',s.soap_p]].filter(([_,v])=>v&&v.trim());
+      if(parts.length) sectionsHtml+=`<div class="rsec"><h3>${esc(s.heading)} — SOAP note</h3>${parts.map(([l,v])=>`<div class="fld"><span class="fl">${esc(l)}:</span> ${br(v)}</div>`).join('')}</div>`;
+    } else {
+      const parts=[['Assessment & clinical impressions',s.assessment],['Goals & progress',s.goals_progress],['Plan of care',s.plan],['Recommendations',s.recommendations],['Additional notes',s.body]].filter(([_,v])=>v&&v.trim());
+      if(parts.length) sectionsHtml+=`<div class="rsec"><h3>${esc(s.heading)}</h3>${parts.map(([l,v])=>`<div class="fld"><div class="fl">${esc(l)}</div><div>${br(v)}</div></div>`).join('')}</div>`;
+    }
+  });
+
+  const reportKind=isSoap?'SOAP Progress Note':'Comprehensive Developmental & Therapy Report';
+  w.document.write(`<html><head><title>${esc(r.title)}</title><style>
+    *{box-sizing:border-box}
+    body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:34px;max-width:760px;margin:auto;font-size:13.5px;line-height:1.5}
+    .lh{display:flex;align-items:center;gap:14px;border-bottom:4px solid #6C3483;box-shadow:0 3px 0 #FFB020;padding-bottom:12px;margin-bottom:8px}
+    .lh img{height:58px}
+    .lh h1{color:#6C3483;margin:0;font-size:17px}
+    .muted{color:#666;font-size:11.5px}
+    .kind{text-align:center;font-size:15px;font-weight:700;color:#4A1E63;letter-spacing:.02em;margin:14px 0 4px;text-transform:uppercase}
+    .conf{text-align:center;font-size:10.5px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
+    table.bio{width:100%;border-collapse:collapse;margin:6px 0 18px}
+    table.bio td{border:1px solid #e3d9ec;padding:5px 9px;vertical-align:top}
+    td.bk{background:#f6f0fa;font-weight:600;width:32%;color:#4A1E63}
+    h2.sh{font-size:13px;color:#0F6E56;border-bottom:2px solid #0F6E56;padding-bottom:3px;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.03em}
+    .rsec{margin-bottom:14px;page-break-inside:avoid}
+    .rsec h3{font-size:13px;color:#6C3483;margin:0 0 5px}
+    .fld{margin-bottom:7px}
+    .fl{font-weight:700;color:#333}
+    .block{white-space:pre-wrap;margin-bottom:12px}
+    .sig{margin-top:36px;display:flex;justify-content:space-between;gap:26px}
+    .sig div{flex:1;border-top:1px solid #999;padding-top:6px;font-size:11.5px;color:#555}
+    @media print{body{padding:0}}
   </style></head><body>
-    <div class="lh"><img src="${LOGO_FULL}" alt="Mindora" style="height:60px;display:block;margin-bottom:8px"/>
-    <h1>${escapeHtml((COMPANY&&COMPANY.company_name)||'Mindora Inclusive Child Development Services Co. Ltd')}</h1>
-    <div class="muted">${escapeHtml((COMPANY&&COMPANY.address)||'Kisaasi / Kikaya, Kampala')} · mindoraicds@gmail.com · 0741 397 167</div></div>
-    <div class="rtitle">${escapeHtml(r.title)}</div>
-    <div class="rmeta">${c?('Child: '+escapeHtml(c.full_name)+' · '):''}${r.period?escapeHtml(r.period)+' · ':''}Prepared ${fmtDate(isoD(new Date()))}</div>
-    ${body}
-    <div class="sig"><div>Prepared by</div><div>Reviewed by</div><div>Date</div></div>
-    <p class="muted" style="margin-top:24px">Confidential · Mindora Inclusive Child Development Services · Home, Hope &amp; Harmony</p>
+    <div class="lh"><img src="${LOGO_FULL}" alt="Mindora"/>
+      <div><h1>${esc((COMPANY&&COMPANY.company_name)||'Mindora Inclusive Child Development Services Co. Ltd')}</h1>
+      <div class="muted">${esc((COMPANY&&COMPANY.address)||'Kisaasi / Kikaya, Kampala')} · mindoraicds@gmail.com · 0741 397 167${COMPANY&&COMPANY.reg_no?' · Reg '+esc(COMPANY.reg_no):''}</div></div>
+    </div>
+    <div class="kind">${esc(reportKind)}</div>
+    <div class="conf">Confidential clinical document</div>
+
+    <h2 class="sh">Biodata</h2>
+    <table class="bio">${bioRows||'<tr><td class="bk">Name</td><td class="bv">'+esc(c.full_name||'')+'</td></tr>'}</table>
+
+    ${r.referral_reason?`<h2 class="sh">Reason for referral</h2><div class="block">${br(r.referral_reason)}</div>`:''}
+    ${r.background?`<h2 class="sh">Background &amp; history</h2><div class="block">${br(r.background)}</div>`:''}
+
+    <h2 class="sh">${isSoap?'Clinical notes':'Assessment, goals &amp; progress'}</h2>
+    ${sectionsHtml||'<div class="muted">No section content yet.</div>'}
+
+    ${r.overall_recommendations?`<h2 class="sh">Overall recommendations</h2><div class="block">${br(r.overall_recommendations)}</div>`:''}
+
+    <div class="sig"><div>Prepared by (name &amp; signature)</div><div>Designation</div><div>Date</div></div>
+    <p class="muted" style="margin-top:20px;text-align:center">This report is confidential and prepared by Mindora Inclusive Child Development Services · Home, Hope &amp; Harmony</p>
     </body></html>`);
   w.document.close(); w.focus();
   setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
