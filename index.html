@@ -320,6 +320,16 @@ a{color:var(--purple)}
 .chk-row{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer}
 .chk-row input{width:auto}
 .sec-body{background:var(--accent-soft);border-radius:8px;padding:10px 12px}
+/* rate cards */
+.rc-group{margin-bottom:18px}
+.rc-group-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-deep);margin:0 0 8px;opacity:.85}
+.rc-row{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--card)}
+.rc-label{flex:1;min-width:0}
+.rc-name{font-size:14px;font-weight:600;color:var(--ink)}
+.rc-unit{font-size:12px;color:var(--muted)}
+.rc-amt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
+.rc-input{width:130px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;text-align:right;font-family:inherit}
+.rc-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 /* Model B programme tracker */
 .mbc-progress{margin-bottom:14px}
 .mbc-bar{height:8px;background:var(--accent-soft);border-radius:6px;overflow:hidden;margin-bottom:6px}
@@ -457,6 +467,7 @@ const NAV = {
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
     {k:'reports',label:'Reports',icon:'schedule',directorOnly:true},
     {k:'community',label:'Community',icon:'chat'},
+    {k:'case_discussions',label:'Case discussions',icon:'chat'},
     {k:'access',label:'People & access',icon:'profile',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
   ],
@@ -464,6 +475,7 @@ const NAV = {
     {k:'pro_requests',label:'Requests',icon:'requests'},
     {k:'pro_children',label:'My children',icon:'child'},
     {k:'pro_reports',label:'Report tasks',icon:'schedule'},
+    {k:'case_discussions',label:'Case discussions',icon:'chat'},
     {k:'pro_program',label:'Program & CPD',icon:'programs'},
     {k:'pro_community',label:'Community',icon:'chat'},
     {k:'team',label:'Team',icon:'team'},
@@ -487,6 +499,7 @@ let ME={id:null,name:'',email:'',role:null};
 let SELECTED_PERSON=null;
 const ATTACH_STATE={};
 let SELECTED_REPORT=null;
+let SELECTED_DISCUSSION=null;
 let currentView='dashboard';
 let MY_PROF_ID=null;
 let SELECTED_CHILD=null;
@@ -751,7 +764,7 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
@@ -764,7 +777,7 @@ function go(view){
    child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
    child_chat:(vv)=>renderChildChat(vv,SELECTED_CHILD),
    staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD),
-   pro_program:renderProProgram,
+   pro_program:renderProProgram,case_discussions:renderCaseDiscussions,discussion_view:(vv)=>renderDiscussionView(vv,SELECTED_DISCUSSION),
    child_reports:(vv)=>renderChildReports(vv,SELECTED_CHILD),
    child_goals:(vv)=>renderChildGoals(vv,SELECTED_CHILD),
    report_edit:(vv)=>renderReportEdit(vv,SELECTED_REPORT),
@@ -1620,6 +1633,100 @@ async function renderParentBilling(v){
     <span class="pill ${i.status==='paid'?'active':'enquiry'}">${i.status==='paid'?'paid':'due'}</span></div>`)));
 }
 
+/* ===================== CASE DISCUSSION SPACES ===================== */
+async function renderCaseDiscussions(v){
+  const {data:discs}=await sb.from('case_discussions').select('*').order('created_at',{ascending:false});
+  const canCreate = isStaff() || ME.role==='professional';
+  v.innerHTML=`<div class="welcome"><h1>Case discussions</h1><p>Discuss and plan shared cases with other professionals. ${isStaff()?'As director you can see and join every discussion.':'Open discussions are visible to all professionals; closed ones only to chosen members. The director is always notified.'}</p></div>
+    ${canCreate?'<div class="section-head"><h3>Discussions</h3><button class="btn btn-primary btn-sm" id="newDisc" style="width:auto">+ New discussion</button></div>':'<div class="section-head"><h3>Discussions</h3></div>'}
+    <div class="rows" id="discRows"></div>`;
+  if(canCreate) $('#newDisc').onclick=()=>newDiscussionForm();
+  const rows=$('#discRows');
+  if(!discs||!discs.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No discussions yet</h4><p>Start one to plan a shared case with colleagues.</p></div>'; return; }
+  discs.forEach(d=>{
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${icon('chat')}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(d.topic)}</div><div class="row-sub">${d.visibility==='closed'?'🔒 Closed':'🌐 Open to all professionals'} · ${fmtDate(d.created_at)}</div></div>
+      <span class="pill ${d.visibility==='closed'?'enquiry':'active'}">${d.visibility}</span></div>`);
+    card.onclick=()=>{ SELECTED_DISCUSSION=d; go('discussion_view'); };
+    rows.appendChild(card);
+  });
+}
+async function newDiscussionForm(){
+  // load children (optional link) and professionals (for closed member picking)
+  const [{data:kids},{data:pros}]=await Promise.all([
+    sb.from('clients').select('id,full_name').order('full_name'),
+    sb.from('v_public_profiles').select('id,name,role').eq('role','professional')
+  ]);
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:560px">
+    <h3>New case discussion</h3><div class="sub">The director is always notified and can join any discussion.</div>
+    <div class="form-row"><label>Topic *</label><input id="d_topic" placeholder="e.g. Aisha K — coordinating speech & OT goals"/></div>
+    <div class="form-row"><label>Link to child (optional)</label><select id="d_child"><option value="">— none —</option>${(kids||[]).map(k=>`<option value="${k.id}">${escapeHtml(k.full_name)}</option>`).join('')}</select></div>
+    <div class="form-row"><label>Who can see this</label><select id="d_vis"><option value="open">Open — all professionals</option><option value="closed">Closed — only chosen members</option></select></div>
+    <div class="form-row" id="d_memWrap" style="display:none"><label>Members</label>
+      <div class="chk-list">${(pros||[]).map(p=>`<label class="chk-row"><input type="checkbox" class="memChk" data-pid="${p.id}"/> ${escapeHtml(p.name)}</label>`).join('')||'<div class="row-sub">No professionals to add.</div>'}</div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="d_cancel">Cancel</button><button class="btn btn-primary" id="d_save">Create</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const visSel=m.querySelector('#d_vis'), memWrap=m.querySelector('#d_memWrap');
+  visSel.onchange=()=>{ memWrap.style.display = visSel.value==='closed'?'block':'none'; };
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#d_cancel').onclick=close;
+  m.querySelector('#d_save').onclick=async()=>{
+    const topic=m.querySelector('#d_topic').value.trim();
+    if(!topic){toast('Add a topic.',true);return;}
+    const btn=m.querySelector('#d_save');btn.disabled=true;btn.textContent='Creating…';
+    const vis=visSel.value;
+    const {data:disc,error}=await sb.from('case_discussions').insert({topic,client_id:m.querySelector('#d_child').value||null,visibility:vis,created_by:ME.id}).select().single();
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Create';return;}
+    // always add creator as member; add chosen members if closed
+    const members=[{discussion_id:disc.id,profile_id:ME.id}];
+    if(vis==='closed'){ [...m.querySelectorAll('.memChk:checked')].forEach(chk=>{ if(chk.dataset.pid!==ME.id) members.push({discussion_id:disc.id,profile_id:chk.dataset.pid}); }); }
+    await sb.from('case_discussion_members').insert(members);
+    toast('Discussion created'); close(); SELECTED_DISCUSSION=disc; go('discussion_view');
+  };
+}
+async function renderDiscussionView(v,d){
+  if(!d){ go('case_discussions'); return; }
+  const {data:msgs}=await sb.from('case_discussion_messages').select('*').eq('discussion_id',d.id).order('created_at');
+  let child=null;
+  if(d.client_id){ const {data:c}=await sb.from('clients').select('full_name').eq('id',d.client_id).maybeSingle(); child=c; }
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="dBack" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(d.topic)}</h1><p>${d.visibility==='closed'?'🔒 Closed discussion':'🌐 Open to all professionals'}${child?' · '+escapeHtml(child.full_name):''}</p></div>
+    <div class="chat" id="discBox"></div>
+    <div id="discAtt" class="chat-att"></div>
+    <div class="chat-compose"><textarea id="discInput" placeholder="Write a message…" rows="2"></textarea><button class="btn btn-primary" id="discSend" style="width:auto">Send</button></div>`;
+  $('#dBack').onclick=()=>go('case_discussions');
+  attachmentUploader('discAtt','discMsg','discussions',[]);
+  const box=$('#discBox');
+  function paint(rows){
+    box.innerHTML=(rows&&rows.length)?'':'<div class="empty" style="padding:30px"><h4>No messages yet</h4><p>Start the discussion.</p></div>';
+    (rows||[]).forEach(msg=>{
+      const mine=msg.author_id===ME.id;
+      box.appendChild(el(`<div class="bubble-row ${mine?'me':''}"><div class="bubble">
+        <div class="bubble-meta">${escapeHtml(msg.author_name||'Someone')} · <span style="text-transform:capitalize">${escapeHtml(msg.author_role||'')}</span> · ${new Date(msg.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        ${msg.body?`<div class="bubble-body">${escapeHtml(msg.body)}</div>`:''}
+        ${attachmentsView(msg.attachments)}
+      </div></div>`));
+    });
+    box.scrollTop=box.scrollHeight;
+  }
+  paint(msgs);
+  $('#discSend').onclick=async()=>{
+    const t=$('#discInput').value.trim(); const atts=ATTACH_STATE['discMsg']||[];
+    if(!t && !atts.length) return;
+    $('#discSend').disabled=true;
+    const {error}=await sb.from('case_discussion_messages').insert({discussion_id:d.id,author_id:ME.id,author_name:displayName(),author_role:ME.role,body:t,attachments:atts});
+    $('#discSend').disabled=false;
+    if(error){toast(error.message,true);return;}
+    $('#discInput').value=''; attachmentUploader('discAtt','discMsg','discussions',[]);
+    const {data:fresh}=await sb.from('case_discussion_messages').select('*').eq('discussion_id',d.id).order('created_at');
+    paint(fresh);
+  };
+}
+
 /* ===================== COMMUNITY ===================== */
 const KIND_LABEL={event:'Event',cpd:'CPD / Training',article:'Article'};
 function communityCard(c,manage){
@@ -1826,10 +1933,18 @@ async function renderInstHome(v){
    </div>
    <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>
    ${isModelBInst(inst)?`<div class="section-head" style="margin-top:24px"><h3>Our inclusion programme</h3></div><div id="mbProgress"></div>`:''}
+   <div class="section-head" style="margin-top:24px"><h3>Invoices</h3></div><div class="rows" id="iInvoices"></div>
    <div class="section-head" style="margin-top:24px"><h3>Termly reports from Mindora</h3></div><div class="rows" id="iSchoolReps"></div>
    <div class="section-head" style="margin-top:24px"><h3>Activity &amp; events with Mindora</h3></div><div class="rows" id="iAct"></div>`;
   $('#reqRep').onclick=()=>reportRequestForm(inst);
   if(isModelBInst(inst)) renderModelBProgress(inst);
+  sb.from('invoices').select('*').eq('institution_id',inst.id).order('invoice_date',{ascending:false}).then(({data:invs})=>{
+    const iv=$('#iInvoices'); if(!iv) return;
+    iv.innerHTML=(invs&&invs.length)?'':'<div class="empty" style="padding:20px"><h4>No invoices yet</h4><p>Invoices issued by Mindora will appear here.</p></div>';
+    (invs||[]).forEach(x=>iv.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(x.description||x.invoice_no||'Invoice')}</div><span class="pill ${x.status==='paid'?'active':'enquiry'}">${escapeHtml(x.status||'sent')}</span></div>
+      <div class="row-sub">${x.invoice_no?escapeHtml(x.invoice_no)+' · ':''}UGX ${Number(x.amount||0).toLocaleString()}${x.invoice_date?' · '+fmtDate(x.invoice_date):''}${x.due_date?' · due '+fmtDate(x.due_date):''}</div></div>`)));
+  });
   // shared termly reports
   const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).eq('status','shared').order('created_at',{ascending:false});
   const srr=$('#iSchoolReps');
@@ -2302,13 +2417,14 @@ async function renderFinances(v){
   if(!isDirector()){ v.innerHTML=`<div class="coming"><h3>Finances</h3><p>This area is for the Director only.</p></div>`; return; }
   await loadAccounts();
   v.innerHTML=`<div class="searchbar" style="gap:8px;flex-wrap:wrap">
-      ${['overview','cash book','invoices','bills','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
+      ${['overview','cash book','invoices','bills','rate cards','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
     </div><div id="finBody"><div class="loading"><div class="spin"></div> Loading…</div></div>`;
   document.querySelectorAll('.fintab').forEach(b=>b.onclick=()=>{FIN_TAB=b.dataset.t;renderFinances($('#view'));});
   const body=$('#finBody');
   if(FIN_TAB==='cash book')return finCashbook(body);
   if(FIN_TAB==='invoices')return finInvoices(body);
   if(FIN_TAB==='bills')return finBills(body);
+  if(FIN_TAB==='rate cards')return finRateCards(body);
   if(FIN_TAB==='taxes')return finTaxes(body);
   return finOverview(body);
 }
@@ -2511,6 +2627,7 @@ function invoiceForm(i){
     <h3>${edit?'Edit invoice':'New invoice'}</h3><div class="sub">Money owed to Mindora.</div>
     <div class="form-row"><label>Client / payer name</label><input id="i_client" value="${edit?escapeHtml(i.client_name||''):''}"/></div>
     <div class="form-row"><label>Link to child (so the parent can see it)</label><select id="i_child"><option value="">— none —</option></select></div>
+    <div class="form-row"><label>Link to institution (so the school sees it)</label><select id="i_inst"><option value="">— none —</option></select></div>
     <div class="form-row"><label>Description</label><input id="i_desc" value="${edit?escapeHtml(i.description||''):''}" placeholder="e.g. June program fee"/></div>
     <div class="form-row two">
       <div><label>Amount (UGX)</label><input id="i_amt" type="number" value="${edit?(i.amount??''):''}"/></div>
@@ -2528,6 +2645,10 @@ function invoiceForm(i){
     const selChild=m.querySelector('#i_child');
     (data||[]).forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.full_name;if(edit&&i.client_id===c.id)o.selected=true;selChild.appendChild(o);});
   });
+  sb.from('institutions').select('id,name').order('name').then(({data})=>{
+    const selInst=m.querySelector('#i_inst');
+    (data||[]).forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.name;if(edit&&i.institution_id===x.id)o.selected=true;selInst.appendChild(o);});
+  });
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#i_cancel').onclick=close;
   if(edit){ m.querySelector('#i_del').onclick=async()=>{ if(!confirm('Delete this invoice? Any payments recorded against it stay in the cash book.'))return; const {error}=await sb.from('invoices').delete().eq('id',i.id); if(error){toast(error.message,true);return;} toast('Invoice deleted'); close(); renderFinances($('#view')); }; }
@@ -2538,6 +2659,7 @@ function invoiceForm(i){
     const payload={
       client_name:m.querySelector('#i_client').value.trim()||null,
       client_id:m.querySelector('#i_child').value||null,
+      institution_id:m.querySelector('#i_inst').value||null,
       description:m.querySelector('#i_desc').value.trim()||null,
       amount:amt, income_account_code:m.querySelector('#i_acct').value,
       invoice_date:m.querySelector('#i_date').value||today,
@@ -2548,6 +2670,50 @@ function invoiceForm(i){
     else { payload.invoice_no='INV-'+Date.now().toString().slice(-6); payload.status='sent'; ({error}=await sb.from('invoices').insert(payload)); }
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent=edit?'Save changes':'Create invoice';return;}
     toast(edit?'Invoice updated':'Invoice created'); close(); renderFinances($('#view'));
+  };
+}
+/* ===================== RATE CARDS (internal, director-fills) ===================== */
+const RATE_CATALOGUE=[
+  {program:'child_band',label:'Band 1 — monthly program fee',item_key:'band1',unit:'per month'},
+  {program:'child_band',label:'Band 2 — monthly program fee',item_key:'band2',unit:'per month'},
+  {program:'child_band',label:'Band 3 — monthly program fee',item_key:'band3',unit:'per month'},
+  {program:'child_band',label:'Band 4 — monthly program fee',item_key:'band4',unit:'per month'},
+  {program:'child_band',label:'Supported Rate (60% of Full Rate)',item_key:'supported',unit:'per month'},
+  {program:'model_a',label:'Model A — school partnership (per child)',item_key:'model_a_child',unit:'per month'},
+  {program:'model_b',label:'Model B — retainer (Small school)',item_key:'model_b_small',unit:'retainer / month'},
+  {program:'model_b',label:'Model B — retainer (Medium school)',item_key:'model_b_medium',unit:'retainer / month'},
+  {program:'model_b',label:'Model B — retainer (Large school)',item_key:'model_b_large',unit:'retainer / month'},
+  {program:'model_b',label:'Model B — setup / program design (one-off)',item_key:'model_b_setup',unit:'one-off'},
+  {program:'clinic',label:'Clinic / Centre — monthly retainer',item_key:'clinic_retainer',unit:'retainer / month'},
+  {program:'parent',label:'Parent Program — coaching block',item_key:'parent_block',unit:'per block'},
+  {program:'consultancy',label:'Consultancy — advisory session',item_key:'consult_session',unit:'per session'},
+  {program:'consultancy',label:'Consultancy — inclusion audit (school)',item_key:'consult_audit',unit:'per audit'},
+  {program:'consultancy',label:'Teacher training — per session',item_key:'teacher_training',unit:'per session'},
+];
+const RATE_PROGRAMS={child_band:'Child Program (Bands)',model_a:'Institution — Model A',model_b:'Institution — Model B',clinic:'Clinic / Centre',parent:'Parent Program',consultancy:'Consultancy & Advisory'};
+async function finRateCards(b){
+  const {data:saved}=await sb.from('rate_cards').select('*');
+  const byKey={}; (saved||[]).forEach(r=>byKey[r.program+'|'+r.item_key]=r);
+  const merged=RATE_CATALOGUE.map(cat=>{ const rec=byKey[cat.program+'|'+cat.item_key]; return rec?{...cat,...rec}:{...cat,_new:true}; });
+  const groups={}; merged.forEach(m=>{ (groups[m.program]=groups[m.program]||[]).push(m); });
+  b.innerHTML=`<div class="section-head"><h3>Internal rate cards</h3></div>
+    <p style="color:var(--muted);font-size:13px;margin:-4px 0 14px">Confidential — internal only. Fill in figures as you confirm them. These are your reference rates; they don't auto-apply to invoices.</p>
+    ${Object.keys(groups).map(pg=>`<div class="rc-group"><div class="rc-group-h">${RATE_PROGRAMS[pg]||pg}</div>
+      ${groups[pg].map(r=>`<div class="rc-row">
+        <div class="rc-label"><div class="rc-name">${escapeHtml(r.label)}</div>${r.unit?`<div class="rc-unit">${escapeHtml(r.unit)}</div>`:''}</div>
+        <div class="rc-amt">UGX <input type="number" class="rc-input" value="${r.amount??''}" placeholder="—" data-prog="${r.program}" data-key="${r.item_key}" data-label="${escapeHtml(r.label)}" data-unit="${escapeHtml(r.unit||'')}"/></div>
+      </div>`).join('')}</div>`).join('')}
+    <div style="margin-top:16px"><button class="btn btn-primary" id="rcSave" style="width:auto">Save rate cards</button></div>`;
+  $('#rcSave').onclick=async()=>{
+    const btn=$('#rcSave');btn.disabled=true;btn.textContent='Saving…';
+    const rows=[...b.querySelectorAll('.rc-input')].map(inp=>({
+      program:inp.dataset.prog, item_key:inp.dataset.key, label:inp.dataset.label,
+      unit:inp.dataset.unit||null, amount:inp.value===''?null:Number(inp.value),
+      updated_by:ME.id, updated_at:new Date().toISOString()
+    }));
+    const {error}=await sb.from('rate_cards').upsert(rows,{onConflict:'program,item_key'});
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save rate cards';return;}
+    toast('Rate cards saved'); btn.disabled=false;btn.textContent='Save rate cards';
   };
 }
 async function finBills(b){
