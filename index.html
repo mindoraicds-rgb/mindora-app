@@ -337,6 +337,7 @@ a{color:var(--purple)}
 .dash-ic{width:52px;height:52px;border-radius:14px;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent)}
 .dash-ic svg{width:26px;height:26px}
 .dash-lbl{font-size:14px;font-weight:600;color:var(--ink)}
+.dash-desc{font-size:11.5px;color:var(--muted);margin-top:-4px}
 /* Model B programme tracker */
 .mbc-progress{margin-bottom:14px}
 .mbc-bar{height:8px;background:var(--accent-soft);border-radius:6px;overflow:hidden;margin-bottom:6px}
@@ -494,7 +495,6 @@ const NAV = {
   parent:[
     {k:'role_home',label:'Home',icon:'dashboard'},
     {k:'parent_home',label:'My child',icon:'child'},
-    {k:'team',label:'Care team',icon:'team'},
     {k:'parent_community',label:'Community',icon:'inst'},
     {k:'parent_billing',label:'Billing',icon:'fin'},
     {k:'support',label:'Support / contact team',icon:'chat'},
@@ -785,6 +785,7 @@ $('#scrim').addEventListener('click',closeSide);
 const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals'};
 function go(view){
   currentView=view;
+  if(view==='inst_home') INST_SECTION=null;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
@@ -2022,72 +2023,105 @@ function communityForm(c){
 }
 
 /* ===================== INSTITUTION PORTAL ===================== */
+let INST_SECTION=null; // null = dashboard; else 'reports'|'programme'|'invoices'|'termly'|'activity'
 async function renderInstHome(v){
   const {data:insts,error}=await sb.from('institutions').select('*');
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
   const inst=(insts||[])[0];
   if(!inst){v.innerHTML=`<div class="empty"><svg class="e-mark" viewBox="0 0 24 24" fill="none" stroke="#B589C9" stroke-width="1.5"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><h4>Not linked yet</h4><p>Your login isn't linked to an institution record yet. Please contact Mindora.</p></div>`;return;}
-  const [{data:acts},{data:reqs},{data:impactArr}]=await Promise.all([
-    sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:false}),
-    sb.from('report_requests').select('*').eq('institution_id',inst.id).order('requested_at',{ascending:false}),
-    sb.from('v_institution_impact').select('*').eq('institution_id',inst.id)
-  ]);
-  const im=(impactArr&&impactArr[0])||{};
-  const isModelB=(inst.type==='school_model_b');
+  const im=((await sb.from('v_institution_impact').select('*').eq('institution_id',inst.id)).data||[])[0]||{};
+  const modelB=isModelBInst(inst);
+
+  // ---- SUB-SECTION VIEW ----
+  if(INST_SECTION){
+    const titles={reports:'Reports',programme:'Our inclusion programme',invoices:'Invoices',termly:'Termly reports from Mindora',activity:'Activity & events with Mindora'};
+    v.innerHTML=`<button class="btn btn-ghost btn-sm" id="iHomeBack" style="width:auto;margin-bottom:14px">← Back to home</button>
+      <div class="welcome"><h1>${escapeHtml(titles[INST_SECTION]||'')}</h1><p>${escapeHtml(inst.name)}</p></div>
+      <div id="iSecBody"></div>`;
+    $('#iHomeBack').onclick=()=>{ INST_SECTION=null; renderInstHome($('#view')); };
+    return renderInstSection(inst, INST_SECTION);
+  }
+
+  // ---- DASHBOARD ----
+  const tiles=[
+    {k:'reports',label:'Reports',icon:'schedule',desc:'Request a report'},
+    ...(modelB?[{k:'programme',label:'Our inclusion programme',icon:'programs',desc:'Model B progress'}]:[]),
+    {k:'invoices',label:'Invoices',icon:'fin',desc:'Your billing'},
+    {k:'termly',label:'Termly reports',icon:'schedule',desc:'Shared by Mindora'},
+    {k:'activity',label:'Activity & events',icon:'inst',desc:'Trainings, visits, events'},
+  ];
   v.innerHTML=`<div class="welcome"><h1>${escapeHtml(inst.name)}</h1>
      <p>${escapeHtml(INST_TYPES[inst.type]||inst.type||'')}${inst.partnership_status?' · '+escapeHtml(inst.partnership_status):''}</p>
-     <div style="margin-top:10px"><span class="model-badge">${isModelB?'Model B · Full inclusion partner':'Partnership'}</span></div></div>
+     <div style="margin-top:10px"><span class="model-badge">${modelB?'Model B · Full inclusion partner':'Partnership'}</span></div></div>
    <div class="impact-grid">
      <div class="impact"><div class="n">${im.children_supported||0}</div><div class="l">Children supported</div></div>
      <div class="impact"><div class="n">${im.active_children||0}</div><div class="l">Active this term</div></div>
      <div class="impact"><div class="n">${im.sessions_this_month||0}</div><div class="l">Sessions this month</div></div>
      <div class="impact"><div class="n">${im.activity_entries||0}</div><div class="l">Joint activities</div></div>
    </div>
-   <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>
-   ${isModelBInst(inst)?`<div class="section-head" style="margin-top:24px"><h3>Our inclusion programme</h3></div><div id="mbProgress"></div>`:''}
-   <div class="section-head" style="margin-top:24px"><h3>Invoices</h3></div><div class="rows" id="iInvoices"></div>
-   <div class="section-head" style="margin-top:24px"><h3>Termly reports from Mindora</h3></div><div class="rows" id="iSchoolReps"></div>
-   <div class="section-head" style="margin-top:24px"><h3>Activity &amp; events with Mindora</h3></div><div class="rows" id="iAct"></div>`;
-  $('#reqRep').onclick=()=>reportRequestForm(inst);
-  if(isModelBInst(inst)) renderModelBProgress(inst);
-  sb.from('invoices').select('*').eq('institution_id',inst.id).order('invoice_date',{ascending:false}).then(({data:invs})=>{
-    const iv=$('#iInvoices'); if(!iv) return;
+   <div class="section-head" style="margin-top:8px"><h3>Explore</h3></div>
+   <div class="dash-grid" id="iDash"></div>`;
+  const grid=$('#iDash');
+  tiles.forEach(t=>{
+    const tile=el(`<div class="dash-tile"><div class="dash-ic">${icon(t.icon)}</div><div class="dash-lbl">${t.label}</div><div class="dash-desc">${t.desc}</div></div>`);
+    tile.onclick=()=>{ INST_SECTION=t.k; renderInstHome($('#view')); };
+    grid.appendChild(tile);
+  });
+}
+// Renders a single institution sub-section into #iSecBody
+async function renderInstSection(inst, section){
+  const body=$('#iSecBody'); if(!body) return;
+  if(section==='reports'){
+    body.innerHTML=`<div class="section-head"><h3>Report requests</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>`;
+    $('#reqRep').onclick=()=>reportRequestForm(inst);
+    const {data:reqs}=await sb.from('report_requests').select('*').eq('institution_id',inst.id).order('requested_at',{ascending:false});
+    const rr=$('#iReq');
+    rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:20px"><h4>No requests yet</h4><p>Ask Mindora for a monthly or termly report.</p></div>`;
+    (reqs||[]).forEach(r=>{
+      const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml((r.report_type||'report'))}${r.period?' · '+escapeHtml(r.period):''}</div><span class="pill ${r.status==='fulfilled'?'active':(r.status==='declined'?'exited':(r.status==='cancelled'?'exited':'enquiry'))}">${r.status}</span></div>
+      ${r.note?`<div class="row-sub" style="white-space:normal">${escapeHtml(r.note)}</div>`:''}
+      ${r.response_note?`<div class="row-sub" style="color:var(--teal);white-space:normal">Mindora: ${escapeHtml(r.response_note)}</div>`:''}
+      ${r.status==='pending'?'<button class="btn btn-ghost btn-sm cancelReq" style="width:auto;align-self:flex-end;color:var(--danger)">Cancel / recall request</button>':''}</div>`);
+      const cb=card.querySelector('.cancelReq');
+      if(cb) cb.onclick=async()=>{
+        if(!confirm('Recall this report request? Mindora will see it as cancelled.'))return;
+        const {error}=await sb.from('report_requests').update({status:'cancelled',cancelled_at:new Date().toISOString(),cancelled_by:ME.id}).eq('id',r.id);
+        if(error){toast(error.message,true);return;}
+        toast('Request recalled'); renderInstSection(inst,'reports');
+      };
+      rr.appendChild(card);
+    });
+  } else if(section==='programme'){
+    body.innerHTML=`<div id="mbProgress"></div>`;
+    renderModelBProgress(inst);
+  } else if(section==='invoices'){
+    body.innerHTML=`<div class="rows" id="iInvoices"></div>`;
+    const {data:invs}=await sb.from('invoices').select('*').eq('institution_id',inst.id).order('invoice_date',{ascending:false});
+    const iv=$('#iInvoices');
     iv.innerHTML=(invs&&invs.length)?'':'<div class="empty" style="padding:20px"><h4>No invoices yet</h4><p>Invoices issued by Mindora will appear here.</p></div>';
     (invs||[]).forEach(x=>iv.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
       <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(x.description||x.invoice_no||'Invoice')}</div><span class="pill ${x.status==='paid'?'active':'enquiry'}">${escapeHtml(x.status||'sent')}</span></div>
       <div class="row-sub">${x.invoice_no?escapeHtml(x.invoice_no)+' · ':''}UGX ${Number(x.amount||0).toLocaleString()}${x.invoice_date?' · '+fmtDate(x.invoice_date):''}${x.due_date?' · due '+fmtDate(x.due_date):''}</div></div>`)));
-  });
-  // shared termly reports
-  const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).eq('status','shared').order('created_at',{ascending:false});
-  const srr=$('#iSchoolReps');
-  srr.innerHTML=(sreps&&sreps.length)?'':'<div class="empty" style="padding:20px"><h4>No reports shared yet</h4><p>Termly reports from Mindora will appear here.</p></div>';
-  (sreps||[]).forEach(r=>{
-    const card=el(`<div class="row-card"><div class="row-ava">${icon('schedule')}</div>
-      <div class="row-main"><div class="row-name">${escapeHtml(r.title)}</div><div class="row-sub">${r.period?escapeHtml(r.period)+' · ':''}${fmtDate(r.created_at)}</div></div>
-      <span class="row-sub">View →</span></div>`);
-    card.onclick=()=>schoolReportView(r,inst,true);
-    srr.appendChild(card);
-  });
-  const rr=$('#iReq');
-  rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:20px"><h4>No requests yet</h4><p>Ask Mindora for a monthly or termly report.</p></div>`;
-  (reqs||[]).forEach(r=>{
-    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml((r.report_type||'report'))}${r.period?' · '+escapeHtml(r.period):''}</div><span class="pill ${r.status==='fulfilled'?'active':(r.status==='declined'?'exited':(r.status==='cancelled'?'exited':'enquiry'))}">${r.status}</span></div>
-    ${r.note?`<div class="row-sub" style="white-space:normal">${escapeHtml(r.note)}</div>`:''}
-    ${r.response_note?`<div class="row-sub" style="color:var(--teal);white-space:normal">Mindora: ${escapeHtml(r.response_note)}</div>`:''}
-    ${r.status==='pending'?'<button class="btn btn-ghost btn-sm cancelReq" style="width:auto;align-self:flex-end;color:var(--danger)">Cancel / recall request</button>':''}</div>`);
-    const cb=card.querySelector('.cancelReq');
-    if(cb) cb.onclick=async()=>{
-      if(!confirm('Recall this report request? Mindora will see it as cancelled.'))return;
-      const {error}=await sb.from('report_requests').update({status:'cancelled',cancelled_at:new Date().toISOString(),cancelled_by:ME.id}).eq('id',r.id);
-      if(error){toast(error.message,true);return;}
-      toast('Request recalled'); renderInstHome($('#view'));
-    };
-    rr.appendChild(card);
-  });
-  const ar=$('#iAct');
-  ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:20px"><h4>No activity yet</h4><p>Trainings, audits, visits and events logged by Mindora appear here.</p></div>`;
-  (acts||[]).forEach(a=>ar.appendChild(activityCard(a)));
+  } else if(section==='termly'){
+    body.innerHTML=`<div class="rows" id="iSchoolReps"></div>`;
+    const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).eq('status','shared').order('created_at',{ascending:false});
+    const srr=$('#iSchoolReps');
+    srr.innerHTML=(sreps&&sreps.length)?'':'<div class="empty" style="padding:20px"><h4>No reports shared yet</h4><p>Termly reports from Mindora will appear here.</p></div>';
+    (sreps||[]).forEach(r=>{
+      const card=el(`<div class="row-card"><div class="row-ava">${icon('schedule')}</div>
+        <div class="row-main"><div class="row-name">${escapeHtml(r.title)}</div><div class="row-sub">${r.period?escapeHtml(r.period)+' · ':''}${fmtDate(r.created_at)}</div></div>
+        <span class="row-sub">View →</span></div>`);
+      card.onclick=()=>schoolReportView(r,inst,true);
+      srr.appendChild(card);
+    });
+  } else if(section==='activity'){
+    body.innerHTML=`<div class="rows" id="iAct"></div>`;
+    const {data:acts}=await sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:false});
+    const ar=$('#iAct');
+    ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:20px"><h4>No activity yet</h4><p>Trainings, audits, visits and events logged by Mindora appear here.</p></div>`;
+    (acts||[]).forEach(a=>ar.appendChild(activityCard(a)));
+  }
 }
 function reportRequestForm(inst){
   const m=el(`<div class="modal-bg show"><div class="modal">
