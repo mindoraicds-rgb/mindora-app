@@ -1678,13 +1678,18 @@ async function newDiscussionForm(){
     if(!topic){toast('Add a topic.',true);return;}
     const btn=m.querySelector('#d_save');btn.disabled=true;btn.textContent='Creating…';
     const vis=visSel.value;
-    const {data:disc,error}=await sb.from('case_discussions').insert({topic,client_id:m.querySelector('#d_child').value||null,visibility:vis,created_by:ME.id}).select().single();
+    let memberIds=[];
+    if(vis==='closed'){ memberIds=[...m.querySelectorAll('.memChk:checked')].map(chk=>chk.dataset.pid).filter(Boolean); }
+    const {data:newId,error}=await sb.rpc('create_case_discussion',{
+      p_topic:topic,
+      p_client_id:m.querySelector('#d_child').value||null,
+      p_visibility:vis,
+      p_member_ids:memberIds
+    });
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Create';return;}
-    // always add creator as member; add chosen members if closed
-    const members=[{discussion_id:disc.id,profile_id:ME.id}];
-    if(vis==='closed'){ [...m.querySelectorAll('.memChk:checked')].forEach(chk=>{ if(chk.dataset.pid!==ME.id) members.push({discussion_id:disc.id,profile_id:chk.dataset.pid}); }); }
-    await sb.from('case_discussion_members').insert(members);
-    toast('Discussion created'); close(); SELECTED_DISCUSSION=disc; go('discussion_view');
+    toast('Discussion created'); close();
+    SELECTED_DISCUSSION={id:newId,topic,visibility:vis,client_id:m.querySelector('#d_child').value||null};
+    go('discussion_view');
   };
 }
 async function renderDiscussionView(v,d){
