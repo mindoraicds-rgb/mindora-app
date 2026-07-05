@@ -1816,8 +1816,20 @@ async function renderInstHome(v){
      <div class="impact"><div class="n">${im.activity_entries||0}</div><div class="l">Joint activities</div></div>
    </div>
    <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>
-   <div class="section-head" style="margin-top:24px"><h3>Activity with Mindora</h3></div><div class="rows" id="iAct"></div>`;
+   <div class="section-head" style="margin-top:24px"><h3>Termly reports from Mindora</h3></div><div class="rows" id="iSchoolReps"></div>
+   <div class="section-head" style="margin-top:24px"><h3>Activity &amp; events with Mindora</h3></div><div class="rows" id="iAct"></div>`;
   $('#reqRep').onclick=()=>reportRequestForm(inst);
+  // shared termly reports
+  const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).eq('status','shared').order('created_at',{ascending:false});
+  const srr=$('#iSchoolReps');
+  srr.innerHTML=(sreps&&sreps.length)?'':'<div class="empty" style="padding:20px"><h4>No reports shared yet</h4><p>Termly reports from Mindora will appear here.</p></div>';
+  (sreps||[]).forEach(r=>{
+    const card=el(`<div class="row-card"><div class="row-ava">${icon('schedule')}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(r.title)}</div><div class="row-sub">${r.period?escapeHtml(r.period)+' · ':''}${fmtDate(r.created_at)}</div></div>
+      <span class="row-sub">View →</span></div>`);
+    card.onclick=()=>schoolReportView(r,inst,true);
+    srr.appendChild(card);
+  });
   const rr=$('#iReq');
   rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:20px"><h4>No requests yet</h4><p>Ask Mindora for a monthly or termly report.</p></div>`;
   (reqs||[]).forEach(r=>{
@@ -1836,10 +1848,8 @@ async function renderInstHome(v){
     rr.appendChild(card);
   });
   const ar=$('#iAct');
-  ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:20px"><h4>No activity yet</h4><p>Trainings, audits and visits logged by Mindora appear here.</p></div>`;
-  (acts||[]).forEach(a=>ar.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.title||a.kind||'Activity')}</div><span class="row-sub">${fmtDate(a.activity_date)}</span></div>
-    ${a.kind?`<div class="row-sub">${escapeHtml(a.kind)}</div>`:''}${a.detail?`<div class="row-sub" style="white-space:normal">${escapeHtml(a.detail)}</div>`:''}</div>`)));
+  ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:20px"><h4>No activity yet</h4><p>Trainings, audits, visits and events logged by Mindora appear here.</p></div>`;
+  (acts||[]).forEach(a=>ar.appendChild(activityCard(a)));
 }
 function reportRequestForm(inst){
   const m=el(`<div class="modal-bg show"><div class="modal">
@@ -1875,10 +1885,23 @@ async function renderInstitutionDetail(v,inst){
    <div class="searchbar"><button class="btn btn-ghost btn-sm" id="iEdit" style="width:auto">Edit details</button>
      <span class="row-sub" style="align-self:center">${inst.profile_id?'✓ login linked':'login not linked (add email + create login)'}</span></div>
    <div class="section-head" style="margin-top:10px"><h3>Report requests</h3></div><div class="rows" id="dReq"></div>
-   <div class="section-head" style="margin-top:22px"><h3>Activity</h3><button class="btn btn-primary btn-sm" id="addAct">+ Log activity</button></div><div class="rows" id="dAct"></div>`;
+   <div class="section-head" style="margin-top:22px"><h3>Termly reports</h3><button class="btn btn-primary btn-sm" id="newSchoolRep">+ New school report</button></div><div class="rows" id="dSchoolReps"></div>
+   <div class="section-head" style="margin-top:22px"><h3>Activity &amp; events</h3><button class="btn btn-primary btn-sm" id="addAct">+ Log activity</button></div><div class="rows" id="dAct"></div>`;
   $('#iBack').onclick=()=>go('institutions');
   $('#iEdit').onclick=()=>openInstitutionForm(inst);
   $('#addAct').onclick=()=>institutionActivityForm(inst);
+  $('#newSchoolRep').onclick=()=>schoolReportForm(inst);
+  // termly reports list
+  const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).order('created_at',{ascending:false});
+  const sr=$('#dSchoolReps');
+  sr.innerHTML=(sreps&&sreps.length)?'':'<div class="empty" style="padding:18px"><h4>No reports yet</h4><p>Generate a termly report from this school activity and impact.</p></div>';
+  (sreps||[]).forEach(r=>{
+    const card=el(`<div class="row-card"><div class="row-ava">${icon('schedule')}</div>
+      <div class="row-main"><div class="row-name">${escapeHtml(r.title)}</div><div class="row-sub">${r.period?escapeHtml(r.period)+' · ':''}${fmtDate(r.created_at)}</div></div>
+      <span class="pill ${r.status==='shared'?'active':'assessment'}">${r.status==='shared'?'Shared':'Draft'}</span></div>`);
+    card.onclick=()=>schoolReportView(r,inst);
+    sr.appendChild(card);
+  });
   const rr=$('#dReq');
   rr.innerHTML=(reqs&&reqs.length)?'':`<div class="empty" style="padding:18px"><h4>No requests</h4></div>`;
   (reqs||[]).forEach(r=>{
@@ -1892,30 +1915,198 @@ async function renderInstitutionDetail(v,inst){
   });
   const ar=$('#dAct');
   ar.innerHTML=(acts&&acts.length)?'':`<div class="empty" style="padding:18px"><h4>No activity logged</h4></div>`;
-  (acts||[]).forEach(a=>ar.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.title||a.kind||'Activity')}</div><span class="row-sub">${fmtDate(a.activity_date)}</span></div>
-    ${a.detail?`<div class="row-sub" style="white-space:normal">${escapeHtml(a.detail)}</div>`:''}</div>`)));
+  (acts||[]).forEach(a=>ar.appendChild(activityCard(a)));
+}
+// Shared rich activity/event card (used on staff + school portal)
+function activityCard(a){
+  const rows=[['Participants',a.participants],['Led by',a.lead_staff],['Outcomes',a.outcomes],['Next steps',a.next_steps]].filter(([_,v])=>v&&String(v).trim());
+  return el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      ${a.kind?`<span class="pill band">${escapeHtml(a.kind)}</span>`:''}
+      <div class="row-name" style="flex:1;min-width:120px">${escapeHtml(a.title||a.kind||'Activity')}</div>
+      <span class="row-sub">${fmtDate(a.activity_date)}</span>
+    </div>
+    ${a.detail?`<div class="row-sub" style="white-space:normal">${escapeHtml(a.detail)}</div>`:''}
+    ${rows.map(([l,v])=>`<div class="row-sub" style="white-space:normal"><b>${l}:</b> ${escapeHtml(v)}</div>`).join('')}
+    ${attachmentsView(a.attachments)}
+  </div>`);
+}
+/* ===================== SCHOOL TERMLY REPORTS ===================== */
+function schoolReportForm(inst){
+  const today=isoD(new Date());
+  const termAgo=isoD(new Date(Date.now()-90*86400000));
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>New school report</h3><div class="sub">Auto-assembled from ${escapeHtml(inst.name)}'s activity and impact for the period. Editable before sharing.</div>
+    <div class="form-row"><label>Report title *</label><input id="sr_title" value="Termly partnership report"/></div>
+    <div class="form-row two">
+      <div><label>Period from</label><input id="sr_start" type="date" value="${termAgo}"/></div>
+      <div><label>Period to</label><input id="sr_end" type="date" value="${today}"/></div>
+    </div>
+    <div class="form-row"><label>Period label</label><input id="sr_period" placeholder="e.g. Term 2 2026"/></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="sr_cancel">Cancel</button><button class="btn btn-primary" id="sr_save">Generate report</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#sr_cancel').onclick=close;
+  m.querySelector('#sr_save').onclick=async()=>{
+    const title=m.querySelector('#sr_title').value.trim();
+    if(!title){toast('Add a title.',true);return;}
+    const btn=m.querySelector('#sr_save');btn.disabled=true;btn.textContent='Generating…';
+    const pstart=m.querySelector('#sr_start').value||null, pend=m.querySelector('#sr_end').value||null;
+    let aq=sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:true});
+    if(pstart) aq=aq.gte('activity_date',pstart);
+    if(pend) aq=aq.lte('activity_date',pend);
+    const {data:acts}=await aq;
+    const list=acts||[];
+    const kinds=[...new Set(list.map(a=>a.kind).filter(Boolean))].join(', ');
+    const summary = list.length
+      ? `During this period, Mindora carried out ${list.length} activit${list.length===1?'y':'ies'} in partnership with ${inst.name}${kinds?', including '+kinds:''}.`
+      : `This report covers Mindora's partnership with ${inst.name} for the period.`;
+    const highlights = list.filter(a=>a.outcomes).map(a=>`• ${a.title||a.kind}: ${a.outcomes}`).join('\n');
+    const {data:rep,error}=await sb.from('school_reports').insert({
+      institution_id:inst.id,title,period:m.querySelector('#sr_period').value.trim()||null,
+      period_start:pstart,period_end:pend,summary,highlights:highlights||null,status:'draft',created_by:ME.id
+    }).select().single();
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Generate report';return;}
+    toast('Report generated'); close(); schoolReportView(rep,inst);
+  };
+}
+async function schoolReportView(r,inst,readOnly){
+  const staff=isStaff()&&!readOnly;
+  const [{data:impactArr},{data:actsRaw}]=await Promise.all([
+    sb.from('v_institution_impact').select('*').eq('institution_id',inst.id),
+    sb.from('institution_activity').select('*').eq('institution_id',inst.id).order('activity_date',{ascending:true})
+  ]);
+  const im=(impactArr&&impactArr[0])||{};
+  let acts=actsRaw||[];
+  if(r.period_start) acts=acts.filter(a=>!a.activity_date||a.activity_date>=r.period_start);
+  if(r.period_end) acts=acts.filter(a=>!a.activity_date||a.activity_date<=r.period_end);
+  const v=$('#view');
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="srBack" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(r.title)}</h1><p>${escapeHtml(inst.name)}${r.period?' · '+escapeHtml(r.period):''} · <span class="pill ${r.status==='shared'?'active':'assessment'}" style="vertical-align:middle">${r.status==='shared'?'Shared':'Draft'}</span></p></div>
+    ${staff?`<div class="qa-row">
+      <div class="qa" id="srEdit">${icon('profile')} Edit narrative</div>
+      <div class="qa" id="srPdf">${icon('schedule')} Download PDF</div>
+      ${r.status!=='shared'?`<div class="qa" id="srShare">${icon('assign')} Share with school</div>`:''}
+      <div class="qa" id="srDel" style="color:var(--danger);border-color:#F3C9CB">Delete</div>
+    </div>`:`<div class="qa-row"><div class="qa" id="srPdf">${icon('schedule')} Download PDF</div></div>`}
+    <div class="impact-grid" style="margin-bottom:16px">
+      <div class="impact"><div class="n">${im.children_supported||0}</div><div class="l">Children supported</div></div>
+      <div class="impact"><div class="n">${im.active_children||0}</div><div class="l">Active</div></div>
+      <div class="impact"><div class="n">${acts.length}</div><div class="l">Activities this period</div></div>
+      <div class="impact"><div class="n">${im.sessions_this_month||0}</div><div class="l">Sessions / month</div></div>
+    </div>
+    ${r.summary?`<div class="section-head"><h3>Overview</h3></div><div class="row-card" style="cursor:default"><div class="row-sub" style="white-space:normal">${escapeHtml(r.summary)}</div></div>`:''}
+    ${r.highlights?`<div class="section-head" style="margin-top:16px"><h3>Highlights</h3></div><div class="row-card" style="cursor:default"><div class="row-sub" style="white-space:pre-wrap">${escapeHtml(r.highlights)}</div></div>`:''}
+    ${r.recommendations?`<div class="section-head" style="margin-top:16px"><h3>Recommendations</h3></div><div class="row-card" style="cursor:default"><div class="row-sub" style="white-space:pre-wrap">${escapeHtml(r.recommendations)}</div></div>`:''}
+    <div class="section-head" style="margin-top:16px"><h3>Activities in this period</h3></div><div class="rows" id="srActs"></div>`;
+  $('#srBack').onclick=()=>{ if(staff){SELECTED_INST=inst;go('institution_detail');} else {go('inst_home');} };
+  const sa=$('#srActs');
+  sa.innerHTML=acts.length?'':'<div class="empty" style="padding:18px"><h4>No activities in this period</h4></div>';
+  acts.forEach(a=>sa.appendChild(activityCard(a)));
+  const pdf=$('#srPdf'); if(pdf) pdf.onclick=()=>printSchoolReport(r,inst,im,acts);
+  if(staff){
+    $('#srEdit').onclick=()=>schoolReportEditForm(r,inst);
+    const sh=$('#srShare'); if(sh) sh.onclick=async()=>{ await sb.from('school_reports').update({status:'shared',shared_at:new Date().toISOString()}).eq('id',r.id); toast('Shared with school'); schoolReportView({...r,status:'shared'},inst); };
+    $('#srDel').onclick=async()=>{ if(!confirm('Delete this report?'))return; await sb.from('school_reports').delete().eq('id',r.id); toast('Deleted'); SELECTED_INST=inst; go('institution_detail'); };
+  }
+}
+function schoolReportEditForm(r,inst){
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
+    <h3>Edit report narrative</h3><div class="sub">Refine the auto-generated text before sharing.</div>
+    <div class="form-row"><label>Overview</label><textarea id="se_sum" style="min-height:100px">${escapeHtml(r.summary||'')}</textarea></div>
+    <div class="form-row"><label>Highlights</label><textarea id="se_high" style="min-height:100px">${escapeHtml(r.highlights||'')}</textarea></div>
+    <div class="form-row"><label>Recommendations</label><textarea id="se_rec" style="min-height:90px">${escapeHtml(r.recommendations||'')}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="se_cancel">Cancel</button><button class="btn btn-primary" id="se_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#se_cancel').onclick=close;
+  m.querySelector('#se_save').onclick=async()=>{
+    const btn=m.querySelector('#se_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('school_reports').update({summary:m.querySelector('#se_sum').value.trim()||null,highlights:m.querySelector('#se_high').value.trim()||null,recommendations:m.querySelector('#se_rec').value.trim()||null}).eq('id',r.id);
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
+    toast('Saved'); close();
+    const {data:fresh}=await sb.from('school_reports').select('*').eq('id',r.id).single();
+    schoolReportView(fresh,inst);
+  };
+}
+function printSchoolReport(r,inst,im,acts){
+  const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to save the PDF.',true);return;}
+  const esc=escapeHtml, br=(t)=>esc(t||'').replace(/\n/g,'<br>');
+  const actRows=(acts||[]).map(a=>`<div class="rsec"><h3>${esc(a.title||a.kind||'Activity')} <span style="font-weight:400;color:#666;font-size:11px">${a.activity_date?fmtDate(a.activity_date):''}</span></h3>
+    ${a.detail?`<div>${br(a.detail)}</div>`:''}
+    ${a.participants?`<div class="fld"><span class="fl">Participants:</span> ${esc(a.participants)}</div>`:''}
+    ${a.outcomes?`<div class="fld"><span class="fl">Outcomes:</span> ${br(a.outcomes)}</div>`:''}
+    ${a.next_steps?`<div class="fld"><span class="fl">Next steps:</span> ${br(a.next_steps)}</div>`:''}</div>`).join('');
+  w.document.write(`<html><head><title>${esc(r.title)}</title><style>
+    *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:34px;max-width:760px;margin:auto;font-size:13.5px;line-height:1.5}
+    .lh{display:flex;align-items:center;gap:14px;border-bottom:4px solid #6C3483;box-shadow:0 3px 0 #FFB020;padding-bottom:12px;margin-bottom:8px}
+    .lh img{height:58px}.lh h1{color:#6C3483;margin:0;font-size:17px}.muted{color:#666;font-size:11.5px}
+    .kind{text-align:center;font-size:15px;font-weight:700;color:#4A1E63;margin:14px 0 4px;text-transform:uppercase}
+    .conf{text-align:center;font-size:10.5px;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
+    .impact{display:flex;gap:10px;margin:14px 0}
+    .ibox{flex:1;border:1px solid #e3d9ec;border-radius:8px;padding:10px;text-align:center}
+    .ibox .n{font-size:22px;font-weight:800;color:#6C3483}.ibox .l{font-size:10px;color:#666;text-transform:uppercase}
+    h2.sh{font-size:13px;color:#0F6E56;border-bottom:2px solid #0F6E56;padding-bottom:3px;margin:20px 0 8px;text-transform:uppercase}
+    .rsec{margin-bottom:12px;page-break-inside:avoid}.rsec h3{font-size:13px;color:#6C3483;margin:0 0 4px}
+    .fld{margin:3px 0}.fl{font-weight:700}.block{white-space:pre-wrap;margin-bottom:12px}
+    .sig{margin-top:34px;display:flex;justify-content:space-between;gap:26px}.sig div{flex:1;border-top:1px solid #999;padding-top:6px;font-size:11.5px;color:#555}
+  </style></head><body>
+    <div class="lh"><img src="${LOGO_FULL}" alt="Mindora"/><div><h1>${esc((COMPANY&&COMPANY.company_name)||'Mindora Inclusive Child Development Services Co. Ltd')}</h1>
+    <div class="muted">${esc((COMPANY&&COMPANY.address)||'Kisaasi / Kikaya, Kampala')} · mindoraicds@gmail.com · 0741 397 167</div></div></div>
+    <div class="kind">School Partnership Report</div><div class="conf">${esc(inst.name)}${r.period?' · '+esc(r.period):''}</div>
+    <div class="impact">
+      <div class="ibox"><div class="n">${im.children_supported||0}</div><div class="l">Children supported</div></div>
+      <div class="ibox"><div class="n">${im.active_children||0}</div><div class="l">Active</div></div>
+      <div class="ibox"><div class="n">${(acts||[]).length}</div><div class="l">Activities</div></div>
+      <div class="ibox"><div class="n">${im.sessions_this_month||0}</div><div class="l">Sessions/mo</div></div>
+    </div>
+    ${r.summary?`<h2 class="sh">Overview</h2><div class="block">${br(r.summary)}</div>`:''}
+    ${r.highlights?`<h2 class="sh">Highlights</h2><div class="block">${br(r.highlights)}</div>`:''}
+    <h2 class="sh">Activities &amp; events</h2>${actRows||'<div class="muted">No activities recorded in this period.</div>'}
+    ${r.recommendations?`<h2 class="sh">Recommendations</h2><div class="block">${br(r.recommendations)}</div>`:''}
+    <div class="sig"><div>Prepared by</div><div>Designation</div><div>Date</div></div>
+    <p class="muted" style="margin-top:20px;text-align:center">Mindora Inclusive Child Development Services · Home, Hope &amp; Harmony</p>
+    </body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
 }
 function institutionActivityForm(inst){
   const today=new Date().toISOString().slice(0,10);
-  const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>Log activity</h3><div class="sub">Visible to ${escapeHtml(inst.name)} in their portal.</div>
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
+    <h3>Log activity / event</h3><div class="sub">Visible to ${escapeHtml(inst.name)} in their portal.</div>
     <div class="form-row two">
-      <div><label>Type</label><select id="a_kind"><option>training</option><option>audit</option><option>visit</option><option>session</option><option>other</option></select></div>
+      <div><label>Type</label><select id="a_kind"><option>training</option><option>audit</option><option>visit</option><option>session</option><option>event</option><option>meeting</option><option>other</option></select></div>
       <div><label>Date</label><input id="a_date" type="date" value="${today}"/></div>
     </div>
-    <div class="form-row"><label>Title</label><input id="a_title"/></div>
-    <div class="form-row"><label>Detail</label><textarea id="a_detail"></textarea></div>
+    <div class="form-row"><label>Title</label><input id="a_title" placeholder="e.g. Teacher inclusion training — Session 3"/></div>
+    <div class="form-row"><label>What happened</label><textarea id="a_detail" placeholder="Describe the activity or event"></textarea></div>
+    <div class="form-row two">
+      <div><label>Participants / attendance</label><input id="a_part" placeholder="e.g. 12 teachers"/></div>
+      <div><label>Led by (Mindora)</label><input id="a_lead" placeholder="e.g. Clinton B."/></div>
+    </div>
+    <div class="form-row"><label>Outcomes</label><textarea id="a_out" placeholder="What was achieved"></textarea></div>
+    <div class="form-row"><label>Next steps</label><textarea id="a_next" placeholder="Follow-up actions"></textarea></div>
+    <div class="form-row"><label>Photos / materials</label><div id="a_att"></div></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="a_cancel">Cancel</button><button class="btn btn-primary" id="a_save">Save</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  attachmentUploader('a_att','instAct','activities',[]);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#a_cancel').onclick=close;
   m.querySelector('#a_save').onclick=async()=>{
     const btn=m.querySelector('#a_save');btn.disabled=true;btn.textContent='Saving…';
     const {error}=await sb.from('institution_activity').insert({institution_id:inst.id,kind:m.querySelector('#a_kind').value,
       activity_date:m.querySelector('#a_date').value||today,title:m.querySelector('#a_title').value.trim()||null,
-      detail:m.querySelector('#a_detail').value.trim()||null,created_by:ME.id});
+      detail:m.querySelector('#a_detail').value.trim()||null,
+      participants:m.querySelector('#a_part').value.trim()||null,
+      lead_staff:m.querySelector('#a_lead').value.trim()||null,
+      outcomes:m.querySelector('#a_out').value.trim()||null,
+      next_steps:m.querySelector('#a_next').value.trim()||null,
+      attachments:ATTACH_STATE['instAct']||[],
+      created_by:ME.id});
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
     toast('Activity logged'); close(); renderInstitutionDetail($('#view'),inst);
   };
