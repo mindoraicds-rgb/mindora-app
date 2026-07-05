@@ -320,6 +320,13 @@ a{color:var(--purple)}
 .chk-row{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer}
 .chk-row input{width:auto}
 .sec-body{background:var(--accent-soft);border-radius:8px;padding:10px 12px}
+/* Model B programme tracker */
+.mbc-progress{margin-bottom:14px}
+.mbc-bar{height:8px;background:var(--accent-soft);border-radius:6px;overflow:hidden;margin-bottom:6px}
+.mbc-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--accent));border-radius:6px;transition:width .3s}
+.mbc-group{margin-bottom:16px}
+.mbc-group-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-deep);margin:0 0 8px;opacity:.8}
+.mbc-row{cursor:pointer}
 .sec-sub{margin-bottom:8px;font-size:14px}
 .sec-sub:last-child{margin-bottom:0}
 .sec-sub-h{font-weight:700;color:var(--accent-deep);font-size:12.5px;margin-bottom:2px}
@@ -1064,7 +1071,9 @@ async function openProfessionalForm(p){
 }
 
 /* ===================== INSTITUTIONS ===================== */
-const INST_TYPES={school_model_a:'School — Model A',school_model_b:'School — Model B',clinic:'Clinic / Centre',hospital:'Hospital',organisation:'Organisation'};
+const INST_TYPES={school_model_a:'School — Model A',school_model_b:'School — Model B',school_both:'School — Model A & B',clinic:'Clinic / Centre',hospital:'Hospital',organisation:'Organisation'};
+// Does this institution run the Model B inclusion programme?
+const isModelBInst=(inst)=>inst&&(inst.type==='school_model_b'||inst.type==='school_both');
 let INSTS=[];
 async function renderInstitutions(v){
   const {data,error}=await sb.from('institutions').select('*').order('created_at',{ascending:false});
@@ -1816,9 +1825,11 @@ async function renderInstHome(v){
      <div class="impact"><div class="n">${im.activity_entries||0}</div><div class="l">Joint activities</div></div>
    </div>
    <div class="section-head"><h3>Reports</h3><button class="btn btn-primary btn-sm" id="reqRep">Request a report</button></div><div class="rows" id="iReq"></div>
+   ${isModelBInst(inst)?`<div class="section-head" style="margin-top:24px"><h3>Our inclusion programme</h3></div><div id="mbProgress"></div>`:''}
    <div class="section-head" style="margin-top:24px"><h3>Termly reports from Mindora</h3></div><div class="rows" id="iSchoolReps"></div>
    <div class="section-head" style="margin-top:24px"><h3>Activity &amp; events with Mindora</h3></div><div class="rows" id="iAct"></div>`;
   $('#reqRep').onclick=()=>reportRequestForm(inst);
+  if(isModelBInst(inst)) renderModelBProgress(inst);
   // shared termly reports
   const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).eq('status','shared').order('created_at',{ascending:false});
   const srr=$('#iSchoolReps');
@@ -1885,12 +1896,14 @@ async function renderInstitutionDetail(v,inst){
    <div class="searchbar"><button class="btn btn-ghost btn-sm" id="iEdit" style="width:auto">Edit details</button>
      <span class="row-sub" style="align-self:center">${inst.profile_id?'✓ login linked':'login not linked (add email + create login)'}</span></div>
    <div class="section-head" style="margin-top:10px"><h3>Report requests</h3></div><div class="rows" id="dReq"></div>
+   ${isModelBInst(inst)?`<div class="section-head" style="margin-top:22px"><h3>Model B inclusion programme</h3></div><div id="mbProgramme"></div>`:''}
    <div class="section-head" style="margin-top:22px"><h3>Termly reports</h3><button class="btn btn-primary btn-sm" id="newSchoolRep">+ New school report</button></div><div class="rows" id="dSchoolReps"></div>
    <div class="section-head" style="margin-top:22px"><h3>Activity &amp; events</h3><button class="btn btn-primary btn-sm" id="addAct">+ Log activity</button></div><div class="rows" id="dAct"></div>`;
   $('#iBack').onclick=()=>go('institutions');
   $('#iEdit').onclick=()=>openInstitutionForm(inst);
   $('#addAct').onclick=()=>institutionActivityForm(inst);
   $('#newSchoolRep').onclick=()=>schoolReportForm(inst);
+  if(isModelBInst(inst)) renderModelBProgramme(inst);
   // termly reports list
   const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).order('created_at',{ascending:false});
   const sr=$('#dSchoolReps');
@@ -2072,6 +2085,133 @@ function printSchoolReport(r,inst,im,acts){
     </body></html>`);
   w.document.close(); w.focus();
   setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
+}
+/* ===================== MODEL B PROGRAMME TRACKER ===================== */
+// Standard Model B partnership components (from the partnership programme).
+const MODELB_CATALOGUE=[
+  // Setup phase (Term 1 of partnership)
+  {key:'facility_assessment',phase:'setup',title:'Facility Assessment & Program Design',due:'Term 1'},
+  {key:'inclusion_audit',phase:'setup',title:'Inclusion Audit',due:'Term 1'},
+  {key:'environment_assessment',phase:'setup',title:'Environment Assessment',due:'Term 1'},
+  {key:'baseline_screening',phase:'setup',title:'Baseline Developmental Screening',due:'Term 1'},
+  {key:'liaison_setup',phase:'setup',title:'Liaison Officer & Referral Pathway Setup',due:'Term 1'},
+  {key:'inclusion_policy',phase:'setup',title:'School Inclusion Policy (support/template)',due:'Term 1'},
+  // Recurring components
+  {key:'coordination_meeting',phase:'recurring',title:'Monthly Coordination Meeting',due:'Monthly'},
+  {key:'leadership_consultancy',phase:'recurring',title:'Leadership Consultancy Meeting',due:'Monthly'},
+  {key:'teacher_training',phase:'recurring',title:'Teacher Training Session (9-session programme)',due:'Termly / per session'},
+  {key:'unified_plan',phase:'recurring',title:'Unified Program Plan update (Band 3/4)',due:'Monthly'},
+  {key:'progress_snapshots',phase:'recurring',title:'Monthly Progress Snapshots',due:'Monthly'},
+  {key:'termly_report',phase:'recurring',title:'Termly Partnership Report',due:'Termly'},
+];
+const MBC_STATUS={not_started:'Not started',in_progress:'In progress',complete:'Complete'};
+function mbcStatusPill(s){ return s==='complete'?'active':s==='in_progress'?'enquiry':'assessment'; }
+
+async function renderModelBProgramme(inst){
+  // load saved components, merge with catalogue so every standard component shows
+  const {data:saved}=await sb.from('modelb_components').select('*').eq('institution_id',inst.id);
+  const byKey={}; (saved||[]).forEach(r=>{ byKey[r.component_key]=r; });
+  const merged=MODELB_CATALOGUE.map(cat=>{
+    const rec=byKey[cat.key];
+    return rec ? rec : {component_key:cat.key,phase:cat.phase,title:cat.title,due_period:cat.due,status:'not_started',_new:true,institution_id:inst.id};
+  });
+  const done=merged.filter(m=>m.status==='complete').length;
+  const setup=merged.filter(m=>m.phase==='setup');
+  const recurring=merged.filter(m=>m.phase==='recurring');
+  const wrap=$('#mbProgramme'); if(!wrap) return;
+  const section=(title,items)=>`
+    <div class="mbc-group"><div class="mbc-group-h">${title}</div>
+    ${items.map(m=>`<div class="row-card mbc-row" data-key="${m.component_key}" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(m.title)}</div>
+        ${m.due_period?`<span class="pill band">${escapeHtml(m.due_period)}</span>`:''}
+        <span class="pill ${mbcStatusPill(m.status)}">${MBC_STATUS[m.status]||m.status}</span>
+      </div>
+      ${m.completed_on?`<div class="row-sub">Completed ${fmtDate(m.completed_on)}${m.lead_staff?' · '+escapeHtml(m.lead_staff):''}</div>`:''}
+      ${m.findings?`<div class="row-sub" style="white-space:normal"><b>Findings:</b> ${escapeHtml(m.findings)}</div>`:''}
+      ${attachmentsView(m.attachments)}
+    </div>`).join('')}</div>`;
+  wrap.innerHTML=`
+    <div class="mbc-progress"><div class="mbc-bar"><div class="mbc-fill" style="width:${Math.round(done/merged.length*100)}%"></div></div>
+      <div class="row-sub">${done} of ${merged.length} components complete</div></div>
+    ${section('Setup phase (Term 1)',setup)}
+    ${section('Recurring components',recurring)}`;
+  wrap.querySelectorAll('.mbc-row').forEach(row=>{
+    row.onclick=()=>{ const m=merged.find(x=>x.component_key===row.dataset.key); modelBComponentForm(inst,m); };
+  });
+}
+// Read-only Model B progress for the school's own portal
+async function renderModelBProgress(inst){
+  const wrap=$('#mbProgress'); if(!wrap) return;
+  const {data:saved}=await sb.from('modelb_components').select('*').eq('institution_id',inst.id);
+  const byKey={}; (saved||[]).forEach(r=>{ byKey[r.component_key]=r; });
+  const merged=MODELB_CATALOGUE.map(cat=>byKey[cat.key]||{component_key:cat.key,phase:cat.phase,title:cat.title,due_period:cat.due,status:'not_started'});
+  const done=merged.filter(m=>m.status==='complete').length;
+  wrap.innerHTML=`
+    <div class="mbc-progress"><div class="mbc-bar"><div class="mbc-fill" style="width:${Math.round(done/merged.length*100)}%"></div></div>
+      <div class="row-sub">${done} of ${merged.length} programme components complete</div></div>
+    <div class="rows">${merged.map(m=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(m.title)}</div>
+        ${m.due_period?`<span class="pill band">${escapeHtml(m.due_period)}</span>`:''}
+        <span class="pill ${mbcStatusPill(m.status)}">${MBC_STATUS[m.status]||m.status}</span>
+      </div>
+      ${m.completed_on?`<div class="row-sub">Completed ${fmtDate(m.completed_on)}</div>`:''}
+      ${m.findings?`<div class="row-sub" style="white-space:normal">${escapeHtml(m.findings)}</div>`:''}
+    </div>`).join('')}</div>`;
+}
+function modelBComponentForm(inst,comp){
+  const isNew=!!comp._new;
+  const cat=MODELB_CATALOGUE.find(c=>c.key===comp.component_key)||{};
+  const today=isoD(new Date());
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
+    <h3>${escapeHtml(comp.title)}</h3><div class="sub">${cat.phase==='setup'?'Setup component':'Recurring component'} · ${escapeHtml(comp.due_period||cat.due||'')}</div>
+    <div class="form-row two">
+      <div><label>Status</label><select id="mb_status">${Object.keys(MBC_STATUS).map(k=>`<option value="${k}" ${comp.status===k?'selected':''}>${MBC_STATUS[k]}</option>`).join('')}</select></div>
+      <div><label>Completed on</label><input id="mb_date" type="date" value="${comp.completed_on||''}"/></div>
+    </div>
+    <div class="form-row"><label>Led by (Mindora)</label><input id="mb_lead" value="${escapeHtml(comp.lead_staff||'')}" placeholder="e.g. Clinton B."/></div>
+    <div class="form-row"><label>Details / what was done</label><textarea id="mb_details" style="min-height:80px">${escapeHtml(comp.details||'')}</textarea></div>
+    <div class="form-row"><label>Findings / observations</label><textarea id="mb_find" style="min-height:80px">${escapeHtml(comp.findings||'')}</textarea></div>
+    <div class="form-row"><label>Agreed actions / recommendations</label><textarea id="mb_act" style="min-height:80px">${escapeHtml(comp.actions||'')}</textarea></div>
+    <div class="form-row"><label>Attachments <span style="color:var(--muted);font-weight:400">(reports, photos, checklists)</span></label><div id="mb_att"></div></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="mb_post" type="checkbox" ${comp.posted_activity?'checked':''} style="width:auto"/> Also post to the activity log (feeds termly report)</label></div>
+    <div class="modal-actions">${!isNew?'<button class="btn btn-ghost" id="mb_del" style="color:var(--danger)">Reset</button>':''}<button class="btn btn-ghost" id="mb_cancel">Cancel</button><button class="btn btn-primary" id="mb_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  attachmentUploader('mb_att','mbComp','modelb', Array.isArray(comp.attachments)?comp.attachments:[]);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#mb_cancel').onclick=close;
+  if(!isNew){ const db=m.querySelector('#mb_del'); if(db) db.onclick=async()=>{ if(!confirm('Reset this component to not started?'))return; await sb.from('modelb_components').delete().eq('id',comp.id); toast('Reset'); close(); renderModelBProgramme(inst); }; }
+  m.querySelector('#mb_save').onclick=async()=>{
+    const btn=m.querySelector('#mb_save');btn.disabled=true;btn.textContent='Saving…';
+    const status=m.querySelector('#mb_status').value;
+    const postAct=m.querySelector('#mb_post').checked;
+    const payload={
+      institution_id:inst.id, component_key:comp.component_key, phase:cat.phase||comp.phase, title:comp.title,
+      status, due_period:comp.due_period||cat.due||null,
+      completed_on:m.querySelector('#mb_date').value||(status==='complete'?today:null),
+      lead_staff:m.querySelector('#mb_lead').value.trim()||null,
+      details:m.querySelector('#mb_details').value.trim()||null,
+      findings:m.querySelector('#mb_find').value.trim()||null,
+      actions:m.querySelector('#mb_act').value.trim()||null,
+      attachments:ATTACH_STATE['mbComp']||[],
+      posted_activity:postAct, updated_at:new Date().toISOString()
+    };
+    let error;
+    if(isNew){ payload.created_by=ME.id; ({error}=await sb.from('modelb_components').insert(payload)); }
+    else { ({error}=await sb.from('modelb_components').update(payload).eq('id',comp.id)); }
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
+    // optionally mirror to activity log so it feeds the termly report
+    if(postAct && !comp.posted_activity){
+      await sb.from('institution_activity').insert({institution_id:inst.id,kind:'Model B',
+        activity_date:payload.completed_on||today,title:comp.title,
+        detail:payload.details, participants:null, lead_staff:payload.lead_staff,
+        outcomes:payload.findings, next_steps:payload.actions,
+        attachments:payload.attachments, created_by:ME.id});
+    }
+    toast('Component saved'); close(); renderModelBProgramme(inst);
+  };
 }
 function institutionActivityForm(inst){
   const today=new Date().toISOString().slice(0,10);
