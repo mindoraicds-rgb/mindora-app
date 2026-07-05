@@ -330,6 +330,13 @@ a{color:var(--purple)}
 .rc-amt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap}
 .rc-input{width:130px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;text-align:right;font-family:inherit}
 .rc-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+/* role home dashboard */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:8px}
+.dash-tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;text-align:center}
+.dash-tile:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(74,30,99,.12);border-color:var(--accent)}
+.dash-ic{width:52px;height:52px;border-radius:14px;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent)}
+.dash-ic svg{width:26px;height:26px}
+.dash-lbl{font-size:14px;font-weight:600;color:var(--ink)}
 /* Model B programme tracker */
 .mbc-progress{margin-bottom:14px}
 .mbc-bar{height:8px;background:var(--accent-soft);border-radius:6px;overflow:hidden;margin-bottom:6px}
@@ -468,10 +475,12 @@ const NAV = {
     {k:'reports',label:'Reports',icon:'schedule',directorOnly:true},
     {k:'community',label:'Community',icon:'chat'},
     {k:'case_discussions',label:'Case discussions',icon:'chat'},
+    {k:'support',label:'Support inbox',icon:'chat',directorOnly:true},
     {k:'access',label:'People & access',icon:'profile',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
   ],
   professional:[
+    {k:'role_home',label:'Home',icon:'dashboard'},
     {k:'pro_requests',label:'Requests',icon:'requests'},
     {k:'pro_children',label:'My children',icon:'child'},
     {k:'pro_reports',label:'Report tasks',icon:'schedule'},
@@ -480,17 +489,22 @@ const NAV = {
     {k:'pro_community',label:'Community',icon:'chat'},
     {k:'team',label:'Team',icon:'team'},
     {k:'my_profile',label:'My profile',icon:'profile'},
+    {k:'support',label:'Support / contact team',icon:'chat'},
   ],
   parent:[
+    {k:'role_home',label:'Home',icon:'dashboard'},
     {k:'parent_home',label:'My child',icon:'child'},
     {k:'team',label:'Care team',icon:'team'},
     {k:'parent_community',label:'Community',icon:'inst'},
     {k:'parent_billing',label:'Billing',icon:'fin'},
+    {k:'support',label:'Support / contact team',icon:'chat'},
   ],
   institution:[
+    {k:'role_home',label:'Home',icon:'dashboard'},
     {k:'inst_home',label:'My institution',icon:'inst'},
     {k:'team',label:'Mindora team',icon:'team'},
     {k:'inst_community',label:'Community',icon:'chat'},
+    {k:'support',label:'Support / contact team',icon:'chat'},
   ]
 };
 
@@ -561,7 +575,7 @@ async function boot(){
   $('#avatar').textContent=initials(displayName());
   $('#todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   buildNav();
-  go(isStaff()?'dashboard':(ME.role==='professional'?'pro_requests':(ME.role==='parent'?'parent_home':(ME.role==='institution'?'inst_home':'portal'))));
+  go(isStaff()?'dashboard':(ME.role==='professional'||ME.role==='parent'||ME.role==='institution'?'role_home':'portal'));
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
@@ -750,6 +764,10 @@ async function updateBadges(){
     setBadge('assignments',count||0);
     const {count:pend}=await sb.from('community_content').select('*',{count:'exact',head:true}).eq('status','pending');
     setBadge('community',pend||0);
+    if(isDirector()){
+      const {count:sup}=await sb.from('support_messages').select('*',{count:'exact',head:true}).eq('status','open');
+      setBadge('support',sup||0);
+    }
   } else if(ME.role==='professional'){
     const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
     setBadge('pro_requests',count||0);
@@ -764,7 +782,7 @@ $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals'};
 function go(view){
   currentView=view;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
@@ -777,7 +795,7 @@ function go(view){
    child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
    child_chat:(vv)=>renderChildChat(vv,SELECTED_CHILD),
    staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD),
-   pro_program:renderProProgram,case_discussions:renderCaseDiscussions,discussion_view:(vv)=>renderDiscussionView(vv,SELECTED_DISCUSSION),
+   pro_program:renderProProgram,role_home:renderRoleHome,support:renderSupport,case_discussions:renderCaseDiscussions,discussion_view:(vv)=>renderDiscussionView(vv,SELECTED_DISCUSSION),
    child_reports:(vv)=>renderChildReports(vv,SELECTED_CHILD),
    child_goals:(vv)=>renderChildGoals(vv,SELECTED_CHILD),
    report_edit:(vv)=>renderReportEdit(vv,SELECTED_REPORT),
@@ -1633,6 +1651,72 @@ async function renderParentBilling(v){
     <span class="pill ${i.status==='paid'?'active':'enquiry'}">${i.status==='paid'?'paid':'due'}</span></div>`)));
 }
 
+/* ===================== ROLE HOME DASHBOARD ===================== */
+async function renderRoleHome(v){
+  const items=(NAV[ME.role]||[]).filter(n=>n.k!=='role_home' && !(n.directorOnly && !isDirector()));
+  const hour=new Date().getHours();
+  const greet=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
+  v.innerHTML=`
+    <div class="welcome"><h1>${greet}, ${escapeHtml(firstName())}</h1><p>Welcome to your Mindora space. Choose where you would like to go.</p></div>
+    <div class="dash-grid" id="dashGrid"></div>`;
+  const grid=$('#dashGrid');
+  items.forEach(n=>{
+    const tile=el(`<div class="dash-tile"><div class="dash-ic">${icon(n.icon)}</div><div class="dash-lbl">${escapeHtml(n.label)}</div></div>`);
+    tile.onclick=()=>go(n.k);
+    grid.appendChild(tile);
+  });
+}
+
+/* ===================== SUPPORT / CONTACT TEAM ===================== */
+async function renderSupport(v){
+  // Staff see the inbox; everyone else sees the contact form + their own past messages.
+  if(isStaff()){
+    const {data:msgs}=await sb.from('support_messages').select('*').order('created_at',{ascending:false});
+    v.innerHTML=`<div class="welcome"><h1>Support inbox</h1><p>Messages from professionals, parents and schools.</p></div>
+      <div class="rows" id="smRows"></div>`;
+    const rows=$('#smRows');
+    if(!msgs||!msgs.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No messages</h4><p>Support requests will appear here.</p></div>'; return; }
+    msgs.forEach(sm=>{
+      const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div class="row-name" style="flex:1;min-width:140px">${escapeHtml(sm.subject||'(no subject)')}</div>
+          <span class="pill ${sm.status==='resolved'?'active':'enquiry'}">${sm.status}</span>
+        </div>
+        <div class="row-sub">${escapeHtml(sm.sender_name||'Someone')} · <span style="text-transform:capitalize">${escapeHtml(sm.sender_role||'')}</span> · ${fmtDate(sm.created_at)}</div>
+        <div class="row-sub" style="white-space:pre-wrap">${escapeHtml(sm.body)}</div>
+        ${sm.status!=='resolved'?'<button class="btn btn-ghost btn-sm smResolve" style="width:auto;align-self:flex-start">Mark resolved</button>':''}</div>`);
+      const rb=card.querySelector('.smResolve');
+      if(rb) rb.onclick=async()=>{ await sb.from('support_messages').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',sm.id); toast('Marked resolved'); renderSupport($('#view')); };
+      rows.appendChild(card);
+    });
+    return;
+  }
+  // Portal roles: contact form
+  const {data:mine}=await sb.from('support_messages').select('*').eq('sender_id',ME.id).order('created_at',{ascending:false});
+  v.innerHTML=`<div class="welcome"><h1>Support &amp; contact team</h1><p>Send a message straight to the Mindora director. We will get back to you.</p></div>
+    <div class="form-card" style="max-width:600px">
+      <div class="form-row"><label>Subject</label><input id="sm_subj" placeholder="What is this about?"/></div>
+      <div class="form-row"><label>Message *</label><textarea id="sm_body" style="min-height:130px" placeholder="How can we help?"></textarea></div>
+      <button class="btn btn-primary" id="sm_send" style="width:auto">Send to Mindora</button>
+    </div>
+    <div class="section-head" style="margin-top:24px"><h3>Your previous messages</h3></div>
+    <div class="rows" id="smMine"></div>`;
+  $('#sm_send').onclick=async()=>{
+    const body=$('#sm_body').value.trim();
+    if(!body){toast('Write a message first.',true);return;}
+    const btn=$('#sm_send');btn.disabled=true;btn.textContent='Sending…';
+    const {error}=await sb.from('support_messages').insert({sender_id:ME.id,sender_name:displayName(),sender_role:ME.role,subject:$('#sm_subj').value.trim()||null,body});
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Send to Mindora';return;}
+    toast('Message sent to Mindora'); renderSupport($('#view'));
+  };
+  const mrows=$('#smMine');
+  if(!mine||!mine.length){ mrows.innerHTML='<div class="empty" style="padding:20px"><h4>No messages yet</h4></div>'; return; }
+  mine.forEach(sm=>mrows.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(sm.subject||'(no subject)')}</div><span class="pill ${sm.status==='resolved'?'active':'enquiry'}">${sm.status}</span></div>
+    <div class="row-sub" style="white-space:pre-wrap">${escapeHtml(sm.body)}</div>
+    <div class="row-sub">${fmtDate(sm.created_at)}</div></div>`)));
+}
+
 /* ===================== CASE DISCUSSION SPACES ===================== */
 async function renderCaseDiscussions(v){
   const {data:discs}=await sb.from('case_discussions').select('*').order('created_at',{ascending:false});
@@ -1644,10 +1728,11 @@ async function renderCaseDiscussions(v){
   const rows=$('#discRows');
   if(!discs||!discs.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No discussions yet</h4><p>Start one to plan a shared case with colleagues.</p></div>'; return; }
   discs.forEach(d=>{
+    const closed=d.status==='closed';
     const card=el(`<div class="row-card">
       <div class="row-ava">${icon('chat')}</div>
-      <div class="row-main"><div class="row-name">${escapeHtml(d.topic)}</div><div class="row-sub">${d.visibility==='closed'?'🔒 Closed':'🌐 Open to all professionals'} · ${fmtDate(d.created_at)}</div></div>
-      <span class="pill ${d.visibility==='closed'?'enquiry':'active'}">${d.visibility}</span></div>`);
+      <div class="row-main"><div class="row-name">${escapeHtml(d.topic)}${closed?' <span class="pill exited" style="vertical-align:middle">Closed</span>':''}</div><div class="row-sub">${d.visibility==='closed'?'🔒 Closed group':'🌐 Open to all professionals'} · ${fmtDate(d.created_at)}${closed&&d.closed_at?' · ended '+fmtDate(d.closed_at):''}</div></div>
+      <span class="pill ${closed?'exited':(d.visibility==='closed'?'enquiry':'active')}">${closed?'record':d.visibility}</span></div>`);
     card.onclick=()=>{ SELECTED_DISCUSSION=d; go('discussion_view'); };
     rows.appendChild(card);
   });
@@ -1694,17 +1779,36 @@ async function newDiscussionForm(){
 }
 async function renderDiscussionView(v,d){
   if(!d){ go('case_discussions'); return; }
+  // re-fetch fresh so status/closed state is current
+  const {data:fresh0}=await sb.from('case_discussions').select('*').eq('id',d.id).maybeSingle();
+  if(fresh0) d=fresh0;
   const {data:msgs}=await sb.from('case_discussion_messages').select('*').eq('discussion_id',d.id).order('created_at');
   let child=null;
   if(d.client_id){ const {data:c}=await sb.from('clients').select('full_name').eq('id',d.client_id).maybeSingle(); child=c; }
+  const closed=d.status==='closed';
+  const canClose = isStaff() || d.created_by===ME.id;
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="dBack" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(d.topic)}</h1><p>${d.visibility==='closed'?'🔒 Closed discussion':'🌐 Open to all professionals'}${child?' · '+escapeHtml(child.full_name):''}</p></div>
+    <div class="welcome"><h1>${escapeHtml(d.topic)}</h1><p>${d.visibility==='closed'?'🔒 Closed group':'🌐 Open to all professionals'}${child?' · '+escapeHtml(child.full_name):''}${closed?' · <b>Ended</b>'+(d.closed_at?' '+fmtDate(d.closed_at):''):''}</p></div>
+    ${canClose?`<div class="qa-row" style="margin-bottom:14px">${closed?`<div class="qa" id="dReopen">${icon('chat')} Reopen discussion</div>`:`<div class="qa" id="dClose">${icon('assign')} End / close discussion</div>`}</div>`:''}
     <div class="chat" id="discBox"></div>
+    ${closed?'<div class="row-sub" style="text-align:center;padding:14px;color:var(--muted)">This discussion has ended and is kept as a record. No new messages can be added.</div>':`
     <div id="discAtt" class="chat-att"></div>
-    <div class="chat-compose"><textarea id="discInput" placeholder="Write a message…" rows="2"></textarea><button class="btn btn-primary" id="discSend" style="width:auto">Send</button></div>`;
+    <div class="chat-compose"><textarea id="discInput" placeholder="Write a message…" rows="2"></textarea><button class="btn btn-primary" id="discSend" style="width:auto">Send</button></div>`}`;
   $('#dBack').onclick=()=>go('case_discussions');
-  attachmentUploader('discAtt','discMsg','discussions',[]);
+  if(canClose){
+    const cb=$('#dClose'); if(cb) cb.onclick=async()=>{
+      if(!confirm('End this discussion? It stays as a record but no new messages can be added.'))return;
+      const {error}=await sb.rpc('set_discussion_status',{p_disc_id:d.id,p_status:'closed'});
+      if(error){toast(error.message,true);return;}
+      toast('Discussion ended'); renderDiscussionView($('#view'),{...d,status:'closed',closed_at:new Date().toISOString()});
+    };
+    const rb=$('#dReopen'); if(rb) rb.onclick=async()=>{
+      const {error}=await sb.rpc('set_discussion_status',{p_disc_id:d.id,p_status:'active'});
+      if(error){toast(error.message,true);return;}
+      toast('Discussion reopened'); renderDiscussionView($('#view'),{...d,status:'active'});
+    };
+  }
   const box=$('#discBox');
   function paint(rows){
     box.innerHTML=(rows&&rows.length)?'':'<div class="empty" style="padding:30px"><h4>No messages yet</h4><p>Start the discussion.</p></div>';
@@ -1719,17 +1823,20 @@ async function renderDiscussionView(v,d){
     box.scrollTop=box.scrollHeight;
   }
   paint(msgs);
-  $('#discSend').onclick=async()=>{
-    const t=$('#discInput').value.trim(); const atts=ATTACH_STATE['discMsg']||[];
-    if(!t && !atts.length) return;
-    $('#discSend').disabled=true;
-    const {error}=await sb.from('case_discussion_messages').insert({discussion_id:d.id,author_id:ME.id,author_name:displayName(),author_role:ME.role,body:t,attachments:atts});
-    $('#discSend').disabled=false;
-    if(error){toast(error.message,true);return;}
-    $('#discInput').value=''; attachmentUploader('discAtt','discMsg','discussions',[]);
-    const {data:fresh}=await sb.from('case_discussion_messages').select('*').eq('discussion_id',d.id).order('created_at');
-    paint(fresh);
-  };
+  if(!closed){
+    attachmentUploader('discAtt','discMsg','discussions',[]);
+    $('#discSend').onclick=async()=>{
+      const t=$('#discInput').value.trim(); const atts=ATTACH_STATE['discMsg']||[];
+      if(!t && !atts.length) return;
+      $('#discSend').disabled=true;
+      const {error}=await sb.from('case_discussion_messages').insert({discussion_id:d.id,author_id:ME.id,author_name:displayName(),author_role:ME.role,body:t,attachments:atts});
+      $('#discSend').disabled=false;
+      if(error){toast(error.message,true);return;}
+      $('#discInput').value=''; attachmentUploader('discAtt','discMsg','discussions',[]);
+      const {data:fresh}=await sb.from('case_discussion_messages').select('*').eq('discussion_id',d.id).order('created_at');
+      paint(fresh);
+    };
+  }
 }
 
 /* ===================== COMMUNITY ===================== */
