@@ -4,6 +4,17 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>Mindora · Operations</title>
+<!-- PWA: installable app -->
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#6C3483"/>
+<meta name="description" content="Mindora Inclusive Child Development Services — operations and family portal."/>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png"/>
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Mindora"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -4696,6 +4707,27 @@ function renderPortal(v){
 
 /* ===================== START ===================== */
 boot();
+
+/* ===================== PWA: installable app ===================== */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+// Capture the install prompt so we can offer an in-app "Install" button.
+let DEFERRED_INSTALL=null;
+window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); DEFERRED_INSTALL=e; showInstallHint(); });
+function showInstallHint(){
+  if(document.getElementById('installHint')) return;
+  const bar=document.createElement('div');
+  bar.id='installHint';
+  bar.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:9999;background:#6C3483;color:#fff;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(74,30,99,.35);font-family:"Plus Jakarta Sans",sans-serif;font-size:14px;max-width:520px;margin:auto';
+  bar.innerHTML='<span style="flex:1">Install Mindora on this device for quick access.</span>'+
+    '<button id="installGo" style="background:#FFB020;color:#3a2a00;border:none;border-radius:9px;padding:8px 14px;font-weight:700;cursor:pointer">Install</button>'+
+    '<button id="installNo" style="background:transparent;color:#e7d7f2;border:none;cursor:pointer;font-size:20px;line-height:1">×</button>';
+  document.body.appendChild(bar);
+  document.getElementById('installGo').onclick=async()=>{ if(DEFERRED_INSTALL){ DEFERRED_INSTALL.prompt(); try{await DEFERRED_INSTALL.userChoice;}catch(e){} DEFERRED_INSTALL=null; } bar.remove(); };
+  document.getElementById('installNo').onclick=()=>bar.remove();
+}
+window.addEventListener('appinstalled',()=>{ const h=document.getElementById('installHint'); if(h)h.remove(); });
 </script>
 </body>
 </html>
