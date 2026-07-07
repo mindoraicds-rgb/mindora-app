@@ -121,7 +121,9 @@ a{color:var(--purple)}
 .nav-btn svg{width:19px;height:19px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .topbar .crumb{font-size:12.5px;color:var(--accent-deep);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .topbar h2{font-size:19px;color:var(--ink);line-height:1.15}
-.topbar .date{margin-left:auto;font-size:13px;color:var(--muted);font-weight:500}
+.topbar .date{margin-left:10px;font-size:13px;color:var(--muted);font-weight:500}
+.topbar .topbell{position:relative;flex:0 0 auto}
+.topbell-dot{position:absolute;top:4px;right:4px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--coral);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;line-height:1;box-shadow:0 0 0 2px var(--card)}
 .content{padding:26px 28px 60px;max-width:1100px;width:100%;margin:0 auto}
 
 /* welcome */
@@ -615,6 +617,10 @@ a{color:var(--purple)}
           <div class="crumb">Mindora Operations</div>
           <h2 id="pageTitle">Dashboard</h2>
         </div>
+        <button class="nav-btn topbell" id="topBellBtn" title="Notifications" aria-label="Notifications" style="margin-left:auto">
+          <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="topbell-dot" id="topBellDot" style="display:none"></span>
+        </button>
         <div class="date" id="todayDate"></div>
       </div>
       <div class="content" id="view"></div>
@@ -992,6 +998,8 @@ async function updateBadges(){
   try{
     const {count:un}=await sb.from('notifications').select('*',{count:'exact',head:true}).eq('recipient_id',ME.id).eq('is_read',false);
     setBadge('notifications',un||0);
+    const dot=document.getElementById('topBellDot');
+    if(dot){ if(un>0){ dot.style.display=''; dot.textContent=un>9?'9+':String(un); } else { dot.style.display='none'; } }
   }catch(e){}
   if(isStaff()){
     const {count}=await sb.from('assignments').select('*',{count:'exact',head:true}).eq('status','pending');
@@ -1015,6 +1023,7 @@ function setActiveNav(){document.querySelectorAll('.nav-item').forEach(n=>n.clas
 $('#menuBtn').addEventListener('click',()=>{ $('#side').classList.add('open'); $('#scrim').classList.add('show'); });
 $('#topHomeBtn').addEventListener('click',()=>{ closeSide(); go(homeView()); });
 $('#topBackBtn').addEventListener('click',()=>{ if(!NAV_HISTORY.length) return; const prev=NAV_HISTORY.pop(); NAV_BACK=true; closeSide(); go(prev); });
+$('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications'); });
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
@@ -1034,6 +1043,7 @@ function go(view){
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
   updateNavButtons();
+  updateBadges();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
   ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,pro_community:renderProCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
    programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile,
@@ -1898,10 +1908,20 @@ async function renderParentBilling(v){
   v.innerHTML=`<div class="welcome"><h1>Billing</h1><p>Your invoices and their status.</p></div><div class="rows" id="pInv"></div>`;
   const rows=$('#pInv');
   if(!inv.length){ rows.innerHTML=`<div class="empty"><h4>No invoices</h4><p>You have no invoices on record.</p></div>`; return; }
-  inv.forEach(i=>rows.appendChild(el(`<div class="row-card" style="cursor:default">
-    <div class="row-main"><div class="row-name">${money(i.amount)} · ${escapeHtml(i.description||'Program fee')}</div>
-    <div class="row-sub">${escapeHtml(i.invoice_no||'')}${i.due_date?' · due '+fmtDate(i.due_date):''}</div></div>
-    <span class="pill ${i.status==='paid'?'active':'enquiry'}">${i.status==='paid'?'paid':'due'}</span></div>`)));
+  inv.forEach(i=>{
+    const hasPaid = i.status==='paid' || i.status==='part_paid';
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="row-main"><div class="row-name">${money(i.amount)} · ${escapeHtml(i.description||'Program fee')}</div>
+        <div class="row-sub">${escapeHtml(i.invoice_no||'')}${i.due_date?' · due '+fmtDate(i.due_date):''}</div></div>
+        <span class="pill ${i.status==='paid'?'active':(i.status==='part_paid'?'enquiry':'enquiry')}">${i.status==='paid'?'paid':(i.status==='part_paid'?'part paid':'due')}</span>
+      </div>
+      ${hasPaid?`<button class="btn btn-ghost btn-sm rcptBtn" style="width:auto;align-self:flex-end">↓ Download receipt</button>`:''}
+    </div>`);
+    const rc=card.querySelector('.rcptBtn');
+    if(rc) rc.onclick=()=>printReceipt(i);
+    rows.appendChild(card);
+  });
 }
 
 /* ===================== ROLE HOME DASHBOARD ===================== */
@@ -2352,9 +2372,16 @@ async function renderInstSection(inst, section){
     const {data:invs}=await sb.from('invoices').select('*').eq('institution_id',inst.id).order('invoice_date',{ascending:false});
     const iv=$('#iInvoices');
     iv.innerHTML=(invs&&invs.length)?'':'<div class="empty" style="padding:20px"><h4>No invoices yet</h4><p>Invoices issued by Mindora will appear here.</p></div>';
-    (invs||[]).forEach(x=>iv.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(x.description||x.invoice_no||'Invoice')}</div><span class="pill ${x.status==='paid'?'active':'enquiry'}">${escapeHtml(x.status||'sent')}</span></div>
-      <div class="row-sub">${x.invoice_no?escapeHtml(x.invoice_no)+' · ':''}UGX ${Number(x.amount||0).toLocaleString()}${x.invoice_date?' · '+fmtDate(x.invoice_date):''}${x.due_date?' · due '+fmtDate(x.due_date):''}</div></div>`)));
+    (invs||[]).forEach(x=>{
+      const hasPaid = x.status==='paid' || x.status==='part_paid';
+      const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(x.description||x.invoice_no||'Invoice')}</div><span class="pill ${x.status==='paid'?'active':(x.status==='part_paid'?'enquiry':'enquiry')}">${escapeHtml(x.status==='part_paid'?'part paid':(x.status||'sent'))}</span></div>
+      <div class="row-sub">${x.invoice_no?escapeHtml(x.invoice_no)+' · ':''}UGX ${Number(x.amount||0).toLocaleString()}${x.invoice_date?' · '+fmtDate(x.invoice_date):''}${x.due_date?' · due '+fmtDate(x.due_date):''}</div>
+      ${hasPaid?`<button class="btn btn-ghost btn-sm rcptBtn" style="width:auto;align-self:flex-end">↓ Download receipt</button>`:''}</div>`);
+      const rc=card.querySelector('.rcptBtn');
+      if(rc) rc.onclick=()=>printReceipt(x);
+      iv.appendChild(card);
+    });
   } else if(section==='termly'){
     body.innerHTML=`<div class="rows" id="iSchoolReps"></div>`;
     const {data:sreps}=await sb.from('school_reports').select('*').eq('institution_id',inst.id).eq('status','shared').order('created_at',{ascending:false});
@@ -2610,8 +2637,17 @@ async function printReceipt(inv){
   }catch(e){ txns=[]; }
   const received=txns.reduce((s,t)=>s+Number(t.gross_amount||0),0);
   const total=Number(inv.amount||0);
-  const bal=Math.max(0,total-(received||(total-Number(inv.outstanding||0))));
-  const shown=received|| (total-Number(inv.outstanding||0)); // fallback if no txn rows
+  // Determine amount received:
+  //  1) real transaction rows if we can read them (staff, and RLS-permitting others)
+  //  2) else v_receivables.outstanding if present (staff invoice view)
+  //  3) else infer from invoice status (parent/institution raw invoice: paid = full, part_paid = unknown)
+  let shown;
+  if(received>0){ shown=received; }
+  else if(inv.outstanding!=null && !isNaN(Number(inv.outstanding))){ shown=total-Number(inv.outstanding); }
+  else if(inv.status==='paid'){ shown=total; }
+  else { shown=null; } // part paid but amount not visible to this user
+  const knownBal = (shown!=null) ? Math.max(0,total-shown) : null;
+  const bal = knownBal;
   const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to save the receipt.',true);return;}
   const esc=escapeHtml;
   const rcptNo='RCPT-'+String(inv.invoice_no||'').replace(/[^0-9A-Za-z]/g,'')+'-'+new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -2619,7 +2655,11 @@ async function printReceipt(inv){
   const chan=txns.length?(txns[txns.length-1].channel||'—'):'—';
   const lineRows=txns.length
     ? txns.map(t=>`<tr><td>${esc(fmtDate(t.txn_date))}</td><td>${esc(t.channel||'—')}</td><td style="text-align:right">${money(t.gross_amount)}</td></tr>`).join('')
-    : `<tr><td>${esc(fmtDate(lastDate))}</td><td>—</td><td style="text-align:right">${money(shown)}</td></tr>`;
+    : `<tr><td>${esc(fmtDate(lastDate))}</td><td>—</td><td style="text-align:right">${shown!=null?money(shown):'received'}</td></tr>`;
+  const shownTxt = shown!=null ? money(shown) : 'Payment received';
+  const balTxt = bal!=null ? money(bal) : '—';
+  const balLabel = (bal!=null && bal>0) ? 'Balance outstanding' : 'Balance';
+  const stampFull = (bal!=null && bal<=0);
   w.document.write(`<html><head><title>${esc(rcptNo)}</title><style>
     *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;padding:34px;max-width:720px;margin:auto;font-size:13.5px;line-height:1.5}
     .lh{display:flex;align-items:center;gap:14px;border-bottom:4px solid #6C3483;box-shadow:0 3px 0 #FFB020;padding-bottom:12px;margin-bottom:8px}
@@ -2651,10 +2691,10 @@ async function printReceipt(inv){
       <tbody>${lineRows}</tbody></table>
     <div class="tot">
       <div class="totrow"><span>Invoice total</span><span>${money(total)}</span></div>
-      <div class="totrow big"><span>Total received</span><span>${money(shown)}</span></div>
-      <div class="totrow"><span>Balance ${bal>0?'outstanding':'due'}</span><span>${money(bal)}</span></div>
+      <div class="totrow big"><span>Total received</span><span>${shownTxt}</span></div>
+      <div class="totrow"><span>${balLabel}</span><span>${balTxt}</span></div>
     </div>
-    ${bal<=0?'<div style="text-align:center"><span class="paidstamp">Paid in full</span></div>':'<div style="text-align:center"><span class="paidstamp" style="border-color:#FFB020;color:#C9851A">Part payment</span></div>'}
+    ${stampFull?'<div style="text-align:center"><span class="paidstamp">Paid in full</span></div>':'<div style="text-align:center"><span class="paidstamp" style="border-color:#FFB020;color:#C9851A">Part payment</span></div>'}
     <div class="sig"><div>Received by (Mindora)</div><div>Date</div></div>
     <p class="muted" style="margin-top:24px;text-align:center">Thank you. Mindora Inclusive Child Development Services · Home, Hope &amp; Harmony</p>
   </body></html>`);
