@@ -305,6 +305,30 @@ a{color:var(--purple)}
 
 /* quick action chips on child detail */
 .qa-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 20px}
+.biodata{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:2px 0 18px}
+.bio-item{background:var(--card);padding:12px 14px}
+.bio-k{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:3px}
+.bio-v{font-size:14.5px;color:var(--ink);font-weight:600}
+.child-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:20px;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;
+  box-shadow:0 14px 34px rgba(74,30,99,.30);transition:transform .1s,box-shadow .1s;margin-bottom:8px}
+.child-hero:hover{transform:translateY(-2px);box-shadow:0 18px 42px rgba(74,30,99,.38)}
+.hero-ava{width:76px;height:76px;flex:0 0 auto;border-radius:20px;background:rgba(255,255,255,.18);
+  display:grid;place-items:center;font-size:28px;font-weight:800;color:#fff}
+.hero-main{flex:1;min-width:0}
+.hero-name{font-family:'Fraunces',serif;font-size:26px;font-weight:700;line-height:1.1;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hero-sub{font-size:14px;opacity:.9;margin-top:4px}
+.hero-cta{margin-top:12px;display:inline-block;background:rgba(255,255,255,.16);padding:7px 14px;border-radius:10px;font-weight:700;font-size:13.5px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-dow{text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);padding:4px 0}
+.cal-cell{min-height:76px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:6px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+.cal-empty{background:transparent;border:none}
+.cal-num{font-size:12px;font-weight:700;color:var(--muted)}
+.cal-has{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-soft)}
+.cal-today{outline:2px solid var(--accent);outline-offset:0}
+.cal-today .cal-num{color:var(--accent);font-weight:800}
+.cal-chip{background:var(--accent-soft);color:var(--accent-deep);border-radius:6px;padding:3px 5px;font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:640px){.cal-cell{min-height:56px;padding:4px}.cal-chip{font-size:9px;padding:2px 3px}.cal-dow{font-size:9px}}
 .qa{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600;font-size:13.5px;color:var(--accent-deep);cursor:pointer;transition:border-color .14s,transform .08s}
 .qa:hover{border-color:var(--accent)}
 .qa:active{transform:scale(.98)}
@@ -683,7 +707,9 @@ const I = {
   // bell: notifications
   bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
   // graph: progress line
-  graph:'<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/>'
+  graph:'<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/>',
+  // progress: upward growth with milestone star
+  progress:'<path d="M4 20V4"/><path d="M4 20h16"/><path d="M7 16l3.2-3.4 2.6 2.2L18 9"/><path d="M18 6.4l.7 1.5 1.6.2-1.2 1.1.3 1.6-1.4-.8-1.4.8.3-1.6-1.2-1.1 1.6-.2z"/>'
 };
 const icon = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||I.dash}</svg>`;
 
@@ -722,11 +748,10 @@ const NAV = {
   ],
   parent:[
     {k:'role_home',label:'Home',icon:'dashboard'},
-    {k:'notifications',label:'Notifications',icon:'bell'},
     {k:'parent_home',label:'My child',icon:'child'},
     {k:'parent_community',label:'Community',icon:'inst'},
     {k:'parent_billing',label:'Billing',icon:'fin'},
-    {k:'support',label:'Support / contact team',icon:'chat'},
+    {k:'support',label:'Support',icon:'chat'},
   ],
   institution:[
     {k:'role_home',label:'Home',icon:'dashboard'},
@@ -820,7 +845,9 @@ async function boot(){
   buildNav();
   NAV_HISTORY=[]; NAV_BACK=false;
   currentView='__init__';
-  go(isStaff()?'dashboard':(ME.role==='professional'||ME.role==='parent'||ME.role==='institution'?'role_home':'portal'));
+  const KNOWN=['director','secretary','professional','parent','institution'];
+  const landing = isStaff() ? 'dashboard' : (KNOWN.includes(ME.role) ? 'role_home' : 'pending');
+  go(landing);
   NAV_HISTORY=[];
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
@@ -1038,7 +1065,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1068,7 +1095,7 @@ function go(view){
    child_goals:(vv)=>renderChildGoals(vv,SELECTED_CHILD),
    report_edit:(vv)=>renderReportEdit(vv,SELECTED_REPORT),
    pro_reports:renderProReports,
-   notifications:renderNotifications, waitlist:renderWaitlist,
+   notifications:renderNotifications, waitlist:renderWaitlist, pending:renderPending,
    child_progress:(vv)=>renderChildProgress(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
 }
 
@@ -1864,12 +1891,16 @@ async function renderParentHome(v){
   kids.forEach(c=>{
     const u=unread[c.id]||0;
     const badge=u?`<span class="chat-badge" title="${u} new message${u>1?'s':''}">${u>9?'9+':u}</span>`:'';
-    const ava=c.photo_url?`<div class="row-ava" style="padding:0;overflow:hidden"><img src="${escapeHtml(c.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover"/></div>`:`<div class="row-ava">${initials(c.full_name)}</div>`;
-    const card=el(`<div class="row-card">
+    const ava=c.photo_url?`<div class="hero-ava" style="padding:0;overflow:hidden"><img src="${escapeHtml(c.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover"/></div>`:`<div class="hero-ava">${initials(c.full_name)}</div>`;
+    const sub=[c.dob?calcAge(c.dob):'', c.assessed_band?'Band '+c.assessed_band:'', c.school_name||''].filter(Boolean).join(' · ');
+    const card=el(`<div class="child-hero">
       ${ava}
-      <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}${badge}</div>
-      <div class="row-sub">${c.dob?'Born '+fmtDate(c.dob):''}${c.assessed_band?' · Band '+c.assessed_band:''}</div></div>
-      <span style="color:var(--muted)">›</span></div>`);
+      <div class="hero-main">
+        <div class="hero-name">${escapeHtml(c.full_name)}${badge}</div>
+        <div class="hero-sub">${escapeHtml(sub||'View progress, activities and messages')}</div>
+        <div class="hero-cta">Open ${escapeHtml(c.full_name.split(' ')[0])}\u2019s space ›</div>
+      </div>
+    </div>`);
     card.addEventListener('click',()=>{SELECTED_CHILD=c;go('parent_child');});
     rows.appendChild(card);
   });
@@ -1882,20 +1913,35 @@ async function renderParentChild(v,c){
   ]);
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="pBack" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>${c.presenting_needs?escapeHtml(c.presenting_needs):'Progress shared by your therapy team.'}</p></div>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>Progress and home activities shared by your Mindora team.</p></div>
+    <div class="biodata" id="bioBox"></div>
     <div class="qa-row">
-      <div class="qa" id="qaSched">${icon('schedule')} This month's schedule</div>
-      <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
-      <div class="qa" id="qaTeam">${icon('team')} Care team</div>
+      <div class="qa" id="qaProgress">${icon('progress')} Progress graphs</div>
+      <div class="qa" id="qaActs">${icon('plan')} Home activities</div>
       <div class="qa" id="qaChat">${icon('chat')} Message the team</div>
+      <div class="qa" id="qaSched">${icon('schedule')} Schedule</div>
+      <div class="qa" id="qaTeam">${icon('team')} Care team</div>
     </div>
     <div class="section-head"><h3>Progress</h3></div><div class="rows" id="pSess"></div>
     <div class="section-head" style="margin-top:24px"><h3>Home activities</h3></div><div class="rows" id="pHp"></div>`;
+  // child biodata (parent-appropriate facts only)
+  const bio=[];
+  if(c.dob) bio.push(['Age', calcAge(c.dob)+ (c.dob?` (born ${fmtDate(c.dob)})`:'')]);
+  if(c.sex) bio.push(['Sex', c.sex]);
+  if(c.assessed_band) bio.push(['Program band', 'Band '+c.assessed_band]);
+  if(c.delivery_channel) bio.push(['Care setting', c.delivery_channel.charAt(0).toUpperCase()+c.delivery_channel.slice(1)]);
+  if(c.school_name) bio.push(['School', c.school_name + (c.school_class?(' · '+c.school_class):'') + (c.school_stream?(' ('+c.school_stream+')'):'')]);
+  if(c.class_teacher) bio.push(['Class teacher', c.class_teacher]);
+  const bb=$('#bioBox');
+  bb.innerHTML = bio.length
+    ? bio.map(([k,val])=>`<div class="bio-item"><div class="bio-k">${k}</div><div class="bio-v">${escapeHtml(String(val))}</div></div>`).join('')
+    : `<div class="bio-item" style="grid-column:1/-1"><div class="bio-v" style="color:var(--muted)">Your child's details will appear here once the team completes the record.</div></div>`;
   $('#pBack').onclick=()=>go('parent_home');
-  $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
-  $('#qaTeam').onclick=()=>go('team');
+  $('#qaActs').onclick=()=>{ const t=document.getElementById('pHp'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); };
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
+  $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
+  $('#qaTeam').onclick=()=>go('team');
   const ss=$('#pSess');
   ss.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:24px"><h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
   (sessions||[]).forEach(s=>ss.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
@@ -3751,23 +3797,65 @@ async function renderChildSchedule(v,c){
   const canEdit=isStaff()||ME.role==='professional';
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Schedule</h1><p>Proposed plan for ${monthLabel(period)}. Visible to the family, school, and care team.</p></div>
-    <div class="section-head"><h3>This month</h3>${canEdit?'<button class="btn btn-primary btn-sm" id="addSched" style="width:auto">+ Add slot</button>':''}</div>
-    <div class="rows" id="schedRows"></div>`;
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Schedule</h1><p>Plan for ${monthLabel(period)}. Visible to the family, school, and care team.</p></div>
+    <div class="section-head"><h3>${monthLabel(period)}</h3>${canEdit?'<button class="btn btn-primary btn-sm" id="addSched" style="width:auto">+ Add slot</button>':''}</div>
+    <div id="calWrap"></div>
+    <div id="weeklyWrap"></div>`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':(ME.role==='professional'?'pro_children':(ME.role==='parent'?'parent_home':'inst_home')));
-  const sr=$('#schedRows');
-  if(!items||!items.length){ sr.innerHTML='<div class="empty" style="padding:26px"><h4>No schedule yet</h4><p>'+(canEdit?'Add the first slot for this month.':'The team will publish the schedule soon.')+'</p></div>'; }
-  (items||[]).forEach(s=>{
-    sr.appendChild(el(`<div class="row-card" style="cursor:default">
-      <div class="row-ava" style="font-size:12px">${escapeHtml((s.day_of_week||'•'))}</div>
+
+  const list=items||[];
+  const dated=list.filter(s=>s.scheduled_date);
+  const weekly=list.filter(s=>!s.scheduled_date && s.day_of_week);
+
+  // group dated slots by day-of-month
+  const byDay={};
+  dated.forEach(s=>{ const d=new Date(s.scheduled_date+'T00:00:00'); const k=d.getDate(); (byDay[k]=byDay[k]||[]).push(s); });
+
+  // build calendar grid for the current month
+  const now=new Date(period+'-01T00:00:00');
+  const year=now.getFullYear(), month=now.getMonth();
+  const firstDow=new Date(year,month,1).getDay();          // 0=Sun
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const todayD=new Date(); const isThisMonth=(todayD.getFullYear()===year&&todayD.getMonth()===month); const todayNum=todayD.getDate();
+  const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  let cells='';
+  DOW.forEach(d=>cells+=`<div class="cal-dow">${d}</div>`);
+  for(let i=0;i<firstDow;i++) cells+=`<div class="cal-cell cal-empty"></div>`;
+  for(let day=1;day<=daysInMonth;day++){
+    const slots=byDay[day]||[];
+    const isToday=isThisMonth&&day===todayNum;
+    const chips=slots.map(s=>`<div class="cal-chip" title="${escapeHtml([s.activity,s.time_text,s.location].filter(Boolean).join(' · '))}">${escapeHtml(s.time_text?s.time_text+' ':'')}${escapeHtml(s.activity||'')}</div>`).join('');
+    cells+=`<div class="cal-cell${isToday?' cal-today':''}${slots.length?' cal-has':''}">
+      <div class="cal-num">${day}</div>${chips}</div>`;
+  }
+  $('#calWrap').innerHTML=`<div class="cal-grid">${cells}</div>`;
+
+  // weekly recurring slots (no specific date) shown as a strip
+  if(weekly.length){
+    $('#weeklyWrap').innerHTML=`<div class="section-head" style="margin-top:22px"><h3>Weekly sessions</h3></div>
+      <div class="rows">${weekly.map(s=>`<div class="row-card" style="cursor:default">
+        <div class="row-ava" style="font-size:12px">${escapeHtml(s.day_of_week||'•')}</div>
+        <div class="row-main"><div class="row-name">${escapeHtml(s.activity)}</div>
+          <div class="row-sub">Every ${escapeHtml(s.day_of_week||'')}${[s.time_text,s.location].filter(Boolean).length?' · '+[s.time_text,s.location].filter(Boolean).map(escapeHtml).join(' · '):''}</div></div>
+        ${canEdit?`<button class="btn btn-ghost btn-sm delSlot" data-id="${s.id}" style="width:auto;padding:6px 10px">Remove</button>`:''}
+      </div>`).join('')}</div>`;
+  } else { $('#weeklyWrap').innerHTML=''; }
+
+  if(!list.length){ $('#calWrap').innerHTML+=`<div class="empty" style="padding:20px;margin-top:12px"><h4>No schedule yet</h4><p>${canEdit?'Add the first slot for this month.':'The team will publish the schedule soon.'}</p></div>`; }
+
+  // list of dated slots with remove (for editors) below the calendar
+  if(canEdit && dated.length){
+    const rowsHtml=dated.slice().sort((a,b)=>a.scheduled_date<b.scheduled_date?-1:1).map(s=>`<div class="row-card" style="cursor:default">
       <div class="row-main"><div class="row-name">${escapeHtml(s.activity)}</div>
-        <div class="row-sub">${[s.time_text,s.location,s.scheduled_date?fmtDate(s.scheduled_date):''].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>
-      ${canEdit?`<button class="btn btn-ghost btn-sm delSlot" data-id="${s.id}" style="width:auto;padding:6px 10px">Remove</button>`:''}
-    </div>`));
-  });
+        <div class="row-sub">${[fmtDate(s.scheduled_date),s.time_text,s.location].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>
+      <button class="btn btn-ghost btn-sm delSlot" data-id="${s.id}" style="width:auto;padding:6px 10px">Remove</button></div>`).join('');
+    $('#weeklyWrap').innerHTML+=`<div class="section-head" style="margin-top:22px"><h3>All slots this month</h3></div><div class="rows">${rowsHtml}</div>`;
+  }
+
   if(canEdit){
     const a=$('#addSched'); if(a) a.onclick=()=>scheduleForm(c,period);
-    sr.querySelectorAll('.delSlot').forEach(b=>b.onclick=async()=>{ await sb.from('child_schedules').delete().eq('id',b.dataset.id); toast('Slot removed'); renderChildSchedule($('#view'),c); });
+    document.querySelectorAll('.delSlot').forEach(b=>b.onclick=async()=>{ await sb.from('child_schedules').delete().eq('id',b.dataset.id); toast('Slot removed'); renderChildSchedule($('#view'),c); });
   }
 }
 function scheduleForm(c,period){
@@ -4209,8 +4297,34 @@ async function renderProReports(v){
 }
 
 /* ============================================================
-   NOTIFICATIONS
+   PENDING ACCESS — shown to a logged-in user with no role yet
    ============================================================ */
+async function renderPending(v){
+  // one more attempt to auto-link, in case the record was created after signup
+  try{
+    await sb.rpc('claim_professional_profile');
+    await sb.rpc('claim_parent_profile');
+    await sb.rpc('claim_institution_profile');
+    const {data:p2}=await sb.from('profiles').select('role,full_name,display_name').eq('id',ME.id).single();
+    if(p2&&['director','secretary','professional','parent','institution'].includes(p2.role)){
+      ME.role=p2.role; location.reload(); return;
+    }
+  }catch(e){}
+  v.innerHTML=`
+    <div class="empty" style="max-width:520px;margin:8vh auto 0;text-align:center">
+      ${EMPTY_ART.nest}
+      <h4 style="font-size:22px">Welcome to Mindora, ${escapeHtml(firstName()||'there')}</h4>
+      <p style="font-size:15px;line-height:1.6">Your account is active and signed in. The Mindora team is linking it to your records — this usually takes a short while.</p>
+      <p style="font-size:15px;line-height:1.6;margin-top:6px">Please check back shortly. If you have been waiting, contact the team on <b>0741 397 167</b> or <b>mindoraicds@gmail.com</b> and mention the email you signed in with: <b>${escapeHtml(ME.email||'')}</b>.</p>
+      <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" id="pendRefresh" style="width:auto">Check again</button>
+        <button class="btn btn-ghost" id="pendOut" style="width:auto">Sign out</button>
+      </div>
+    </div>`;
+  $('#pendRefresh').onclick=()=>location.reload();
+  $('#pendOut').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
+}
+
 const NOTIF_ICON={info:'ℹ️',reminder:'⏰',update:'📣',schedule:'📅',billing:'💳',report:'📄'};
 async function renderNotifications(v){
   const {data,error}=await sb.from('notifications').select('*').eq('recipient_id',ME.id).order('created_at',{ascending:false}).limit(100);
