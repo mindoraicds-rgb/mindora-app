@@ -309,6 +309,10 @@ a{color:var(--purple)}
 .bio-item{background:var(--card);padding:12px 14px}
 .bio-k{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:3px}
 .bio-v{font-size:14.5px;color:var(--ink);font-weight:600}
+.clin{margin:4px 0 18px}
+.clin-item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.clin-k{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-deep);font-weight:800;margin-bottom:4px}
+.clin-v{font-size:14px;color:var(--ink);line-height:1.55;white-space:normal}
 .child-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:20px;cursor:pointer;
   background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;
   box-shadow:0 14px 34px rgba(74,30,99,.30);transition:transform .1s,box-shadow .1s;margin-bottom:8px}
@@ -328,6 +332,8 @@ a{color:var(--purple)}
 .cal-today{outline:2px solid var(--accent);outline-offset:0}
 .cal-today .cal-num{color:var(--accent);font-weight:800}
 .cal-chip{background:var(--accent-soft);color:var(--accent-deep);border-radius:6px;padding:3px 5px;font-size:10.5px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-del{cursor:pointer}
+.cal-del:hover{background:#F3C9CB;color:#8a1f28}
 @media(max-width:640px){.cal-cell{min-height:56px;padding:4px}.cal-chip{font-size:9px;padding:2px 3px}.cal-dow{font-size:9px}}
 .qa{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600;font-size:13.5px;color:var(--accent-deep);cursor:pointer;transition:border-color .14s,transform .08s}
 .qa:hover{border-color:var(--accent)}
@@ -1065,7 +1071,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1083,7 +1089,7 @@ function go(view){
   updateNavButtons();
   updateBadges();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
-  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,pro_community:renderProCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
+  ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_activities:(vv)=>renderParentActivities(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,pro_community:renderProCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
    programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile,
    person_profile:(vv)=>renderPersonProfile(vv,SELECTED_PERSON),
    child_plan:(vv)=>renderChildPlan(vv,SELECTED_CHILD),
@@ -1907,51 +1913,75 @@ async function renderParentHome(v){
 }
 async function renderParentChild(v,c){
   if(!c){go('parent_home');return;}
-  const [{data:sessions},{data:programs}]=await Promise.all([
-    sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}),
-    sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false})
-  ]);
+  // pull the latest report + its sections for the clinical picture
+  const {data:reports}=await sb.from('child_reports').select('*').eq('client_id',c.id).order('created_at',{ascending:false}).limit(1);
+  const rep=(reports&&reports[0])||null;
+  let secs=[];
+  if(rep){ const {data:sd}=await sb.from('report_sections').select('*').eq('report_id',rep.id).order('id'); secs=sd||[]; }
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="pBack" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>Progress and home activities shared by your Mindora team.</p></div>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>Your child's clinical summary and program.</p></div>
     <div class="biodata" id="bioBox"></div>
+    <div class="clin" id="clinBox"></div>
     <div class="qa-row">
       <div class="qa" id="qaProgress">${icon('progress')} Progress graphs</div>
       <div class="qa" id="qaActs">${icon('plan')} Home activities</div>
       <div class="qa" id="qaChat">${icon('chat')} Message the team</div>
       <div class="qa" id="qaSched">${icon('schedule')} Schedule</div>
       <div class="qa" id="qaTeam">${icon('team')} Care team</div>
-    </div>
-    <div class="section-head"><h3>Progress</h3></div><div class="rows" id="pSess"></div>
-    <div class="section-head" style="margin-top:24px"><h3>Home activities</h3></div><div class="rows" id="pHp"></div>`;
-  // child biodata (parent-appropriate facts only)
+    </div>`;
+  // --- core identifying facts ---
   const bio=[];
-  if(c.dob) bio.push(['Age', calcAge(c.dob)+ (c.dob?` (born ${fmtDate(c.dob)})`:'')]);
+  if(c.dob) bio.push(['Age', calcAge(c.dob)]);
   if(c.sex) bio.push(['Sex', c.sex]);
   if(c.assessed_band) bio.push(['Program band', 'Band '+c.assessed_band]);
   if(c.delivery_channel) bio.push(['Care setting', c.delivery_channel.charAt(0).toUpperCase()+c.delivery_channel.slice(1)]);
-  if(c.school_name) bio.push(['School', c.school_name + (c.school_class?(' · '+c.school_class):'') + (c.school_stream?(' ('+c.school_stream+')'):'')]);
-  if(c.class_teacher) bio.push(['Class teacher', c.class_teacher]);
-  const bb=$('#bioBox');
-  bb.innerHTML = bio.length
-    ? bio.map(([k,val])=>`<div class="bio-item"><div class="bio-k">${k}</div><div class="bio-v">${escapeHtml(String(val))}</div></div>`).join('')
-    : `<div class="bio-item" style="grid-column:1/-1"><div class="bio-v" style="color:var(--muted)">Your child's details will appear here once the team completes the record.</div></div>`;
+  if(c.status) bio.push(['Status', c.status.charAt(0).toUpperCase()+c.status.slice(1)]);
+  if(c.school_name) bio.push(['School', c.school_name + (c.school_class?(' · '+c.school_class):'')]);
+  $('#bioBox').innerHTML = bio.map(([k,val])=>`<div class="bio-item"><div class="bio-k">${k}</div><div class="bio-v">${escapeHtml(String(val))}</div></div>`).join('');
+
+  // --- clinical picture, pulled from the latest report/assessment ---
+  const clin=[];
+  const need = c.presenting_needs || (rep&&rep.referral_reason) || '';
+  if(need) clin.push(['Presenting needs', need]);
+  if(rep&&rep.referral_reason && rep.referral_reason!==c.presenting_needs) clin.push(['Reason for referral', rep.referral_reason]);
+  if(rep&&rep.background) clin.push(['Background & history', rep.background]);
+  // clinical impressions: pull the "assessment" / discipline sections from the latest report
+  const impressions = secs.filter(s=>s.content && String(s.content).trim()).map(s=>`${s.heading?('<b>'+escapeHtml(s.heading)+':</b> '):''}${escapeHtml(s.content)}`);
+  if(impressions.length) clin.push(['Clinical impressions', impressions.join('<br>'), true]);
+  if(rep&&rep.overall_recommendations) clin.push(['Recommendations', rep.overall_recommendations]);
+
+  const clinBox=$('#clinBox');
+  if(clin.length){
+    clinBox.innerHTML=`<div class="section-head"><h3>Clinical summary</h3>${rep?`<span class="row-sub">${escapeHtml(rep.title||'Latest report')}${rep.period?' · '+escapeHtml(rep.period):''}</span>`:''}</div>`+
+      clin.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('');
+  } else {
+    clinBox.innerHTML=`<div class="section-head"><h3>Clinical summary</h3></div>
+      <div class="empty" style="padding:22px"><h4>Assessment in progress</h4><p>Your child's clinical summary will appear here once the team completes the first assessment or report.</p></div>`;
+  }
+
   $('#pBack').onclick=()=>go('parent_home');
-  { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
-  $('#qaActs').onclick=()=>{ const t=document.getElementById('pHp'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); };
+  $('#qaProgress').onclick=()=>{SELECTED_CHILD=c;go('child_progress');};
+  $('#qaActs').onclick=()=>{SELECTED_CHILD=c;go('parent_activities');};
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
   $('#qaTeam').onclick=()=>go('team');
-  const ss=$('#pSess');
-  ss.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:24px"><h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
-  (sessions||[]).forEach(s=>ss.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
-    <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div><span class="row-sub">${fmtDate(s.session_date)}</span></div>
-    ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}
-    ${s.progress_notes?`<div class="row-sub" style="white-space:normal;color:var(--teal)">${escapeHtml(s.progress_notes)}</div>`:''}
-  </div>`)));
-  const hp=$('#pHp');
-  hp.innerHTML=(programs&&programs.length)?'':`<div class="empty" style="padding:24px"><h4>No home activities yet</h4><p>Activities to practise at home will appear here.</p></div>`;
-  (programs||[]).forEach(p=>hp.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+}
+
+async function renderParentActivities(v,c){
+  if(!c){go('parent_home');return;}
+  const {data:programs}=await sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false});
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="aBack" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>Home activities</h1><p>Practise these with ${escapeHtml(firstNameOf(c.full_name))} at home.</p></div>
+    <div class="rows" id="actRows"></div>`;
+  $('#aBack').onclick=()=>{SELECTED_CHILD=c;go('parent_child');};
+  const r=$('#actRows');
+  if(!programs||!programs.length){
+    r.innerHTML=`<div class="empty" style="padding:30px"><h4>No home activities yet</h4><p>Activities to practice at home will appear here.</p></div>`;
+    return;
+  }
+  programs.forEach(p=>r.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:5px">
     <div class="row-name">${escapeHtml(p.title||'Home activity')}</div>
     ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
     ${attachmentsView(p.attachments)}
@@ -3797,24 +3827,19 @@ async function renderChildSchedule(v,c){
   const canEdit=isStaff()||ME.role==='professional';
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Schedule</h1><p>Plan for ${monthLabel(period)}. Visible to the family, school, and care team.</p></div>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Schedule</h1><p>Plan for ${monthLabel(period)}.</p></div>
     <div class="section-head"><h3>${monthLabel(period)}</h3>${canEdit?'<button class="btn btn-primary btn-sm" id="addSched" style="width:auto">+ Add slot</button>':''}</div>
-    <div id="calWrap"></div>
-    <div id="weeklyWrap"></div>`;
-  $('#backBtn').onclick=()=>go(isStaff()?'clients':(ME.role==='professional'?'pro_children':(ME.role==='parent'?'parent_home':'inst_home')));
+    <div id="calWrap"></div>`;
+  $('#backBtn').onclick=()=>go(isStaff()?'clients':(ME.role==='professional'?'pro_children':(ME.role==='parent'?'parent_child':'inst_home')));
 
   const list=items||[];
-  const dated=list.filter(s=>s.scheduled_date);
-  const weekly=list.filter(s=>!s.scheduled_date && s.day_of_week);
-
-  // group dated slots by day-of-month
+  // place any slot that has a scheduled_date onto its day cell
   const byDay={};
-  dated.forEach(s=>{ const d=new Date(s.scheduled_date+'T00:00:00'); const k=d.getDate(); (byDay[k]=byDay[k]||[]).push(s); });
+  list.forEach(s=>{ if(s.scheduled_date){ const d=new Date(s.scheduled_date+'T00:00:00'); (byDay[d.getDate()]=byDay[d.getDate()]||[]).push(s); } });
 
-  // build calendar grid for the current month
   const now=new Date(period+'-01T00:00:00');
   const year=now.getFullYear(), month=now.getMonth();
-  const firstDow=new Date(year,month,1).getDay();          // 0=Sun
+  const firstDow=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
   const todayD=new Date(); const isThisMonth=(todayD.getFullYear()===year&&todayD.getMonth()===month); const todayNum=todayD.getDate();
   const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -3825,37 +3850,15 @@ async function renderChildSchedule(v,c){
   for(let day=1;day<=daysInMonth;day++){
     const slots=byDay[day]||[];
     const isToday=isThisMonth&&day===todayNum;
-    const chips=slots.map(s=>`<div class="cal-chip" title="${escapeHtml([s.activity,s.time_text,s.location].filter(Boolean).join(' · '))}">${escapeHtml(s.time_text?s.time_text+' ':'')}${escapeHtml(s.activity||'')}</div>`).join('');
-    cells+=`<div class="cal-cell${isToday?' cal-today':''}${slots.length?' cal-has':''}">
-      <div class="cal-num">${day}</div>${chips}</div>`;
+    const chips=slots.map(s=>`<div class="cal-chip${canEdit?' cal-del':''}" ${canEdit?`data-id="${s.id}" title="Tap to remove"`:`title="${escapeHtml([s.activity,s.time_text,s.location].filter(Boolean).join(' · '))}"`}>${escapeHtml(s.time_text?s.time_text+' ':'')}${escapeHtml(s.activity||'')}</div>`).join('');
+    cells+=`<div class="cal-cell${isToday?' cal-today':''}${slots.length?' cal-has':''}"><div class="cal-num">${day}</div>${chips}</div>`;
   }
   $('#calWrap').innerHTML=`<div class="cal-grid">${cells}</div>`;
-
-  // weekly recurring slots (no specific date) shown as a strip
-  if(weekly.length){
-    $('#weeklyWrap').innerHTML=`<div class="section-head" style="margin-top:22px"><h3>Weekly sessions</h3></div>
-      <div class="rows">${weekly.map(s=>`<div class="row-card" style="cursor:default">
-        <div class="row-ava" style="font-size:12px">${escapeHtml(s.day_of_week||'•')}</div>
-        <div class="row-main"><div class="row-name">${escapeHtml(s.activity)}</div>
-          <div class="row-sub">Every ${escapeHtml(s.day_of_week||'')}${[s.time_text,s.location].filter(Boolean).length?' · '+[s.time_text,s.location].filter(Boolean).map(escapeHtml).join(' · '):''}</div></div>
-        ${canEdit?`<button class="btn btn-ghost btn-sm delSlot" data-id="${s.id}" style="width:auto;padding:6px 10px">Remove</button>`:''}
-      </div>`).join('')}</div>`;
-  } else { $('#weeklyWrap').innerHTML=''; }
-
   if(!list.length){ $('#calWrap').innerHTML+=`<div class="empty" style="padding:20px;margin-top:12px"><h4>No schedule yet</h4><p>${canEdit?'Add the first slot for this month.':'The team will publish the schedule soon.'}</p></div>`; }
-
-  // list of dated slots with remove (for editors) below the calendar
-  if(canEdit && dated.length){
-    const rowsHtml=dated.slice().sort((a,b)=>a.scheduled_date<b.scheduled_date?-1:1).map(s=>`<div class="row-card" style="cursor:default">
-      <div class="row-main"><div class="row-name">${escapeHtml(s.activity)}</div>
-        <div class="row-sub">${[fmtDate(s.scheduled_date),s.time_text,s.location].filter(Boolean).map(escapeHtml).join(' · ')}</div></div>
-      <button class="btn btn-ghost btn-sm delSlot" data-id="${s.id}" style="width:auto;padding:6px 10px">Remove</button></div>`).join('');
-    $('#weeklyWrap').innerHTML+=`<div class="section-head" style="margin-top:22px"><h3>All slots this month</h3></div><div class="rows">${rowsHtml}</div>`;
-  }
 
   if(canEdit){
     const a=$('#addSched'); if(a) a.onclick=()=>scheduleForm(c,period);
-    document.querySelectorAll('.delSlot').forEach(b=>b.onclick=async()=>{ await sb.from('child_schedules').delete().eq('id',b.dataset.id); toast('Slot removed'); renderChildSchedule($('#view'),c); });
+    document.querySelectorAll('.cal-del').forEach(ch=>ch.onclick=async()=>{ if(!confirm('Remove this slot?'))return; await sb.from('child_schedules').delete().eq('id',ch.dataset.id); toast('Slot removed'); renderChildSchedule($('#view'),c); });
   }
 }
 function scheduleForm(c,period){
@@ -4523,7 +4526,11 @@ async function renderChildProgress(v,c){
   const wrap=$('#progWrap');
   const activeGoals=(goals||[]).filter(g=>g.status!=='discontinued');
   if(!activeGoals.length){
-    wrap.innerHTML=`<div class="empty">${EMPTY_ART.plant}<h4>No goals to chart yet</h4><p>${canLog?'Add goals first, then record progress scores against them.':'Progress will appear here once goals are set and scored.'}</p>${canLog?'<button class="btn btn-primary btn-sm" id="goToGoals" style="width:auto">Go to goals</button>':''}</div>`;
+    if(!canLog){
+      wrap.innerHTML=`<div class="empty" style="padding:30px">${EMPTY_ART.plant}<h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
+      return;
+    }
+    wrap.innerHTML=`<div class="empty">${EMPTY_ART.plant}<h4>No goals to chart yet</h4><p>Add goals first, then record progress scores against them.</p><button class="btn btn-primary btn-sm" id="goToGoals" style="width:auto">Go to goals</button></div>`;
     const gg=$('#goToGoals'); if(gg) gg.onclick=()=>{ SELECTED_CHILD=c; go('child_goals'); };
     return;
   }
