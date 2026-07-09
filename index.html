@@ -1271,8 +1271,10 @@ function openClientForm(c){
     <div class="form-row"><label>Clinical recommendations</label><textarea id="f_crec" placeholder="Recommended program, intensity, focus areas, referrals">${escapeHtml(c.clinical_recommendations||'')}</textarea></div>
     <div class="form-row"><label>Child photo <span style="color:var(--muted);font-weight:400">(optional)</span></label><div id="f_photo_up"></div></div>
     <div style="border-top:1px solid var(--line);margin:6px 0 14px;padding-top:12px"><div class="row-name" style="color:var(--accent-deep)">School & class details</div></div>
+    <div class="form-row"><label>Linked institution <span style="color:var(--muted);font-weight:400">(so the school portal sees this child)</span></label>
+      <select id="f_inst"><option value="">— none —</option></select></div>
     <div class="form-row two">
-      <div><label>School name</label><input id="f_school" value="${escapeHtml(c.school_name||'')}"/></div>
+      <div><label>School name <span style="color:var(--muted);font-weight:400">(if not linked above)</span></label><input id="f_school" value="${escapeHtml(c.school_name||'')}"/></div>
       <div><label>Class / grade</label><input id="f_class" value="${escapeHtml(c.school_class||'')}" placeholder="e.g. P2"/></div>
     </div>
     <div class="form-row two">
@@ -1290,6 +1292,12 @@ function openClientForm(c){
   </div></div>`);
   document.body.appendChild(m);
   photoUploader('f_photo_up','f_photo',c.photo_url,'children');
+  // fill the institution selector so a child can be linked to a school
+  (async()=>{
+    const {data:insts}=await sb.from('institutions').select('id,name').order('name');
+    const sel=m.querySelector('#f_inst');
+    (insts||[]).forEach(it=>{ const o=document.createElement('option'); o.value=it.id; o.textContent=it.name; if(c.institution_id===it.id)o.selected=true; sel.appendChild(o); });
+  })();
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#f_cancel').onclick=close;
@@ -1317,6 +1325,7 @@ function openClientForm(c){
       clinical_updated_at:new Date().toISOString(), clinical_updated_by:ME.id,
       photo_url:m.querySelector('#f_photo').value.trim()||null,
       school_name:m.querySelector('#f_school').value.trim()||null,
+      institution_id:m.querySelector('#f_inst').value||null,
       school_class:m.querySelector('#f_class').value.trim()||null,
       school_stream:m.querySelector('#f_stream').value.trim()||null,
       class_teacher:m.querySelector('#f_teacher').value.trim()||null,
