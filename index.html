@@ -2052,7 +2052,9 @@ async function sessionDetail(s, c){
 }
 
 // ---- Shared: full home-program detail (read-only) ----
-function homeProgramDetail(p, c){
+async function homeProgramDetail(p, c){
+  const isParent = ME.role==='parent';
+  const {data:comments}=await sb.from('home_program_comments').select('*').eq('home_program_id',p.id).order('created_at');
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${escapeHtml(p.title||'Home activity')}</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(p.issued_date)}</div>
     <div class="clin">
@@ -2060,12 +2062,60 @@ function homeProgramDetail(p, c){
       ${p.goal?`<div class="clin-item"><div class="clin-k">Goal</div><div class="clin-v">${escapeHtml(p.goal)}</div></div>`:''}
       ${p.frequency?`<div class="clin-item"><div class="clin-k">Frequency</div><div class="clin-v">${escapeHtml(p.frequency)}</div></div>`:''}
     </div>
-    ${p.attachments?`<div style="margin-top:8px">${attachmentsView(p.attachments)}</div>`:''}
-    <div class="modal-actions"><button class="btn btn-primary" id="hp_close">Close</button></div>
+    ${p.attachments?`<div style="margin:8px 0">${attachmentsView(p.attachments)}</div>`:''}
+    ${isParent?`<div id="ackWrap" style="margin:8px 0"></div>`:(p.acknowledged_at?`<div class="row-sub" style="color:var(--teal);margin:6px 0">✓ Parent confirmed received${p.acknowledged_at?' on '+fmtDate(p.acknowledged_at):''}</div>`:'<div class="row-sub" style="margin:6px 0">Awaiting parent acknowledgement</div>')}
+    <div style="border-top:1px solid var(--line);margin:10px 0 8px;padding-top:10px"><div class="row-name" style="color:var(--accent-deep)">Questions &amp; feedback</div></div>
+    <div class="rows" id="hpcRows" style="max-height:220px;overflow-y:auto"></div>
+    <div class="form-row" style="margin-top:10px"><textarea id="hpc_body" placeholder="${isParent?'Ask a question or share how it went…':'Reply to the family…'}"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="hp_close">Close</button><button class="btn btn-primary" id="hpc_send">Send</button></div>
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#hp_close').onclick=close;
+
+  // acknowledgement (parent)
+  if(isParent){
+    const aw=m.querySelector('#ackWrap');
+    if(p.acknowledged_at){ aw.innerHTML=`<span class="pill active">✓ You confirmed receipt on ${fmtDate(p.acknowledged_at)}</span>`; }
+    else {
+      aw.innerHTML=`<button class="btn btn-primary btn-sm" id="ackBtn" style="width:auto">✓ Acknowledge receipt</button>`;
+      aw.querySelector('#ackBtn').onclick=async()=>{
+        const {error}=await sb.from('home_programs').update({acknowledged_at:new Date().toISOString(),acknowledged_by:ME.id}).eq('id',p.id);
+        if(error){toast(error.message,true);return;}
+        p.acknowledged_at=new Date().toISOString();
+        aw.innerHTML=`<span class="pill active">✓ You confirmed receipt just now</span>`;
+        toast('Thank you — receipt confirmed');
+      };
+    }
+  }
+
+  // comment thread
+  const cr=m.querySelector('#hpcRows');
+  const paint=(rowsData)=>{
+    if(!rowsData.length){ cr.innerHTML='<div class="row-sub" style="padding:4px 2px">No comments yet.</div>'; return; }
+    cr.innerHTML='';
+    rowsData.forEach(cm=>{
+      const mine=cm.author_id===ME.id;
+      cr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:2px;${mine?'border-left:3px solid var(--accent)':''}">
+        <div style="display:flex;gap:8px"><div class="row-name" style="flex:1;font-size:13px">${escapeHtml(cm.author_name||'—')}${cm.author_role?` · ${escapeHtml(cm.author_role)}`:''}</div><span class="row-sub">${fmtDate(cm.created_at)}</span></div>
+        <div class="row-sub" style="white-space:normal;color:var(--ink)">${escapeHtml(cm.body)}</div>
+      </div>`));
+    });
+  };
+  paint(comments||[]);
+  m.querySelector('#hpc_send').onclick=async()=>{
+    const body=m.querySelector('#hpc_body').value.trim();
+    if(!body){toast('Write a message first.',true);return;}
+    const btn=m.querySelector('#hpc_send');btn.disabled=true;btn.textContent='Sending…';
+    const {error}=await sb.from('home_program_comments').insert({
+      home_program_id:p.id, client_id:c.id, author_id:ME.id,
+      author_name:displayName?displayName():ME.name, author_role:ME.role, body
+    });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Send';return;}
+    m.querySelector('#hpc_body').value='';
+    const {data:fresh}=await sb.from('home_program_comments').select('*').eq('home_program_id',p.id).order('created_at');
+    paint(fresh||[]); btn.disabled=false;btn.textContent='Send';
+  };
 }
 
 async function renderParentChild(v,c){
@@ -2135,23 +2185,30 @@ async function renderParentChild(v,c){
 
 async function renderParentActivities(v,c){
   if(!c){go('parent_home');return;}
-  const {data:programs}=await sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false});
+  const {data:all}=await sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false});
+  const programs=(all||[]).filter(p=>p.visible_to_parent);
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="aBack" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>Home activities</h1><p>Practise these with ${escapeHtml(firstNameOf(c.full_name))} at home.</p></div>
+    <div class="welcome"><h1>Home activities</h1><p>Practise these with ${escapeHtml(firstNameOf(c.full_name))} at home. Tap one to acknowledge or ask a question.</p></div>
     <div class="rows" id="actRows"></div>`;
   $('#aBack').onclick=()=>{SELECTED_CHILD=c;go('parent_child');};
   const r=$('#actRows');
-  if(!programs||!programs.length){
+  if(!programs.length){
     r.innerHTML=`<div class="empty" style="padding:30px"><h4>No home activities yet</h4><p>Activities to practice at home will appear here.</p></div>`;
     return;
   }
-  programs.forEach(p=>r.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:5px">
-    <div class="row-name">${escapeHtml(p.title||'Home activity')}</div>
-    ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
-    ${attachmentsView(p.attachments)}
-    <div class="row-sub">${fmtDate(p.issued_date)}</div>
-  </div>`)));
+  programs.forEach(p=>{
+    const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:5px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="row-name" style="flex:1">${escapeHtml(p.title||'Home activity')}</div>
+        ${p.acknowledged_at?'<span class="pill active">✓ received</span>':'<span class="pill enquiry">new</span>'}
+      </div>
+      ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions.slice(0,120))}${p.instructions.length>120?'…':''}</div>`:''}
+      <div class="row-sub">${fmtDate(p.issued_date)}</div>
+    </div>`);
+    card.onclick=()=>homeProgramDetail(p,c);
+    r.appendChild(card);
+  });
 }
 async function renderParentBilling(v){
   const {data,error}=await sb.from('invoices').select('*').order('invoice_date',{ascending:false});
@@ -4153,10 +4210,13 @@ async function renderChildSchedule(v,c){
 function scheduleDayForm(c, iso, existing){
   const pretty=fmtDate(iso);
   const rowsHtml = existing.length
-    ? existing.map(s=>`<div class="row-card" style="cursor:default;gap:8px">
+    ? existing.map(s=>{
+        const canDelete = isStaff() || s.created_by===ME.id;
+        return `<div class="row-card" style="cursor:default;gap:8px">
         <div class="row-main"><div class="row-name">${escapeHtml(s.time_text||'—')} · ${escapeHtml(s.activity||'Session')}</div>
-        <div class="row-sub">${escapeHtml(s.location||'')}</div></div>
-        <button class="btn btn-ghost btn-sm sd-del" data-id="${s.id}" style="width:auto;padding:6px 10px;color:var(--danger)">Remove</button></div>`).join('')
+        <div class="row-sub">${escapeHtml(s.location||'')}${(!canDelete&&s.created_by)?' · set by a colleague':''}</div></div>
+        ${canDelete?`<button class="btn btn-ghost btn-sm sd-del" data-id="${s.id}" style="width:auto;padding:6px 10px;color:var(--danger)">Remove</button>`:''}</div>`;
+      }).join('')
     : '<div class="row-sub" style="padding:4px 2px 10px">No sessions on this day yet.</div>';
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${pretty}</h3><div class="sub">Sessions for ${escapeHtml(c.full_name)} on this day.</div>
@@ -4862,13 +4922,29 @@ async function renderChildProgress(v,c){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)} — Progress</h1><p>How ${firstNameOf(c.full_name)} is moving toward each goal over time. 0% = starting point, 100% = goal met.</p></div>
-    <div id="progWrap"></div>`;
+    <div id="progWrap"></div>
+    <div id="updatesWrap"></div>`;
   $('#backBtn').onclick=()=>{ SELECTED_CHILD=c; go(isStaff()?'staff_child':(ME.role==='professional'?'pro_child':'parent_child')); };
+  // Session updates shared with the parent (also shown to staff/pro as the shared feed)
+  (async()=>{
+    const uw=$('#updatesWrap'); if(!uw) return;
+    let sq=sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}).limit(15);
+    const {data:sess}=await sq;
+    const shared=(sess||[]).filter(s=>s.visible_to_parent && (s.summary||s.progress_notes));
+    if(!shared.length) return;
+    uw.innerHTML=`<div class="section-head" style="margin-top:24px"><h3>Recent updates</h3></div><div class="rows" id="updRows"></div>`;
+    const ur=$('#updRows');
+    shared.forEach(s=>ur.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session update')}</div><span class="row-sub">${fmtDate(s.session_date)}</span></div>
+      ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}
+      ${s.progress_notes?`<div class="row-sub" style="white-space:normal;color:var(--teal)">${escapeHtml(s.progress_notes)}</div>`:''}
+    </div>`)));
+  })();
   const wrap=$('#progWrap');
   const activeGoals=(goals||[]).filter(g=>g.status!=='discontinued');
   if(!activeGoals.length){
     if(!canLog){
-      wrap.innerHTML=`<div class="empty" style="padding:30px">${EMPTY_ART.plant}<h4>No updates yet</h4><p>When your therapist shares a session update, it appears here.</p></div>`;
+      wrap.innerHTML=`<div class="empty" style="padding:30px">${EMPTY_ART.plant}<h4>No goal graphs yet</h4><p>Progress charts appear here once goals are set. Any session updates from the team show below.</p></div>`;
       return;
     }
     wrap.innerHTML=`<div class="empty">${EMPTY_ART.plant}<h4>No goals to chart yet</h4><p>Add goals first, then record progress scores against them.</p><button class="btn btn-primary btn-sm" id="goToGoals" style="width:auto">Go to goals</button></div>`;
