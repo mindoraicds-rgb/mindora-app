@@ -1730,37 +1730,67 @@ function cpdForm(){
   };
 }
 async function renderProChildren(v){
+  // resolve which children are actively assigned vs ended (history)
+  let activeIds=[], endedIds=[];
+  if(MY_PROF_ID){
+    const {data:asg}=await sb.from('assignments').select('client_id,status').eq('professional_id',MY_PROF_ID);
+    (asg||[]).forEach(a=>{ if(a.status==='accepted') activeIds.push(a.client_id); else if(a.status==='ended') endedIds.push(a.client_id); });
+  }
   const {data,error}=await sb.from('clients').select('*').order('full_name');
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load children</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
-  const kids=data||[];
-  const unread=await unreadCounts(kids.map(c=>c.id));
-  v.innerHTML=`<div class="section-head"><h3>My children</h3></div><div class="rows" id="kidRows"></div>`;
+  const all=data||[];
+  const activeKids=all.filter(c=>activeIds.includes(c.id));
+  const pastKids=all.filter(c=>endedIds.includes(c.id) && !activeIds.includes(c.id));
+  const unread=await unreadCounts(activeKids.map(c=>c.id));
+  v.innerHTML=`<div class="section-head"><h3>My children</h3></div><div class="rows" id="kidRows"></div>
+    <div id="pastWrap"></div>`;
   const rows=$('#kidRows');
-  if(!kids.length){ rows.innerHTML=`<div class="empty">${EMPTY_ART.nest}<h4>No children yet</h4><p>Once you accept a request, the child appears here with their full details.</p></div>`; return; }
-  rows.innerHTML='';
-  kids.forEach(c=>{
-    const u=unread[c.id]||0;
-    const badge=u?`<span class="chat-badge" title="${u} new message${u>1?'s':''}">${u>9?'9+':u}</span>`:'';
-    const ava=c.photo_url?`<div class="row-ava" style="padding:0;overflow:hidden"><img src="${escapeHtml(c.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover"/></div>`:`<div class="row-ava">${initials(c.full_name)}</div>`;
-    const card=el(`<div class="row-card">
-      ${ava}
-      <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}${badge}</div>
-      <div class="row-sub">${c.dob?'DOB '+fmtDate(c.dob):''}${c.assessed_band?' · Band '+c.assessed_band:''}</div></div>
-      <span class="pill ${c.status||'active'}">${(c.status||'active').replace('_',' ')}</span></div>`);
-    card.addEventListener('click',()=>{SELECTED_CHILD=c;go('pro_child');});
-    rows.appendChild(card);
-  });
+  if(!activeKids.length){ rows.innerHTML=`<div class="empty">${EMPTY_ART.nest}<h4>No children yet</h4><p>Once you accept a request, the child appears here with their full details.</p></div>`; }
+  else {
+    rows.innerHTML='';
+    activeKids.forEach(c=>{
+      const u=unread[c.id]||0;
+      const badge=u?`<span class="chat-badge" title="${u} new message${u>1?'s':''}">${u>9?'9+':u}</span>`:'';
+      const ava=c.photo_url?`<div class="row-ava" style="padding:0;overflow:hidden"><img src="${escapeHtml(c.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover"/></div>`:`<div class="row-ava">${initials(c.full_name)}</div>`;
+      const card=el(`<div class="row-card">
+        ${ava}
+        <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}${badge}</div>
+        <div class="row-sub">${c.dob?'DOB '+fmtDate(c.dob):''}${c.assessed_band?' · Band '+c.assessed_band:''}</div></div>
+        <span class="pill ${c.status||'active'}">${(c.status||'active').replace('_',' ')}</span></div>`);
+      card.addEventListener('click',()=>{SELECTED_CHILD=c;go('pro_child');});
+      rows.appendChild(card);
+    });
+  }
+  // Past children (ended assignments) — read-only history
+  if(pastKids.length){
+    const pw=$('#pastWrap');
+    pw.innerHTML=`<div class="section-head" style="margin-top:24px"><h3>Past children</h3><span class="row-sub">Read-only history</span></div><div class="rows" id="pastRows"></div>`;
+    const pr=$('#pastRows');
+    pastKids.forEach(c=>{
+      const card=el(`<div class="row-card" style="opacity:.72">
+        <div class="row-ava">${initials(c.full_name)}</div>
+        <div class="row-main"><div class="row-name">${escapeHtml(c.full_name)}</div><div class="row-sub">No longer active · history only</div></div>
+        <span style="color:var(--muted)">›</span></div>`);
+      card.addEventListener('click',()=>{SELECTED_CHILD=c;go('pro_child');});
+      pr.appendChild(card);
+    });
+  }
 }
 async function renderProChild(v,c){
   if(!c){ go('pro_children'); return; }
-  const [{data:sessions},{data:programs}]=await Promise.all([
+  const [{data:sessions},{data:programs},{data:reports}]=await Promise.all([
     sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}),
-    sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false})
+    sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false}),
+    sb.from('child_reports').select('*').eq('client_id',c.id).order('created_at',{ascending:false}).limit(1)
   ]);
+  const rep=(reports&&reports[0])||null;
+  let secs=[]; if(rep){ const {data:sd}=await sb.from('report_sections').select('*').eq('report_id',rep.id).order('id'); secs=sd||[]; }
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to my children</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
-      <p>${c.dob?'Born '+fmtDate(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${escapeHtml(c.presenting_needs||'No needs recorded yet')}</p></div>
+      <p>${c.dob?calcAge(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.status?escapeHtml(c.status.replace('_',' ')):''}</p></div>
+
+    <div class="clin" id="proClin"></div>
 
     <div class="qa-row">
       <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
@@ -1776,6 +1806,7 @@ async function renderProChild(v,c){
 
     <div class="section-head" style="margin-top:26px"><h3>Home programs</h3><button class="btn btn-primary btn-sm" id="addHP">+ New home program</button></div>
     <div class="rows" id="hpRows"></div>`;
+  $('#proClin').innerHTML=clinicalSummaryHtml(c, secs, rep);
   $('#backBtn').onclick=()=>go('pro_children');
   $('#logSession').onclick=()=>sessionForm(c);
   $('#addHP').onclick=()=>homeProgramForm(c);
@@ -1789,7 +1820,7 @@ async function renderProChild(v,c){
   const sr=$('#sessRows');
   sr.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:26px"><h4>No sessions yet</h4><p>Log your first session — it replaces the paper summary.</p></div>`;
   (sessions||[]).forEach(s=>{
-    sr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
       <div style="display:flex;align-items:center;gap:10px">
         <div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div>
         <span class="pill band">${s.service_units||0} unit${(s.service_units==1)?'':'s'}</span>
@@ -1797,17 +1828,21 @@ async function renderProChild(v,c){
       </div>
       ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}
       ${s.visible_to_parent?'<div class="row-sub" style="color:var(--teal)">Shared with parent</div>':'<div class="row-sub">Private to team</div>'}
-    </div>`));
+    </div>`);
+    card.onclick=()=>sessionDetail(s,c);
+    sr.appendChild(card);
   });
   const hr=$('#hpRows');
   hr.innerHTML=(programs&&programs.length)?'':`<div class="empty" style="padding:26px"><h4>No home programs yet</h4><p>Create guidance for the family to use at home.</p></div>`;
   (programs||[]).forEach(p=>{
-    hr.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+    const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
       <div class="row-name">${escapeHtml(p.title||'Home program')}</div>
       ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
       ${attachmentsView(p.attachments)}
       <div class="row-sub">${fmtDate(p.issued_date)}${p.visible_to_parent?' · shared with parent':''}</div>
-    </div>`));
+    </div>`);
+    card.onclick=()=>homeProgramDetail(p,c);
+    hr.appendChild(card);
   });
 }
 function sessionForm(c){
@@ -1938,6 +1973,68 @@ async function renderParentHome(v){
     rows.appendChild(card);
   });
 }
+// ---- Shared: clinical summary block (used by parent + professional + staff) ----
+function clinicalSummaryHtml(c, secs, rep){
+  const clin=[];
+  if(c.clinical_diagnosis) clin.push(['Diagnosis / classification', c.clinical_diagnosis]);
+  if(c.clinical_assessment) clin.push(['Assessment findings', c.clinical_assessment]);
+  if(c.clinical_impressions) clin.push(['Clinical impressions', c.clinical_impressions]);
+  else if(secs){ const im=secs.filter(s=>s.content&&String(s.content).trim()).map(s=>`${s.heading?('<b>'+escapeHtml(s.heading)+':</b> '):''}${escapeHtml(s.content)}`); if(im.length) clin.push(['Clinical impressions', im.join('<br>'), true]); }
+  if(c.developmental_history) clin.push(['Developmental history', c.developmental_history]);
+  else if(rep&&rep.background) clin.push(['Background & history', rep.background]);
+  if(c.clinical_recommendations) clin.push(['Recommendations', c.clinical_recommendations]);
+  else if(rep&&rep.overall_recommendations) clin.push(['Recommendations', rep.overall_recommendations]);
+  if(c.presenting_needs) clin.push(['Presenting needs (as reported by family)', c.presenting_needs]);
+  if(!clin.length){
+    return `<div class="section-head"><h3>Clinical summary</h3></div><div class="empty" style="padding:22px"><h4>Assessment in progress</h4><p>The clinical summary will appear here once the first assessment is completed.</p></div>`;
+  }
+  const stamp = c.clinical_updated_at ? `Updated ${fmtDate(c.clinical_updated_at)}` : '';
+  return `<div class="section-head"><h3>Clinical summary</h3>${stamp?`<span class="row-sub">${escapeHtml(stamp)}</span>`:''}</div>`+
+    clin.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('');
+}
+
+// ---- Shared: full session detail (read-only), respects parent visibility ----
+async function sessionDetail(s, c){
+  // resolve who logged it
+  let author='';
+  if(s.professional_id){ const {data:pr}=await sb.from('professionals').select('full_name,discipline').eq('id',s.professional_id).maybeSingle(); if(pr) author=pr.full_name+(pr.discipline?(' · '+pr.discipline):''); }
+  const rows=[
+    ['Date', fmtDate(s.session_date)],
+    ['Type', s.session_type||'Session'],
+    ['Service units', (s.service_units||0)+''],
+    ['Logged by', author||'—'],
+    ['Goals worked on', s.goals_worked||'—'],
+    ['Summary', s.summary||'—'],
+    ['Progress notes', s.progress_notes||'—'],
+    ['Shared with parent', s.visible_to_parent?'Yes':'No (private to team)'],
+  ];
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${escapeHtml(s.session_type||'Session')}</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(s.session_date)}</div>
+    <div class="clin">${rows.map(([k,val])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    <div class="modal-actions"><button class="btn btn-primary" id="sd_close">Close</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#sd_close').onclick=close;
+}
+
+// ---- Shared: full home-program detail (read-only) ----
+function homeProgramDetail(p, c){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${escapeHtml(p.title||'Home activity')}</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(p.issued_date)}</div>
+    <div class="clin">
+      ${p.instructions?`<div class="clin-item"><div class="clin-k">Instructions</div><div class="clin-v">${escapeHtml(p.instructions)}</div></div>`:''}
+      ${p.goal?`<div class="clin-item"><div class="clin-k">Goal</div><div class="clin-v">${escapeHtml(p.goal)}</div></div>`:''}
+      ${p.frequency?`<div class="clin-item"><div class="clin-k">Frequency</div><div class="clin-v">${escapeHtml(p.frequency)}</div></div>`:''}
+    </div>
+    ${p.attachments?`<div style="margin-top:8px">${attachmentsView(p.attachments)}</div>`:''}
+    <div class="modal-actions"><button class="btn btn-primary" id="hp_close">Close</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#hp_close').onclick=close;
+}
+
 async function renderParentChild(v,c){
   if(!c){go('parent_home');return;}
   // pull the latest report + its sections for the clinical picture
@@ -3668,9 +3765,10 @@ async function renderStaffChild(v,c){
   if(!c){ go('clients'); return; }
   const [{data:sessions},{data:assigns}]=await Promise.all([
     sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}).limit(8),
-    sb.from('assignments').select('*,professionals(full_name,discipline)').eq('client_id',c.id).eq('status','accepted')
+    sb.from('assignments').select('*,professionals(full_name,discipline)').eq('client_id',c.id).order('assigned_at',{ascending:false})
   ]);
-  const team=(assigns||[]).map(a=>a.professionals?a.professionals.full_name:'').filter(Boolean);
+  const acceptedAssigns=(assigns||[]).filter(a=>a.status==='accepted');
+  const team=acceptedAssigns.map(a=>a.professionals?a.professionals.full_name:'').filter(Boolean);
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to children</button>
     <div class="welcome" style="display:flex;align-items:center;gap:18px">
@@ -3696,6 +3794,9 @@ async function renderStaffChild(v,c){
       ${c.class_teacher?`<div class="row-sub">Class teacher: ${escapeHtml(c.class_teacher)}${c.teacher_phone?' · '+escapeHtml(c.teacher_phone):''}${c.teacher_email?' · '+escapeHtml(c.teacher_email):''}</div>`:''}
     </div></div>`:''}
 
+    <div class="section-head"><h3>Care team</h3><button class="btn btn-primary btn-sm" id="assignPro" style="width:auto">+ Assign professional</button></div>
+    <div class="rows" id="teamList"></div>
+
     <div class="section-head"><h3>Forms</h3></div>
     <div class="qa-row">
       <div class="qa" data-form="intake">Intake & referral</div>
@@ -3720,6 +3821,49 @@ async function renderStaffChild(v,c){
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
+
+  // --- Care team: active + past professionals, with end / reactivate ---
+  const tl=$('#teamList');
+  const ap=$('#assignPro'); if(ap) ap.onclick=()=>openAssignForm();
+  const active=(assigns||[]).filter(a=>a.status==='accepted'||a.status==='pending');
+  const past=(assigns||[]).filter(a=>a.status==='ended');
+  if(!active.length && !past.length){
+    tl.innerHTML=`<div class="empty" style="padding:22px">${EMPTY_ART.people}<h4>No professionals yet</h4><p>Assign a professional to build this child's care team.</p></div>`;
+  } else {
+    tl.innerHTML='';
+    active.forEach(a=>{
+      const nm=a.professionals?a.professionals.full_name:'Professional';
+      const disc=a.professionals?a.professionals.discipline:'';
+      const row=el(`<div class="row-card" style="cursor:default">
+        <div class="row-ava">${escapeHtml(initials(nm))}</div>
+        <div class="row-main"><div class="row-name">${escapeHtml(nm)}</div><div class="row-sub">${escapeHtml(disc||'')}${a.status==='pending'?' · invite pending':''}</div></div>
+        <button class="btn btn-ghost btn-sm endAsg" data-id="${a.id}" style="width:auto;padding:6px 12px;color:var(--danger)">End</button></div>`);
+      row.querySelector('.endAsg').onclick=async()=>{
+        if(!confirm(`End ${nm}'s assignment to ${c.full_name}? They will keep read-only history but stop seeing this child actively.`))return;
+        const {error}=await sb.from('assignments').update({status:'ended',ended_at:new Date().toISOString()}).eq('id',a.id);
+        if(error){toast(error.message,true);return;}
+        toast('Assignment ended'); renderStaffChild($('#view'),c);
+      };
+      tl.appendChild(row);
+    });
+    if(past.length){
+      tl.appendChild(el(`<div class="row-sub" style="margin:10px 2px 4px;font-weight:700;color:var(--muted)">Past (history)</div>`));
+      past.forEach(a=>{
+        const nm=a.professionals?a.professionals.full_name:'Professional';
+        const disc=a.professionals?a.professionals.discipline:'';
+        const row=el(`<div class="row-card" style="cursor:default;opacity:.72">
+          <div class="row-ava">${escapeHtml(initials(nm))}</div>
+          <div class="row-main"><div class="row-name">${escapeHtml(nm)}</div><div class="row-sub">${escapeHtml(disc||'')} · ended${a.ended_at?' '+fmtDate(a.ended_at):''}</div></div>
+          <button class="btn btn-ghost btn-sm reAsg" data-id="${a.id}" style="width:auto;padding:6px 12px">Reactivate</button></div>`);
+        row.querySelector('.reAsg').onclick=async()=>{
+          const {error}=await sb.from('assignments').update({status:'accepted',ended_at:null}).eq('id',a.id);
+          if(error){toast(error.message,true);return;}
+          toast('Reactivated'); renderStaffChild($('#view'),c);
+        };
+        tl.appendChild(row);
+      });
+    }
+  }
 
   const rs=$('#recentSess');
   rs.innerHTML=(sessions&&sessions.length)?'':'<div class="empty" style="padding:24px"><h4>No sessions logged yet</h4></div>';
