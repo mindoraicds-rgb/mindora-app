@@ -313,6 +313,9 @@ a{color:var(--purple)}
 .clin-item{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:8px}
 .clin-k{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-deep);font-weight:800;margin-bottom:4px}
 .clin-v{font-size:14px;color:var(--ink);line-height:1.55;white-space:normal}
+.goal-pick{border:1px solid var(--line);border-radius:12px;padding:6px;max-height:200px;overflow-y:auto;background:var(--card)}
+.goal-pick-row{display:flex;align-items:center;gap:8px;padding:6px 6px;border-bottom:1px solid var(--line)}
+.goal-pick-row:last-child{border-bottom:none}
 .child-hero{display:flex;align-items:center;gap:18px;padding:22px;border-radius:20px;cursor:pointer;
   background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;
   box-shadow:0 14px 34px rgba(74,30,99,.30);transition:transform .1s,box-shadow .1s;margin-bottom:8px}
@@ -1861,19 +1864,34 @@ function sessionForm(c){
       <option value="documentation">Documentation</option>
     </select></div>
     <div class="form-row"><label>Session type</label><input id="s_type" placeholder="e.g. Speech therapy — individual"/></div>
-    <div class="form-row"><label>Goals worked on</label><textarea id="s_goals"></textarea></div>
+    <div class="form-row"><label>Goals worked on <span style="color:var(--muted);font-weight:400">(tick, and optionally set today's progress %)</span></label>
+      <div id="s_goalList" class="goal-pick"><div class="row-sub">Loading goals…</div></div></div>
+    <div class="form-row"><label>Other goals / notes</label><textarea id="s_goals" placeholder="Anything not covered by the goals above"></textarea></div>
     <div class="form-row"><label>Summary</label><textarea id="s_sum" placeholder="What happened in the session"></textarea></div>
     <div class="form-row"><label>Progress notes</label><textarea id="s_prog"></textarea></div>
     <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="s_vis" type="checkbox" checked style="width:auto"/> Share this with the parent</label></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="s_cancel">Cancel</button><button class="btn btn-primary" id="s_save">Save session</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  // load the child's goals into a tickable list with optional progress
+  (async()=>{
+    const {data:goals}=await sb.from('goals').select('*').eq('client_id',c.id).neq('status','discontinued').order('discipline',{ascending:true});
+    const box=m.querySelector('#s_goalList');
+    if(!goals||!goals.length){ box.innerHTML='<div class="row-sub">No goals set for this child yet. Add goals from the Goals page to link them here.</div>'; return; }
+    box.innerHTML=goals.map(g=>`<div class="goal-pick-row">
+      <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;flex:1">
+        <input type="checkbox" class="gp-chk" data-id="${g.id}" style="width:auto;margin-top:3px"/>
+        <span><span class="row-name" style="font-size:13.5px">${g.discipline?`<span class="pill band" style="margin-right:6px">${escapeHtml(g.discipline)}</span>`:''}${escapeHtml(g.goal)}</span></span>
+      </label>
+      <input type="number" class="gp-score" data-id="${g.id}" min="0" max="100" placeholder="%" style="width:64px" title="Today's progress toward this goal (0–100%)"/>
+    </div>`).join('');
+  })();
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#s_cancel').onclick=close;
   m.querySelector('#s_save').onclick=async()=>{
     const btn=m.querySelector('#s_save');btn.disabled=true;btn.textContent='Saving…';
-    const {error}=await sb.from('session_logs').insert({
+    const {data:newSess,error}=await sb.from('session_logs').insert({
       client_id:c.id, professional_id:MY_PROF_ID,
       session_date:m.querySelector('#s_date').value||today,
       activity_key:m.querySelector('#s_act').value||'direct_session',
@@ -1884,8 +1902,23 @@ function sessionForm(c){
       summary:m.querySelector('#s_sum').value.trim()||null,
       progress_notes:m.querySelector('#s_prog').value.trim()||null,
       visible_to_parent:m.querySelector('#s_vis').checked
-    });
+    }).select().single();
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save session';return;}
+    // link ticked goals to this session, and record any progress % against the graph
+    const sessDate=m.querySelector('#s_date').value||today;
+    const checked=[...m.querySelectorAll('.gp-chk')].filter(x=>x.checked);
+    if(newSess && checked.length){
+      const links=checked.map(x=>({session_id:newSess.id, goal_id:x.dataset.id, client_id:c.id}));
+      await sb.from('session_goals').insert(links);
+      // for each ticked goal that has a score, add a progress-graph point
+      for(const x of checked){
+        const scoreInput=m.querySelector(`.gp-score[data-id="${x.dataset.id}"]`);
+        const val=scoreInput?parseInt(scoreInput.value,10):NaN;
+        if(!isNaN(val)&&val>=0&&val<=100){
+          await sb.from('goal_progress').insert({goal_id:x.dataset.id,client_id:c.id,score:val,recorded_on:sessDate,note:(m.querySelector('#s_sum').value.trim()||null),profile_id:ME.id});
+        }
+      }
+    }
     toast('Session logged'); close(); renderProChild($('#view'),c);
   };
 }
@@ -3867,10 +3900,14 @@ async function renderStaffChild(v,c){
 
   const rs=$('#recentSess');
   rs.innerHTML=(sessions&&sessions.length)?'':'<div class="empty" style="padding:24px"><h4>No sessions logged yet</h4></div>';
-  (sessions||[]).forEach(s=>rs.appendChild(el(`<div class="row-card" style="cursor:default">
-    <div class="row-main"><div class="row-name">${escapeHtml(s.session_type||'Session')}</div>
-      <div class="row-sub">${fmtDate(s.session_date)}${s.activity_key?' · '+escapeHtml(s.activity_key.replace('_',' ')):''}</div></div>
-    <span class="pill band">${s.service_units||0} unit${s.service_units==1?'':'s'}</span></div>`)));
+  (sessions||[]).forEach(s=>{
+    const card=el(`<div class="row-card" style="cursor:pointer">
+      <div class="row-main"><div class="row-name">${escapeHtml(s.session_type||'Session')}</div>
+        <div class="row-sub">${fmtDate(s.session_date)}${s.activity_key?' · '+escapeHtml(s.activity_key.replace('_',' ')):''}</div></div>
+      <span class="pill band">${s.service_units||0} unit${s.service_units==1?'':'s'}</span></div>`);
+    card.onclick=()=>sessionDetail(s,c);
+    rs.appendChild(card);
+  });
 
   const {data:forms}=await sb.from('op_forms').select('*').eq('client_id',c.id).order('created_at',{ascending:false});
   const fl=$('#formsList');
@@ -3920,12 +3957,31 @@ async function renderChildPlan(v,c){
 
     <div class="section-head" style="margin-top:24px"><h3>Activities</h3>${canEditPlan()&&c.assessed_band?'<button class="btn btn-ghost btn-sm" id="editTargets" style="width:auto">Edit targets</button>':''}</div>
     <div class="rows" id="planRows"></div>
+    <div class="section-head" style="margin-top:26px"><h3>Session summaries</h3></div>
+    <div class="rows" id="planSessions"></div>
     ${canEditPlan()&&c.assessed_band?`<div class="finalize-card" id="finalizeCard">
       <div><div class="row-name">Finalize ${monthLabel(period)} for billing &amp; pay</div>
       <div class="row-sub" style="white-space:normal;margin-top:4px">Locks this month's confirmed service units as the basis for the child's invoice and the professional's pay. You can still view it afterwards.</div></div>
       <button class="btn btn-primary" id="finalizeBtn" style="width:auto;white-space:nowrap">Finalize month</button>
     </div>`:''}`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
+  // session summaries feed the service plan too
+  (async()=>{
+    const psBox=$('#planSessions'); if(!psBox) return;
+    const {data:sess}=await sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}).limit(12);
+    if(!sess||!sess.length){ psBox.innerHTML='<div class="empty" style="padding:20px"><h4>No sessions yet</h4><p>Logged sessions will appear here.</p></div>'; return; }
+    psBox.innerHTML='';
+    sess.forEach(s=>{
+      const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div>
+          <span class="pill band">${s.service_units||0} unit${s.service_units==1?'':'s'}</span>
+          <span class="row-sub">${fmtDate(s.session_date)}</span></div>
+        ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}</div>`);
+      card.onclick=()=>sessionDetail(s,c);
+      psBox.appendChild(card);
+    });
+  })();
   const pr=$('#planRows');
   if(!list.length){ pr.innerHTML='<div class="empty" style="padding:26px"><h4>No plan yet</h4><p>Assign a band to this child to generate the monthly service-unit plan.</p></div>'; return; }
   list.forEach(r=>{
@@ -4186,7 +4242,13 @@ function goalForm(c,g){
     <h3>${edit?'Edit goal':'New goal'}</h3><div class="sub">For ${escapeHtml(c.full_name)}. Keep goals measurable.</div>
     <div class="form-row two">
       <div><label>Domain</label><input id="g_domain" value="${escapeHtml(g.domain||'')}" placeholder="e.g. Expressive language"/></div>
+      <div><label>Discipline</label><select id="g_disc">
+        ${['','SLT','OT','PT','Psychology','Special education','Behavioural','Other'].map(d=>`<option value="${d}" ${((g.discipline||'')===d)?'selected':''}>${d||'— select —'}</option>`).join('')}
+      </select></div>
+    </div>
+    <div class="form-row two" style="margin-top:-6px">
       <div><label>Status</label><select id="g_status">${Object.keys(GOAL_STATUS).map(k=>`<option value="${k}" ${g.status===k?'selected':''}>${GOAL_STATUS[k]}</option>`).join('')}</select></div>
+      <div></div>
     </div>
     <div class="form-row"><label>Goal *</label><textarea id="g_goal" placeholder="e.g. Use 2-word phrases to request items">${escapeHtml(g.goal||'')}</textarea></div>
     <div class="form-row two">
@@ -4204,7 +4266,7 @@ function goalForm(c,g){
     const goal=m.querySelector('#g_goal').value.trim();
     if(!goal){toast('Enter the goal.',true);return;}
     const btn=m.querySelector('#g_save');btn.disabled=true;btn.textContent='Saving…';
-    const payload={client_id:c.id,domain:m.querySelector('#g_domain').value.trim()||null,goal,
+    const payload={client_id:c.id,domain:m.querySelector('#g_domain').value.trim()||null,discipline:m.querySelector('#g_disc').value||null,goal,
       baseline:m.querySelector('#g_base').value.trim()||null,target:m.querySelector('#g_target').value.trim()||null,
       status:m.querySelector('#g_status').value,progress_note:m.querySelector('#g_prog').value.trim()||null,
       updated_at:new Date().toISOString()};
@@ -4305,6 +4367,12 @@ async function autoDraftSection(clientId, professionalId, pstart, pend, tmpl){
   if(pend) sq=sq.lte('session_date',pend);
   const {data:ss}=await sq;
   const {data:goals}=await sb.from('goals').select('*').eq('client_id',clientId).eq('professional_id',professionalId);
+  // latest monthly review for this child+professional feeds the report too
+  let reviewNote='';
+  try{
+    const {data:rv}=await sb.from('op_forms').select('*').eq('client_id',clientId).eq('kind','review').order('created_at',{ascending:false}).limit(1);
+    if(rv&&rv[0]&&rv[0].data){ const d=rv[0].data; reviewNote=[d.progress,d.summary,d.notes,d.review_note].filter(Boolean).join('\n'); }
+  }catch(e){}
   const sessions=ss||[];
   const summaries=sessions.filter(s=>s.summary).map(s=>`• ${fmtDate(s.session_date)}: ${s.summary}`);
   const progress=sessions.filter(s=>s.progress_notes).map(s=>s.progress_notes);
@@ -4317,14 +4385,14 @@ async function autoDraftSection(clientId, professionalId, pstart, pend, tmpl){
     return {
       soap_s: '', // clinician fills subjective (caregiver report) 
       soap_o: sessions.length? `Sessions in period: ${sessions.length}.`+(summaries.length?'\n'+summaries.join('\n'):'') : '',
-      soap_a: progress.length? progress.map(p=>'• '+p).join('\n') : '',
+      soap_a: [progress.length? progress.map(p=>'• '+p).join('\n'):'', reviewNote?('Monthly review:\n'+reviewNote):''].filter(Boolean).join('\n\n'),
       soap_p: '',
       body:''
     };
   }
   // comprehensive structured fields
   return {
-    assessment: sessions.length? `Based on ${sessions.length} session(s) this period.`+(progress.length?'\n\nObservations:\n'+progress.map(p=>'• '+p).join('\n'):'') : '',
+    assessment: [sessions.length? `Based on ${sessions.length} session(s) this period.`+(progress.length?'\n\nObservations:\n'+progress.map(p=>'• '+p).join('\n'):'') : '', reviewNote?('Monthly review:\n'+reviewNote):''].filter(Boolean).join('\n\n'),
     goals_progress: goalLines.length? goalLines.join('\n') : '',
     plan: '',
     recommendations: '',
@@ -4767,7 +4835,15 @@ async function renderChildProgress(v,c){
     const gg=$('#goToGoals'); if(gg) gg.onclick=()=>{ SELECTED_CHILD=c; go('child_goals'); };
     return;
   }
-  activeGoals.forEach(g=>{
+  // group goals by discipline (SLT / OT / PT …) so each professional's area is clear
+  const groups={};
+  activeGoals.forEach(g=>{ const key=g.discipline||'General'; (groups[key]=groups[key]||[]).push(g); });
+  const groupKeys=Object.keys(groups).sort();
+  groupKeys.forEach(gk=>{
+    if(groupKeys.length>1 || gk!=='General'){
+      wrap.appendChild(el(`<div class="section-head" style="margin-top:14px"><h3>${escapeHtml(gk)}</h3></div>`));
+    }
+    groups[gk].forEach(g=>{
     const pts=(byGoal[g.id]||[]).slice().sort((a,b)=>a.recorded_on<b.recorded_on?-1:1);
     const latest=pts.length?pts[pts.length-1].score:null;
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:12px">
@@ -4784,6 +4860,7 @@ async function renderChildProgress(v,c){
     const lb=card.querySelector('.logProg');
     if(lb) lb.onclick=()=>goalProgressForm(c,g);
     wrap.appendChild(card);
+    });
   });
 }
 
