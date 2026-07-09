@@ -3934,7 +3934,14 @@ async function renderChildPlan(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
   if(ME.role==='parent'){ v.innerHTML='<div class="empty"><h4>Not available</h4><p>This area is for the care team.</p></div>'; return; }
   const period=thisMonthISO();
-  const {data:rows}=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order');
+  // If the work has been split per-professional and the viewer is a professional,
+  // show only THEIR allocated slice. Otherwise show the whole-child plan.
+  let rows, usingSplit=false;
+  if(ME.role==='professional' && MY_PROF_ID){
+    const {data:mine}=await sb.from('v_child_prof_progress').select('*').eq('client_id',c.id).eq('professional_id',MY_PROF_ID).order('sort_order');
+    if(mine && mine.length){ rows=mine; usingSplit=true; }
+  }
+  if(!rows){ const r=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order'); rows=r.data; }
   const list=rows||[];
   const totDone=list.reduce((s,r)=>s+Number(r.done_count||0),0);
   const totTarget=list.reduce((s,r)=>s+Number(r.target_count||0),0);
@@ -3942,7 +3949,7 @@ async function renderChildPlan(v,c){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1>
-      <p>${c.assessed_band?'Band '+c.assessed_band+' · ':''}Live tracking for ${monthLabel(period)}. ${canEditPlan()?'You can edit targets and confirm activities.':'Targets are set by Mindora.'}</p></div>
+      <p>${c.assessed_band?'Band '+c.assessed_band+' · ':''}Live tracking for ${monthLabel(period)}. ${canEditPlan()?'You can edit targets and confirm activities.':(usingSplit?'This is your share of the plan for this child.':'Targets are set by Mindora.')}</p></div>
 
     <div class="plan-ring-wrap">
       <div class="plan-ring" style="--p:${pct}">
@@ -4035,22 +4042,55 @@ async function renderChildPlan(v,c){
     };
   }
 }
-function editTargetsForm(c,list){
+async function editTargetsForm(c,list){
+  // load professionals actively on this case
+  const {data:asg}=await sb.from('assignments').select('professional_id,professionals(id,full_name,discipline)').eq('client_id',c.id).eq('status','accepted');
+  const pros=(asg||[]).map(a=>a.professionals).filter(Boolean);
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Edit monthly targets</h3><div class="sub">For ${escapeHtml(c.full_name)}. Overrides the band default for this child.</div>
     ${list.map(r=>`<div class="form-row"><label>${escapeHtml(r.label)}</label><input type="number" step="1" min="0" class="tgt" data-k="${escapeHtml(r.activity_key)}" data-l="${escapeHtml(r.label)}" value="${Number(r.target_count||0)}"/></div>`).join('')}
-    <div class="modal-actions"><button class="btn btn-ghost" id="t_cancel">Cancel</button><button class="btn btn-primary" id="t_save">Save targets</button></div>
+    <div style="border-top:1px solid var(--line);margin:8px 0 12px;padding-top:12px">
+      <div class="row-name" style="color:var(--accent-deep);margin-bottom:4px">Split across the care team</div>
+      <div class="row-sub" style="white-space:normal">${pros.length? `${pros.length} professional${pros.length>1?'s':''} on this case: ${pros.map(p=>escapeHtml(p.full_name)+(p.discipline?` (${escapeHtml(p.discipline)})`:'')).join(', ')}. Splitting divides each target equally so no one sees the whole load.` : 'No professionals are actively assigned yet — assign the care team first, then you can split the plan.'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="t_cancel">Cancel</button>
+      ${pros.length?`<button class="btn btn-ghost" id="t_split" style="width:auto">Save &amp; split equally</button>`:''}
+      <button class="btn btn-primary" id="t_save">Save targets</button>
+    </div>
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#t_cancel').onclick=close;
+  const collectTargets=()=>[...m.querySelectorAll('.tgt')].map((i,idx)=>({client_id:c.id,activity_key:i.dataset.k,label:i.dataset.l,target_count:Number(i.value)||0,sort_order:idx}));
   m.querySelector('#t_save').onclick=async()=>{
     const btn=m.querySelector('#t_save');btn.disabled=true;btn.textContent='Saving…';
-    const rows=[...m.querySelectorAll('.tgt')].map((i,idx)=>({client_id:c.id,activity_key:i.dataset.k,label:i.dataset.l,target_count:Number(i.value)||0,sort_order:idx}));
-    const {error}=await sb.from('child_unit_targets').upsert(rows,{onConflict:'client_id,activity_key'});
+    const {error}=await sb.from('child_unit_targets').upsert(collectTargets(),{onConflict:'client_id,activity_key'});
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save targets';return;}
     toast('Targets updated'); close(); renderChildPlan($('#view'),c);
+  };
+  const sp=m.querySelector('#t_split');
+  if(sp) sp.onclick=async()=>{
+    const btn=sp;btn.disabled=true;btn.textContent='Splitting…';
+    const totals=collectTargets();
+    // save the child-level totals first
+    const {error:e1}=await sb.from('child_unit_targets').upsert(totals,{onConflict:'client_id,activity_key'});
+    if(e1){toast(e1.message,true);btn.disabled=false;btn.textContent='Save & split equally';return;}
+    // clear existing per-pro rows for this child, then write an equal split
+    await sb.from('child_prof_targets').delete().eq('client_id',c.id);
+    const n=pros.length;
+    const rows=[];
+    totals.forEach((t,idx)=>{
+      const base=Math.floor((t.target_count||0)/n);
+      const remainder=(t.target_count||0)-base*n; // spread remainder to first few pros
+      pros.forEach((p,pi)=>{
+        const share=base+(pi<remainder?1:0);
+        rows.push({client_id:c.id,professional_id:p.id,activity_key:t.activity_key,label:t.label,target_count:share,sort_order:idx,updated_by:ME.id});
+      });
+    });
+    if(rows.length){ const {error:e2}=await sb.from('child_prof_targets').insert(rows); if(e2){toast(e2.message,true);btn.disabled=false;btn.textContent='Save & split equally';return;} }
+    toast(`Split across ${n} professional${n>1?'s':''}`); close(); renderChildPlan($('#view'),c);
   };
 }
 
