@@ -531,82 +531,67 @@ a{color:var(--purple)}
 <div id="login">
  <div class="login-shell">
   <div class="login-hero">
-   <svg class="hero-art" viewBox="0 0 520 560" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+   <svg class="hero-art" viewBox="0 0 520 560" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
      <defs>
-       <linearGradient id="hg-sky" x1="0" y1="0" x2="0" y2="1">
-         <stop offset="0" stop-color="#5A2578"/><stop offset="0.55" stop-color="#6C3483"/><stop offset="1" stop-color="#123E5C"/>
+       <linearGradient id="hg-sky" x1="0" y1="0" x2="0.4" y2="1">
+         <stop offset="0" stop-color="#5A2578"/><stop offset="0.55" stop-color="#4A1E63"/><stop offset="1" stop-color="#123E5C"/>
        </linearGradient>
-       <linearGradient id="hg-ground" x1="0" y1="0" x2="0" y2="1">
-         <stop offset="0" stop-color="#0F6E56"/><stop offset="1" stop-color="#0B4D3C"/>
-       </linearGradient>
-       <radialGradient id="hg-sun" cx="0.5" cy="0.5" r="0.5">
-         <stop offset="0" stop-color="#FFD98A"/><stop offset="0.7" stop-color="#FFB020"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/>
+       <radialGradient id="hg-glow" cx="0.5" cy="0.46" r="0.5">
+         <stop offset="0" stop-color="#FFD98A" stop-opacity="0.5"/><stop offset="0.6" stop-color="#FFB020" stop-opacity="0.12"/><stop offset="1" stop-color="#FFB020" stop-opacity="0"/>
        </radialGradient>
+       <linearGradient id="arm-purple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9B4FC0"/><stop offset="1" stop-color="#6C3483"/></linearGradient>
+       <linearGradient id="arm-teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16B69A"/><stop offset="1" stop-color="#0F6E56"/></linearGradient>
+       <linearGradient id="arm-coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF8F6E"/><stop offset="1" stop-color="#FF7A59"/></linearGradient>
+       <linearGradient id="arm-amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFC24D"/><stop offset="1" stop-color="#FFB020"/></linearGradient>
+       <linearGradient id="arm-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3D7BD6"/><stop offset="1" stop-color="#2563C9"/></linearGradient>
+       <linearGradient id="arm-lilac" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D9B3EC"/><stop offset="1" stop-color="#C79AE0"/></linearGradient>
      </defs>
      <rect width="520" height="560" fill="url(#hg-sky)"/>
-     <circle cx="400" cy="120" r="120" fill="url(#hg-sun)" opacity="0.85"/>
-     <circle cx="400" cy="120" r="46" fill="#FFD98A" opacity="0.95"/>
-     <!-- soft hills -->
-     <path d="M0 430 Q130 380 260 420 T520 410 L520 560 L0 560 Z" fill="url(#hg-ground)"/>
-     <path d="M0 470 Q160 440 300 470 T520 460 L520 560 L0 560 Z" fill="#0B4D3C" opacity="0.6"/>
-     <!-- house: home -->
-     <g opacity="0.9">
-       <rect x="60" y="330" width="96" height="86" rx="6" fill="#4A1E63"/>
-       <path d="M52 332 L108 292 L164 332 Z" fill="#FF7A59"/>
-       <rect x="96" y="372" width="26" height="44" rx="3" fill="#FFB020"/>
-       <rect x="70" y="348" width="22" height="20" rx="3" fill="#C79AE0"/>
-       <rect x="128" y="348" width="18" height="20" rx="3" fill="#C79AE0"/>
+     <circle cx="260" cy="258" r="230" fill="url(#hg-glow)"/>
+
+     <!-- INTERLOCKING ARMS forming a circle: each arm reaches to grip the next.
+          Six arms in brand colours rotated around the centre (260,258). -->
+     <g stroke-linecap="round" fill="none">
+       <!-- forearm = thick rounded bar; hand = rounded grip at the end -->
+       <g transform="rotate(0 260 258)">
+         <path d="M150 258 h96" stroke="url(#arm-purple)" stroke-width="34"/>
+         <path d="M244 244 q26 0 30 14 q-4 14 -30 14 q-14 0 -14 -14 q0 -14 14 -14 Z" fill="url(#arm-purple)"/>
+       </g>
+       <g transform="rotate(60 260 258)">
+         <path d="M150 258 h96" stroke="url(#arm-teal)" stroke-width="34"/>
+         <path d="M244 244 q26 0 30 14 q-4 14 -30 14 q-14 0 -14 -14 q0 -14 14 -14 Z" fill="url(#arm-teal)"/>
+       </g>
+       <g transform="rotate(120 260 258)">
+         <path d="M150 258 h96" stroke="url(#arm-coral)" stroke-width="34"/>
+         <path d="M244 244 q26 0 30 14 q-4 14 -30 14 q-14 0 -14 -14 q0 -14 14 -14 Z" fill="url(#arm-coral)"/>
+       </g>
+       <g transform="rotate(180 260 258)">
+         <path d="M150 258 h96" stroke="url(#arm-amber)" stroke-width="34"/>
+         <path d="M244 244 q26 0 30 14 q-4 14 -30 14 q-14 0 -14 -14 q0 -14 14 -14 Z" fill="url(#arm-amber)"/>
+       </g>
+       <g transform="rotate(240 260 258)">
+         <path d="M150 258 h96" stroke="url(#arm-blue)" stroke-width="34"/>
+         <path d="M244 244 q26 0 30 14 q-4 14 -30 14 q-14 0 -14 -14 q0 -14 14 -14 Z" fill="url(#arm-blue)"/>
+       </g>
+       <g transform="rotate(300 260 258)">
+         <path d="M150 258 h96" stroke="url(#arm-lilac)" stroke-width="34"/>
+         <path d="M244 244 q26 0 30 14 q-4 14 -30 14 q-14 0 -14 -14 q0 -14 14 -14 Z" fill="url(#arm-lilac)"/>
+       </g>
      </g>
-     <!-- floating hearts -->
-     <path d="M330 210 c-6 -10 -22 -6 -22 6 c0 10 22 22 22 22 c0 0 22 -12 22 -22 c0 -12 -16 -16 -22 -6 Z" fill="#FF7A59" opacity="0.85"/>
-     <path d="M150 200 c-4 -7 -15 -4 -15 4 c0 7 15 15 15 15 c0 0 15 -8 15 -15 c0 -8 -11 -11 -15 -4 Z" fill="#FFB020" opacity="0.8"/>
-     <!-- little plant sprout -->
-     <g transform="translate(250 470)">
-       <path d="M0 40 C0 20 -18 14 -22 0 C-4 2 2 16 0 30 C2 14 12 6 24 6 C18 20 6 22 0 40 Z" fill="#16B69A"/>
-       <rect x="-2" y="34" width="4" height="20" rx="2" fill="#0F6E56"/>
-     </g>
-     <!-- FIGURES: therapist(scrubs, teal) · parent(purple) · child · child · teacher(coral) -->
-     <!-- teacher (coral) -->
-     <g transform="translate(96 300)">
-       <circle cx="0" cy="0" r="20" fill="#F0C9A0"/>
-       <path d="M-20 -4 a20 20 0 0 1 40 0 l-4 -18 a18 18 0 0 0 -32 0 Z" fill="#3D2B4A"/>
-       <path d="M-24 96 L-24 40 a24 30 0 0 1 48 0 L24 96 Z" fill="#FF7A59"/>
-       <rect x="-26" y="40" width="52" height="14" rx="7" fill="#E85E3E"/>
-     </g>
-     <!-- parent (purple) -->
-     <g transform="translate(180 292)">
-       <circle cx="0" cy="0" r="22" fill="#E8B88A"/>
-       <path d="M-22 2 a22 22 0 0 1 44 0 l0 -6 a22 22 0 0 0 -44 0 Z" fill="#4A1E63"/>
-       <path d="M-27 104 L-27 42 a27 32 0 0 1 54 0 L27 104 Z" fill="#9B4FC0"/>
-       <path d="M-27 44 h54 v10 h-54 Z" fill="#7B3AA0"/>
-     </g>
-     <!-- child 1 (small, gold) -->
-     <g transform="translate(238 348)">
-       <circle cx="0" cy="0" r="15" fill="#F0C9A0"/>
-       <path d="M-15 -2 a15 15 0 0 1 30 0 l0 -4 a15 15 0 0 0 -30 0 Z" fill="#5A3B2A"/>
-       <path d="M-17 60 L-17 24 a17 20 0 0 1 34 0 L17 60 Z" fill="#FFB020"/>
-     </g>
-     <!-- child 2 (small, lilac) -->
-     <g transform="translate(286 356)">
-       <circle cx="0" cy="0" r="14" fill="#E8B88A"/>
-       <path d="M-14 -1 a14 14 0 0 1 28 0 l0 -5 a14 14 0 0 0 -28 0 Z" fill="#3D2B4A"/>
-       <path d="M-16 54 L-16 22 a16 19 0 0 1 32 0 L16 54 Z" fill="#C79AE0"/>
-     </g>
-     <!-- therapist in scrubs (teal) -->
-     <g transform="translate(360 296)">
-       <circle cx="0" cy="0" r="22" fill="#F0C9A0"/>
-       <path d="M-22 -2 a22 22 0 0 1 44 0 l0 -8 a22 22 0 0 0 -44 0 Z" fill="#2A2330"/>
-       <path d="M-27 104 L-27 42 a27 32 0 0 1 54 0 L27 104 Z" fill="#16B69A"/>
-       <path d="M-27 42 a27 32 0 0 1 54 0 l-10 4 l-8 -10 l-9 12 l-9 -12 l-8 10 Z" fill="#0F6E56"/>
-       <!-- stethoscope -->
-       <path d="M-8 46 q-10 20 4 30 q14 8 18 -6" fill="none" stroke="#FFD98A" stroke-width="3" stroke-linecap="round"/>
-       <circle cx="15" cy="70" r="4" fill="#FFD98A"/>
+
+     <!-- the child at the centre of the circle -->
+     <g transform="translate(260 258)">
+       <circle cx="0" cy="0" r="60" fill="#FBF5EF" opacity="0.14"/>
+       <circle cx="0" cy="-14" r="17" fill="#F3D2AE"/>
+       <path d="M-17 -16 a17 17 0 0 1 34 0 l0 -5 a17 17 0 0 0 -34 0 Z" fill="#4A1E63"/>
+       <path d="M-20 40 L-20 6 a20 24 0 0 1 40 0 L20 40 Z" fill="#FFD98A"/>
+       <!-- little heart above the child -->
+       <path d="M0 -44 c-5 -8 -18 -5 -18 5 c0 8 18 18 18 18 c0 0 18 -10 18 -18 c0 -10 -13 -13 -18 -5 Z" fill="#FF7A59"/>
      </g>
    </svg>
    <div class="hero-copy">
      <span class="hero-tag">Home · Hope · Harmony</span>
      <h2>Growing together, every child in reach.</h2>
-     <p>Therapists, teachers and parents working side by side — one caring circle around every child.</p>
    </div>
   </div>
   <div class="login-card">
@@ -1266,6 +1251,7 @@ function openClientForm(c){
       <div><label>Parent phone</label><input id="f_pphone" value="${escapeHtml(c.parent_phone||'')}"/></div>
     </div>
     <div class="form-row"><label>Presenting needs / notes <span style="color:var(--muted);font-weight:400">(intake — what the family reported)</span></label><textarea id="f_needs">${escapeHtml(c.presenting_needs||'')}</textarea></div>
+    <div class="form-row"><label>Professional service-unit rate (UGX) <span style="color:var(--muted);font-weight:400">— what the assigned professional earns per unit; director &amp; assigned pro only</span></label><input id="f_unitrate" type="number" min="0" value="${c.prof_unit_rate??''}" placeholder="e.g. 25000"/></div>
     <div style="border-top:1px solid var(--line);margin:6px 0 14px;padding-top:12px"><div class="row-name" style="color:var(--accent-deep)">Clinical summary <span style="color:var(--muted);font-weight:400;font-size:12px">— completed by the clinician; shown to the parent</span></div></div>
     <div class="form-row"><label>Diagnosis / clinical classification</label><input id="f_cdiag" value="${escapeHtml(c.clinical_diagnosis||'')}" placeholder="e.g. Expressive language delay; ASD (Level 1)"/></div>
     <div class="form-row"><label>Assessment findings</label><textarea id="f_cassess" placeholder="Key findings from assessment (standardised results, observations)">${escapeHtml(c.clinical_assessment||'')}</textarea></div>
@@ -1320,6 +1306,7 @@ function openClientForm(c){
       parent_email:m.querySelector('#f_pemail').value.trim()||null,
       parent_phone:m.querySelector('#f_pphone').value.trim()||null,
       presenting_needs:m.querySelector('#f_needs').value.trim()||null,
+      prof_unit_rate:(function(){const v=m.querySelector('#f_unitrate').value;return v===''?null:Number(v);})(),
       clinical_diagnosis:m.querySelector('#f_cdiag').value.trim()||null,
       clinical_assessment:m.querySelector('#f_cassess').value.trim()||null,
       clinical_impressions:m.querySelector('#f_cimp').value.trim()||null,
@@ -1550,25 +1537,59 @@ async function openAssignForm(){
   if(!kids||!kids.length){toast('Add a child first.',true);return;}
   if(!profs||!profs.length){toast('Add a professional first.',true);return;}
   const m=el(`<div class="modal-bg show"><div class="modal">
-    <h3>Assign a child</h3>
-    <div class="sub">The professional sees your note before they accept, then the full record once they accept.</div>
-    <div class="form-row"><label>Child</label><select id="f_child">${kids.map(k=>`<option value="${k.id}">${escapeHtml(k.full_name)}${k.child_no?' ('+escapeHtml(k.child_no)+')':''}</option>`).join('')}</select></div>
+    <h3>Send an assignment</h3>
+    <div class="sub">The professional sees your note and any fee before they accept.</div>
+    <div class="form-row"><label>Type</label><select id="f_kind">
+      <option value="child">Child case</option>
+      <option value="event">Event / task (e.g. teacher training)</option>
+    </select></div>
+    <div id="childFields">
+      <div class="form-row"><label>Child</label><select id="f_child">${kids.map(k=>`<option value="${k.id}">${escapeHtml(k.full_name)}${k.child_no?' ('+escapeHtml(k.child_no)+')':''}</option>`).join('')}</select></div>
+      <div class="form-row"><label>Service-unit rate for this child (UGX) <span style="color:var(--muted);font-weight:400">— optional; shown to the professional</span></label><input id="f_unitrate" type="number" min="0" placeholder="e.g. 25000"/></div>
+    </div>
+    <div id="eventFields" style="display:none">
+      <div class="form-row"><label>Event / task title</label><input id="f_evtitle" placeholder="e.g. Teacher training — inclusive classrooms"/></div>
+      <div class="form-row"><label>Details</label><textarea id="f_evdetails" placeholder="What the professional will do, where, expectations"></textarea></div>
+      <div class="form-row two">
+        <div><label>Date</label><input id="f_evdate" type="date"/></div>
+        <div><label>Fee to professional (UGX)</label><input id="f_evfee" type="number" min="0" placeholder="e.g. 150000"/></div>
+      </div>
+    </div>
     <div class="form-row"><label>Professional</label><select id="f_prof">${profs.map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}${p.discipline?' — '+escapeHtml(p.discipline):''}</option>`).join('')}</select></div>
     <div class="form-row"><label>Note for the professional</label><textarea id="f_note" placeholder="e.g. 4-year-old, focus on early communication goals; Tue & Thu mornings."></textarea></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="f_cancel">Cancel</button><button class="btn btn-primary" id="f_save">Send assignment</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  const kindSel=m.querySelector('#f_kind');
+  kindSel.onchange=()=>{ const ev=kindSel.value==='event'; m.querySelector('#childFields').style.display=ev?'none':''; m.querySelector('#eventFields').style.display=ev?'':'none'; };
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#f_cancel').onclick=close;
   m.querySelector('#f_save').onclick=async()=>{
     const btn=m.querySelector('#f_save');btn.disabled=true;btn.textContent='Sending…';
-    const {error}=await sb.from('assignments').insert({
-      client_id:m.querySelector('#f_child').value,
-      professional_id:m.querySelector('#f_prof').value,
-      note:m.querySelector('#f_note').value.trim()||null,
-      assigned_by:ME.id, status:'pending'
-    });
+    const kind=m.querySelector('#f_kind').value;
+    let payload;
+    if(kind==='event'){
+      const title=m.querySelector('#f_evtitle').value.trim();
+      if(!title){toast('Enter an event title.',true);btn.disabled=false;btn.textContent='Send assignment';return;}
+      payload={
+        client_id:null, professional_id:m.querySelector('#f_prof').value,
+        note:m.querySelector('#f_note').value.trim()||null, assigned_by:ME.id, status:'pending',
+        kind:'event', event_title:title,
+        event_details:m.querySelector('#f_evdetails').value.trim()||null,
+        event_date:m.querySelector('#f_evdate').value||null,
+        event_fee:(function(){const v=m.querySelector('#f_evfee').value;return v===''?null:Number(v);})()
+      };
+    } else {
+      payload={
+        client_id:m.querySelector('#f_child').value,
+        professional_id:m.querySelector('#f_prof').value,
+        note:m.querySelector('#f_note').value.trim()||null, assigned_by:ME.id, status:'pending',
+        kind:'child',
+        unit_rate:(function(){const v=m.querySelector('#f_unitrate').value;return v===''?null:Number(v);})()
+      };
+    }
+    const {error}=await sb.from('assignments').insert(payload);
     if(error){ toast(error.message.includes('duplicate')?'That child is already assigned to this professional.':error.message,true); btn.disabled=false; btn.textContent='Send assignment'; return; }
     toast('Assignment sent'); close(); renderAssignments($('#view'));
   };
@@ -1584,11 +1605,22 @@ async function renderProRequests(v){
   const rows=$('#reqRows');
   if(!reqs.length){ rows.innerHTML=`<div class="empty">${EMPTY_ART.heart}<h4>No pending requests</h4><p>When a child is assigned to you, it appears here.</p></div>`; updateBadges(); return; }
   rows.innerHTML='';
+  // resolve child names for child-type requests
+  const childIds=[...new Set(reqs.filter(a=>a.client_id).map(a=>a.client_id))];
+  let childMap={};
+  if(childIds.length){ const {data:cs}=await sb.from('clients').select('id,full_name').in('id',childIds); (cs||[]).forEach(c=>childMap[c.id]=c.full_name); }
   reqs.forEach(a=>{
+    const isEvent=a.kind==='event';
+    const title=isEvent?(a.event_title||'Event / task'):('Child assignment'+(childMap[a.client_id]?' — '+escapeHtml(childMap[a.client_id]):''));
+    const feeLine = isEvent
+      ? (a.event_fee?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);margin:4px 0"><div class="row-main"><div class="row-name">Fee for this event</div><div class="row-sub">UGX ${Number(a.event_fee).toLocaleString()}${a.event_date?' · '+fmtDate(a.event_date):''}</div></div></div>`:'')
+      : (a.unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);margin:4px 0"><div class="row-main"><div class="row-name">Service-unit rate</div><div class="row-sub">UGX ${Number(a.unit_rate).toLocaleString()} per verified unit</div></div></div>`:'');
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:12px">
-      <div><div class="row-name">New child assignment</div>
+      <div><div class="row-name">${isEvent?'📋 ':'👶 '}${title}</div>
       <div class="row-sub">Sent ${fmtDate(a.assigned_at)}</div>
-      ${a.note?`<p style="margin-top:8px;font-size:14px;color:var(--ink)">${escapeHtml(a.note)}</p>`:'<p style="margin-top:8px;font-size:13px;color:var(--muted)">No note provided.</p>'}</div>
+      ${isEvent&&a.event_details?`<p style="margin-top:8px;font-size:14px;color:var(--ink)">${escapeHtml(a.event_details)}</p>`:''}
+      ${a.note?`<p style="margin-top:8px;font-size:14px;color:var(--ink)">${escapeHtml(a.note)}</p>`:(!isEvent?'<p style="margin-top:8px;font-size:13px;color:var(--muted)">No note provided.</p>':'')}</div>
+      ${feeLine}
       <div style="display:flex;gap:10px">
         <button class="btn btn-ghost btn-sm dec" style="flex:1">Decline</button>
         <button class="btn btn-primary btn-sm acc" style="flex:1">Accept</button>
@@ -1596,7 +1628,16 @@ async function renderProRequests(v){
     card.querySelector('.acc').onclick=async()=>{
       const {error}=await sb.from('assignments').update({status:'accepted',responded_at:new Date().toISOString()}).eq('id',a.id);
       if(error){toast(error.message,true);return;}
-      toast('Accepted — the child is now in “My children”.'); renderProRequests($('#view'));
+      // event fee becomes a pending payable for the professional
+      if(isEvent && a.event_fee>0){
+        const evPeriod=(a.event_date||new Date().toISOString().slice(0,10)).slice(0,7)+'-01';
+        await sb.from('prof_payables').insert({
+          professional_id:a.professional_id, period_month:evPeriod, source:'event', assignment_id:a.id,
+          description:`${a.event_title||'Event'}${a.event_date?' — '+fmtDate(a.event_date):''}`,
+          units:1, unit_rate:Number(a.event_fee), amount:Number(a.event_fee), status:'pending', created_by:ME.id
+        }).then(()=>{}, ()=>{});
+      }
+      toast(isEvent?'Accepted — the event is confirmed.':'Accepted — the child is now in “My children”.'); renderProRequests($('#view'));
     };
     card.querySelector('.dec').onclick=()=>declineModal(a);
     rows.appendChild(card);
@@ -1792,6 +1833,7 @@ async function renderProChild(v,c){
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to my children</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
       <p>${c.dob?calcAge(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.status?escapeHtml(c.status.replace('_',' ')):''}</p></div>
+    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main"><div class="row-name">Your rate for this child</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per service unit · paid on verified units each month</div></div></div>`:''}
 
     <div class="clin" id="proClin"></div>
 
@@ -2030,7 +2072,11 @@ function clinicalSummaryHtml(c, secs, rep){
 async function sessionDetail(s, c){
   // resolve who logged it
   let author='';
-  if(s.professional_id){ const {data:pr}=await sb.from('professionals').select('full_name,discipline').eq('id',s.professional_id).maybeSingle(); if(pr) author=pr.full_name+(pr.discipline?(' · '+pr.discipline):''); }
+  if(s.professional_id){ const {data:pr}=await sb.from('professionals').select('full_name,discipline,profile_id').eq('id',s.professional_id).maybeSingle(); if(pr){ author=pr.full_name+(pr.discipline?(' · '+pr.discipline):''); s._authorProfile=pr.profile_id; } }
+  const isAuthor = s._authorProfile && s._authorProfile===ME.id;
+  const editsLeft = 2-(s.edit_count||0);
+  const canEditSummary = isStaff() || (isAuthor && editsLeft>0);
+  const staffEditor = isStaff() && !isAuthor;
   const rows=[
     ['Date', fmtDate(s.session_date)],
     ['Type', s.session_type||'Session'],
@@ -2044,11 +2090,46 @@ async function sessionDetail(s, c){
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${escapeHtml(s.session_type||'Session')}</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(s.session_date)}</div>
     <div class="clin">${rows.map(([k,val])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
-    <div class="modal-actions"><button class="btn btn-primary" id="sd_close">Close</button></div>
+    ${staffEditor?'<div class="row-sub" style="margin-top:8px">As director you can edit this summary (does not count against the author\u2019s edit limit).</div>':(isAuthor?`<div class="row-sub" style="margin-top:8px">${editsLeft>0?`You can edit this summary ${editsLeft} more time${editsLeft>1?'s':''}.`:'This summary is locked (2 edits used).'}</div>`:'')}
+    <div class="modal-actions">${canEditSummary?'<button class="btn btn-ghost" id="sd_edit" style="width:auto">Edit summary</button>':''}<button class="btn btn-primary" id="sd_close">Close</button></div>
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#sd_close').onclick=close;
+  const eb=m.querySelector('#sd_edit');
+  if(eb) eb.onclick=()=>{ close(); sessionEditForm(s,c,staffEditor); };
+}
+
+function sessionEditForm(s,c,staffEdit){
+  const editsLeft=2-(s.edit_count||0);
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Edit session summary</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(s.session_date)}${staffEdit?' · director edit':' · '+editsLeft+' edit'+(editsLeft>1?'s':'')+' left'}</div>
+    <div class="form-row"><label>Summary</label><textarea id="e_sum">${escapeHtml(s.summary||'')}</textarea></div>
+    <div class="form-row"><label>Progress notes</label><textarea id="e_prog">${escapeHtml(s.progress_notes||'')}</textarea></div>
+    <div class="form-row"><label>Goals worked on (notes)</label><textarea id="e_goals">${escapeHtml(s.goals_worked||'')}</textarea></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="e_vis" type="checkbox" ${s.visible_to_parent?'checked':''} style="width:auto"/> Share with the parent</label></div>
+    <div class="row-sub" style="color:var(--coral)">${staffEdit?'Director edit — does not use the author\u2019s 2-edit limit.':'After saving, this counts as one of your 2 allowed edits.'}</div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="e_cancel">Cancel</button><button class="btn btn-primary" id="e_save">Save edit</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#e_cancel').onclick=close;
+  m.querySelector('#e_save').onclick=async()=>{
+    if(!staffEdit && (s.edit_count||0)>=2){toast('This summary is locked — 2 edits already used.',true);return;}
+    const btn=m.querySelector('#e_save');btn.disabled=true;btn.textContent='Saving…';
+    const patch={
+      summary:m.querySelector('#e_sum').value.trim()||null,
+      progress_notes:m.querySelector('#e_prog').value.trim()||null,
+      goals_worked:m.querySelector('#e_goals').value.trim()||null,
+      visible_to_parent:m.querySelector('#e_vis').checked,
+      last_edited_at:new Date().toISOString()
+    };
+    if(!staffEdit){ patch.edit_count=(s.edit_count||0)+1; }
+    const {error}=await sb.from('session_logs').update(patch).eq('id',s.id);
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save edit';return;}
+    toast('Summary updated'); close();
+    if(typeof SELECTED_CHILD!=='undefined'&&SELECTED_CHILD){ if(ME.role==='professional') renderProChild($('#view'),SELECTED_CHILD); else if(isStaff()) renderStaffChild($('#view'),SELECTED_CHILD); }
+  };
 }
 
 // ---- Shared: full home-program detail (read-only) ----
@@ -3507,34 +3588,36 @@ const RATE_CATALOGUE=[
 // Professional NET compensation per Band, across the four rate contexts (C1–C4).
 // Editable — figures are only reference. C1 (Full) base figures are prefilled as a
 // starting point; confirm all under the current A/B/C context model before relying on them.
-const PROF_RATE_CONTEXTS=[
-  {key:'c1',label:'C1 · Full rate'},
-  {key:'c2',label:'C2 · Community rate'},
-  {key:'c3',label:'C3 · Access rate'},
-  {key:'c4',label:'C4 · Deep-support rate'},
+// Professional Rate Card — mirrors MND-FRM-09-P (Tier A/B/C × Band 1–4).
+// Fees are UGX per program per month, before tax. Where a range is shown, the
+// upper figure is sole delivery; on a co-treated case the two professionals share it.
+const PROF_RATE_TIERS=[
+  {key:'a',label:'Tier A · Premium'},
+  {key:'b',label:'Tier B · Mid'},
+  {key:'c',label:'Tier C · Community'},
 ];
 const PROF_RATE_BANDS=[
-  {band:'band1',label:'Band 1',c1:150000},
-  {band:'band2',label:'Band 2',c1:328000},
-  {band:'band3',label:'Band 3 (per professional)',c1:240000},
-  {band:'band4',label:'Band 4 (per professional)',c1:360000},
+  {band:'band1',label:'Band 1',hours:'8 hours',   a:'250,000',        b:'190,000',        c:'130,000'},
+  {band:'band2',label:'Band 2',hours:'11 hours',  a:'200,000 – 400,000', b:'175,000 – 350,000', c:'132,500 – 265,000'},
+  {band:'band3',label:'Band 3',hours:'16 hours (20 for Tier A)', a:'380,000 – 760,000', b:'320,000 – 640,000', c:'256,000 – 512,000'},
+  {band:'band4',label:'Band 4',hours:'20 hours (24 for Tier A)', a:'600,000 – 1,200,000', b:'480,000 – 960,000', c:'400,000 – 800,000'},
 ];
 const PROF_RATE_CATALOGUE=(()=>{
   const out=[];
   PROF_RATE_BANDS.forEach(bd=>{
-    PROF_RATE_CONTEXTS.forEach(ctx=>{
+    PROF_RATE_TIERS.forEach(t=>{
       out.push({
         program:'prof_comp',
-        item_key:bd.band+'_'+ctx.key,
-        label:bd.label+' — '+ctx.label,
-        unit:'net / service unit',
-        _default: ctx.key==='c1'? bd.c1 : null
+        item_key:bd.band+'_'+t.key,
+        label:bd.label+' ('+bd.hours+') — '+t.label,
+        unit:'UGX / program / month, before tax',
+        _default: bd[t.key]
       });
     });
   });
   return out;
 })();
-const RATE_PROGRAMS={child_band:'Child Program (Bands)',model_a:'Institution — Model A',model_b:'Institution — Model B',clinic:'Clinic / Centre',parent:'Parent Program',consultancy:'Consultancy & Advisory',prof_comp:'Professional compensation (NET per service unit)'};
+const RATE_PROGRAMS={child_band:'Child Program (Bands)',model_a:'Institution — Model A',model_b:'Institution — Model B',clinic:'Clinic / Centre',parent:'Parent Program',consultancy:'Consultancy & Advisory',prof_comp:'Professional Rate Card (MND-FRM-09-P) — before tax'};
 async function finRateCards(b){
   const {data:saved}=await sb.from('rate_cards').select('*');
   const byKey={}; (saved||[]).forEach(r=>byKey[r.program+'|'+r.item_key]=r);
@@ -3551,19 +3634,26 @@ async function finRateCards(b){
   b.innerHTML=`<div class="section-head"><h3>Internal rate cards</h3></div>
     <p style="color:var(--muted);font-size:13px;margin:-4px 0 14px">Confidential — internal only. Fill in figures as you confirm them. These are your reference rates; they don't auto-apply to invoices.</p>
     ${orderedKeys.map(pg=>`<div class="rc-group"${pg==='prof_comp'?' style="border:1px solid var(--coral);border-radius:14px;padding:10px 12px;background:#fff7f4"':''}><div class="rc-group-h">${RATE_PROGRAMS[pg]||pg}</div>
-      ${pg==='prof_comp'?'<div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Strictly confidential · director only · never shown to professionals or in external materials. Prefilled C1 figures are placeholders — confirm all before use.</div>':''}
+      ${pg==='prof_comp'?'<div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Strictly confidential · director only · never shown to professionals or in external materials. These are the official figures from the signed MND-FRM-09-P. Ranges: upper figure = sole delivery; co-treated cases split it.</div>':''}
       ${groups[pg].map(r=>`<div class="rc-row">
         <div class="rc-label"><div class="rc-name">${escapeHtml(r.label)}</div>${r.unit?`<div class="rc-unit">${escapeHtml(r.unit)}</div>`:''}</div>
-        <div class="rc-amt">UGX <input type="number" class="rc-input" value="${r.amount??''}" placeholder="—" data-prog="${r.program}" data-key="${r.item_key}" data-label="${escapeHtml(r.label)}" data-unit="${escapeHtml(r.unit||'')}"/></div>
+        <div class="rc-amt">UGX <input type="text" class="rc-input" style="width:150px" value="${escapeHtml(String(r.amount_text??r.amount??r._default??''))}" placeholder="—" data-prog="${r.program}" data-key="${r.item_key}" data-label="${escapeHtml(r.label)}" data-unit="${escapeHtml(r.unit||'')}"/></div>
       </div>`).join('')}</div>`).join('')}
     <div style="margin-top:16px"><button class="btn btn-primary" id="rcSave" style="width:auto">Save rate cards</button></div>`;
   $('#rcSave').onclick=async()=>{
     const btn=$('#rcSave');btn.disabled=true;btn.textContent='Saving…';
-    const rows=[...b.querySelectorAll('.rc-input')].map(inp=>({
-      program:inp.dataset.prog, item_key:inp.dataset.key, label:inp.dataset.label,
-      unit:inp.dataset.unit||null, amount:inp.value===''?null:Number(inp.value),
-      updated_by:ME.id, updated_at:new Date().toISOString()
-    }));
+    const rows=[...b.querySelectorAll('.rc-input')].map(inp=>{
+      const raw=inp.value.trim();
+      const numeric=raw.replace(/[, ]/g,'');
+      const isPlainNumber=/^\d+(\.\d+)?$/.test(numeric);
+      return {
+        program:inp.dataset.prog, item_key:inp.dataset.key, label:inp.dataset.label,
+        unit:inp.dataset.unit||null,
+        amount: (raw!==''&&isPlainNumber)?Number(numeric):null,
+        amount_text: raw===''?null:raw,
+        updated_by:ME.id, updated_at:new Date().toISOString()
+      };
+    });
     const {error}=await sb.from('rate_cards').upsert(rows,{onConflict:'program,item_key'});
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save rate cards';return;}
     toast('Rate cards saved'); btn.disabled=false;btn.textContent='Save rate cards';
@@ -3571,8 +3661,9 @@ async function finRateCards(b){
 }
 async function finBills(b){
   const {data}=await sb.from('v_payables').select('*').order('bill_date',{ascending:false});
-  b.innerHTML=`<div class="section-head"><h3>Bills</h3><button class="btn btn-primary btn-sm" id="newBill">+ New bill</button></div><div class="rows" id="billRows"></div>`;
+  b.innerHTML=`<div class="section-head"><h3>Bills</h3><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="genProfBills" style="width:auto">Generate professional pay</button><button class="btn btn-primary btn-sm" id="newBill">+ New bill</button></div></div><div class="rows" id="billRows"></div>`;
   $('#newBill').onclick=()=>billForm();
+  $('#genProfBills').onclick=()=>generateProfBills();
   const rows=$('#billRows');
   if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No bills yet</h4><p>Record your first bill.</p></div>`;return;}
   rows.innerHTML='';
@@ -3593,6 +3684,42 @@ async function finBills(b){
     rows.appendChild(card);
   });
 }
+
+// Roll pending professional payables into one bill per professional per month.
+async function generateProfBills(){
+  const {data:pend}=await sb.from('prof_payables').select('*').eq('status','pending');
+  const items=pend||[];
+  if(!items.length){ toast('No pending professional pay to bill.'); return; }
+  // group by professional + month
+  const groups={};
+  items.forEach(it=>{ const k=it.professional_id+'|'+it.period_month; (groups[k]=groups[k]||[]).push(it); });
+  // resolve professional names
+  const profIds=[...new Set(items.map(i=>i.professional_id))];
+  const {data:profs}=await sb.from('professionals').select('id,full_name').in('id',profIds);
+  const nameMap={}; (profs||[]).forEach(p=>nameMap[p.id]=p.full_name);
+  if(!confirm(`Create ${Object.keys(groups).length} professional pay bill(s) from ${items.length} pending item(s)?`)) return;
+  let made=0;
+  for(const key of Object.keys(groups)){
+    const list=groups[key];
+    const [profId,period]=key.split('|');
+    const total=list.reduce((a,x)=>a+Number(x.amount||0),0);
+    const lines=list.map(x=>'• '+x.description).join('\n');
+    const {data:bill,error}=await sb.from('bills').insert({
+      payee:nameMap[profId]||'Professional',
+      description:`Professional pay — ${monthLabel(period)}\n${lines}`,
+      amount:total, expense_account_code:'6100',
+      bill_date:new Date().toISOString().slice(0,10),
+      bill_no:'PAY-'+Date.now().toString().slice(-6), status:'pending'
+    }).select().single();
+    if(error){ toast(error.message,true); continue; }
+    // mark those payables as billed and link them
+    const ids=list.map(x=>x.id);
+    await sb.from('prof_payables').update({status:'billed',bill_id:bill.id}).in('id',ids);
+    made++;
+  }
+  toast(`${made} professional pay bill(s) created`); renderFinances($('#view'));
+}
+
 function billForm(bl){
   bl=bl||null; const edit=!!bl;
   const today=new Date().toISOString().slice(0,10);
@@ -3659,6 +3786,10 @@ function paymentForm(kind,doc){
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Record';return;}
     const newStatus=(amt>=out)?'paid':(kind==='invoice'?'part_paid':'part_paid');
     await sb.from(kind==='invoice'?'invoices':'bills').update({status:newStatus}).eq('id',doc.id);
+    // if this bill settles professional payables, mark them paid too
+    if(kind!=='invoice' && newStatus==='paid'){
+      await sb.from('prof_payables').update({status:'paid'}).eq('bill_id',doc.id).then(()=>{},()=>{});
+    }
     toast('Payment recorded'); close(); renderFinances($('#view'));
   };
 }
@@ -3984,6 +4115,11 @@ async function renderStaffChild(v,c){
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function monthLabel(d){ const x=new Date(d); return MONTHS[x.getMonth()]+' '+x.getFullYear(); }
 function thisMonthISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10); }
+function recentMonthOptions(selected){
+  const out=[]; const now=new Date();
+  for(let i=0;i<7;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const iso=d.toISOString().slice(0,10); out.push(`<option value="${iso}" ${iso===selected?'selected':''}>${monthLabel(iso)}</option>`); }
+  return out.join('');
+}
 const canEditPlan=()=>['director','secretary'].includes(ME.role);
 
 /* ---------- CHILD SERVICE PLAN & LIVE PROGRESS ---------- */
@@ -4024,8 +4160,11 @@ async function renderChildPlan(v,c){
     <div class="section-head" style="margin-top:26px"><h3>Session summaries</h3></div>
     <div class="rows" id="planSessions"></div>
     ${canEditPlan()&&c.assessed_band?`<div class="finalize-card" id="finalizeCard">
-      <div><div class="row-name">Finalize ${monthLabel(period)} for billing &amp; pay</div>
-      <div class="row-sub" style="white-space:normal;margin-top:4px">Locks this month's confirmed service units as the basis for the child's invoice and the professional's pay. You can still view it afterwards.</div></div>
+      <div style="flex:1"><div class="row-name">Finalize a month for billing &amp; pay</div>
+      <div class="row-sub" style="white-space:normal;margin-top:4px">Locks the chosen month's confirmed service units as the basis for the child's invoice and the professional's pay. You can finalize a past month even after a new one has started.</div>
+      <div style="margin-top:10px"><label style="font-size:12px;color:var(--muted);font-weight:600">Month to finalize</label><br>
+        <select id="finMonth" style="margin-top:4px;max-width:220px">${recentMonthOptions(period)}</select></div>
+      </div>
       <button class="btn btn-primary" id="finalizeBtn" style="width:auto;white-space:nowrap">Finalize month</button>
     </div>`:''}`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
@@ -4076,26 +4215,37 @@ async function renderChildPlan(v,c){
     });
     const et=$('#editTargets'); if(et) et.onclick=()=>editTargetsForm(c,list);
     const fb=$('#finalizeBtn'); if(fb) fb.onclick=async()=>{
-      const confirmedCount=list.filter(r=>r.staff_confirmed).length;
-      if(confirmedCount<list.length){
-        if(!confirm(`${list.length-confirmedCount} of ${list.length} activities are not yet confirmed. Finalize ${monthLabel(period)} anyway?`)) return;
-      }
+      const finPeriod = ($('#finMonth')&&$('#finMonth').value) ? $('#finMonth').value : period;
+      const finLabel = monthLabel(finPeriod);
       fb.disabled=true; fb.textContent='Finalizing…';
-      const summary={
-        month:monthLabel(period), band:c.assessed_band,
-        total_done:totDone, total_target:totTarget,
-        activities:list.map(r=>({key:r.activity_key,label:r.label,done:Number(r.done_count||0),target:Number(r.target_count||0),confirmed:!!r.staff_confirmed}))
-      };
-      // find the lead professional for this child (first accepted assignment)
+      // recompute done-counts for the CHOSEN month (may differ from the view's current month)
+      const mStart=finPeriod, mEnd=(()=>{ const d=new Date(finPeriod+'T00:00:00'); d.setMonth(d.getMonth()+1); return d.toISOString().slice(0,10); })();
+      const {data:monthSess}=await sb.from('session_logs').select('activity_key,service_units,professional_id').eq('client_id',c.id).gte('session_date',mStart).lt('session_date',mEnd);
+      const doneBy={}; (monthSess||[]).forEach(s=>{ const k=s.activity_key||'direct_session'; doneBy[k]=(doneBy[k]||0)+1; });
+      const acts=list.map(r=>({key:r.activity_key,label:r.label,done:doneBy[r.activity_key]||0,target:Number(r.target_count||0)}));
+      const summary={ month:finLabel, band:c.assessed_band,
+        total_done:acts.reduce((a,x)=>a+x.done,0), total_target:acts.reduce((a,x)=>a+x.target,0), activities:acts };
       let profId=null;
       const {data:asg}=await sb.from('assignments').select('professional_id').eq('client_id',c.id).eq('status','accepted').limit(1).maybeSingle();
       if(asg) profId=asg.professional_id;
       const {error}=await sb.from('op_forms').insert({
-        kind:'svc_units', client_id:c.id, professional_id:profId, period_month:period,
-        title:`Service units — ${monthLabel(period)}`, data:summary, created_by:ME.id, status:'finalized' });
+        kind:'svc_units', client_id:c.id, professional_id:profId, period_month:finPeriod,
+        title:`Service units — ${finLabel}`, data:summary, created_by:ME.id, status:'finalized' });
       if(error){toast(error.message,true);fb.disabled=false;fb.textContent='Finalize month';return;}
-      toast(`${monthLabel(period)} finalized — ready for invoicing & pay`);
-      fb.textContent='✓ Finalized'; 
+      // build the professional payable: units done this month × the child's rate
+      const rate = Number(c.prof_unit_rate||0);
+      const unitsDone = acts.reduce((a,x)=>a+x.done,0);
+      if(profId && rate>0 && unitsDone>0){
+        // avoid duplicate payable for the same child+month
+        await sb.from('prof_payables').delete().eq('professional_id',profId).eq('client_id',c.id).eq('period_month',finPeriod).eq('status','pending');
+        await sb.from('prof_payables').insert({
+          professional_id:profId, period_month:finPeriod, source:'child_units', client_id:c.id,
+          description:`${c.full_name} — ${unitsDone} unit${unitsDone>1?'s':''} @ ${rate.toLocaleString()} (${finLabel})`,
+          units:unitsDone, unit_rate:rate, amount:unitsDone*rate, status:'pending', created_by:ME.id
+        });
+      }
+      toast(`${finLabel} finalized${(rate>0&&unitsDone>0)?' — professional pay queued':''}`);
+      fb.textContent='✓ Finalized';
     };
   }
 }
