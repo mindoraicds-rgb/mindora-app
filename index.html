@@ -401,6 +401,10 @@ a{color:var(--purple)}
 .sec-body{background:var(--accent-soft);border-radius:8px;padding:10px 12px}
 /* rate cards */
 .rc-group{margin-bottom:18px}
+.mrc-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
+.mrc-table th{background:var(--accent-soft);color:var(--accent-deep);text-align:left;padding:7px 9px;font-size:11.5px;text-transform:uppercase;letter-spacing:.02em}
+.mrc-table td{padding:7px 9px;border-top:1px solid var(--line);color:var(--ink);white-space:nowrap}
+.mrc-table tr:nth-child(even) td{background:rgba(108,52,131,.03)}
 .rc-group-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent-deep);margin:0 0 8px;opacity:.85}
 .rc-row{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--card)}
 .rc-label{flex:1;min-width:0}
@@ -1898,6 +1902,7 @@ function sessionForm(c){
       <div><label>Date</label><input id="s_date" type="date" value="${today}"/></div>
       <div><label>Service units</label><input id="s_units" type="number" step="0.5" value="1"/></div>
     </div>
+    ${isStaff()?`<div class="form-row"><label>Logged for professional</label><select id="s_prof"><option value="">— select the professional —</option></select></div>`:''}
     <div class="form-row"><label>Counts toward</label><select id="s_act">
       <option value="direct_session">Direct session</option>
       <option value="caregiver">Caregiver guidance</option>
@@ -1915,6 +1920,14 @@ function sessionForm(c){
     <div class="modal-actions"><button class="btn btn-ghost" id="s_cancel">Cancel</button><button class="btn btn-primary" id="s_save">Save session</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  // staff log on behalf of a professional — populate with the child's accepted team
+  if(isStaff()){
+    (async()=>{
+      const {data:asg}=await sb.from('assignments').select('professional_id,professionals(full_name,discipline)').eq('client_id',c.id).eq('status','accepted');
+      const sel=m.querySelector('#s_prof'); if(!sel) return;
+      (asg||[]).forEach((a,i)=>{ if(!a.professionals)return; const o=document.createElement('option'); o.value=a.professional_id; o.textContent=a.professionals.full_name+(a.professionals.discipline?' — '+a.professionals.discipline:''); if(i===0)o.selected=true; sel.appendChild(o); });
+    })();
+  }
   // load the child's goals into a tickable list with optional progress
   (async()=>{
     const {data:goals}=await sb.from('goals').select('*').eq('client_id',c.id).neq('status','discontinued').order('discipline',{ascending:true});
@@ -1932,9 +1945,11 @@ function sessionForm(c){
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#s_cancel').onclick=close;
   m.querySelector('#s_save').onclick=async()=>{
+    const chosenProf = isStaff() ? (m.querySelector('#s_prof')?m.querySelector('#s_prof').value||null:null) : MY_PROF_ID;
+    if(isStaff() && !chosenProf){ toast('Select which professional this session is for.',true); return; }
     const btn=m.querySelector('#s_save');btn.disabled=true;btn.textContent='Saving…';
     const {data:newSess,error}=await sb.from('session_logs').insert({
-      client_id:c.id, professional_id:MY_PROF_ID,
+      client_id:c.id, professional_id:chosenProf,
       session_date:m.querySelector('#s_date').value||today,
       activity_key:m.querySelector('#s_act').value||'direct_session',
       period_month:(m.querySelector('#s_date').value||today).slice(0,8)+'01',
@@ -3618,6 +3633,56 @@ const PROF_RATE_CATALOGUE=(()=>{
   return out;
 })();
 const RATE_PROGRAMS={child_band:'Child Program (Bands)',model_a:'Institution — Model A',model_b:'Institution — Model B',clinic:'Clinic / Centre',parent:'Parent Program',consultancy:'Consultancy & Advisory',prof_comp:'Professional Rate Card (MND-FRM-09-P) — before tax'};
+
+// MASTER RATE CARD (MND-FRM-09 v3.0) — internal, director-only reference.
+const MASTER_RATE_CARD={
+  meta:['A = Premium · B = Mid · C = Community · all figures UGX',
+        'Band hours/month: B1=8 · B2=11 · B3=16 (20 for A) · B4=20 (24 for A)'],
+  sections:[
+    {t:'1 · Client fees — monthly', head:['Band','A Premium','B Mid','C Community'], rows:[
+      ['Band 1','600,000','480,000','320,000'],['Band 2','1,000,000','880,000','660,000'],
+      ['Band 3','2,000,000','1,600,000','1,280,000'],['Band 4','3,000,000','2,400,000','2,100,000']]},
+    {t:'2 · Client fees — term, direct / non-Model-B (×3, full)', head:['Band','A Premium','B Mid','C Community'], rows:[
+      ['Band 1','1,800,000','1,440,000','960,000'],['Band 2','3,000,000','2,640,000','1,980,000'],
+      ['Band 3','6,000,000','4,800,000','3,840,000'],['Band 4','9,000,000','7,200,000','6,300,000']]},
+    {t:'3 · Client fees — term, Model B children (×3, −10%)', head:['Band','A Premium','B Mid','C Community'], rows:[
+      ['Band 1','1,620,000','1,296,000','864,000'],['Band 2','2,700,000','2,376,000','1,782,000'],
+      ['Band 3','5,400,000','4,320,000','3,456,000'],['Band 4','8,100,000','6,480,000','5,670,000']]},
+    {t:'4 · Professional fees — monthly (before tax)', note:'Range: upper = sole delivery; co-treated cases split it. Paid on the monthly gross of all service units; 6% WHT applied once.', head:['Band','A Premium','B Mid','C Community'], rows:[
+      ['Band 1','250,000','190,000','130,000'],['Band 2','200,000 – 400,000','175,000 – 350,000','132,500 – 265,000'],
+      ['Band 3','380,000 – 760,000','320,000 – 640,000','256,000 – 512,000'],['Band 4','600,000 – 1,200,000','480,000 – 960,000','400,000 – 800,000']]},
+    {t:'5 · Model B school — set-up fee (one-time)', head:['Learners','C Community','B Mid','A Premium'], rows:[
+      ['1 – 200','300,000','450,000','600,000'],['201 – 400','500,000','750,000','1,000,000'],['401 – 600','1,000,000','1,500,000','2,000,000']]},
+    {t:'6 · Model B school — retainer (monthly)', note:'601+ by quotation, same scaling. Elite international schools: Tier A may be set at ×2.5–×3 of C.', head:['Learners','C Community','B Mid','A Premium'], rows:[
+      ['1 – 200','200,000','300,000','400,000'],['201 – 400','300,000','450,000','600,000'],['401 – 600','500,000','750,000','1,000,000']]},
+    {t:'7 · Key percentages & margins', head:['Item','Figure'], rows:[
+      ['Professional share of client fee','up to 40%'],['Gross margin — monthly & direct term','~60%'],
+      ['Gross margin — Model B child (after 10% + school 5%)','~53%'],['Term discount (Model B children only)','10%'],
+      ['School collection commission (Model B child fees)','5%'],['WHT on professional monthly gross','6%'],
+      ['Community / supported placement cap','30% of caseload']]},
+    {t:'8 · Negotiation guardrails', head:['Lever','Position','Rule'], rows:[
+      ['Category (A/B/C)','Negotiable up-front','Place by ability to pay; holds for the agreement term.'],
+      ['Band','Fixed — clinical','Set by need, never moved to win a deal.'],
+      ['Monthly & direct term fees','Hold firm','Full price; only client discount is Model B (10%).'],
+      ['Model B child discount','Fixed at 10%','Do not stack further reductions.'],
+      ['Retainer & set-up','Some flexibility','Flex within A/B/C; never below the C column.'],
+      ['Margin floor','Never below ~45%','Below it, restructure or walk away.'],
+      ['Community placements','Cap 30%','Of the active caseload.']]},
+  ]
+};
+function masterRateCardHtml(){
+  return `<div class="rc-group" style="border:1px solid var(--accent);border-radius:14px;padding:12px 14px;background:#faf6fd;margin-top:8px">
+    <div class="rc-group-h">Master Rate Card — MND-FRM-09 v3.0</div>
+    <div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Internal · director use only · the authoritative source for all pricing. Individual editable cards above should be kept in step with this.</div>
+    ${MASTER_RATE_CARD.meta.map(x=>`<div class="row-sub" style="white-space:normal">${escapeHtml(x)}</div>`).join('')}
+    ${MASTER_RATE_CARD.sections.map(sec=>`
+      <div style="margin-top:14px"><div class="row-name" style="color:var(--accent-deep)">${escapeHtml(sec.t)}</div>
+      ${sec.note?`<div class="row-sub" style="white-space:normal;margin:2px 0 6px">${escapeHtml(sec.note)}</div>`:''}
+      <div style="overflow-x:auto"><table class="mrc-table"><thead><tr>${sec.head.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
+      <tbody>${sec.rows.map(r=>`<tr>${r.map((cell,i)=>`<td${i===0?' style="font-weight:600"':''}>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      </div>`).join('')}
+  </div>`;
+}
 async function finRateCards(b){
   const {data:saved}=await sb.from('rate_cards').select('*');
   const byKey={}; (saved||[]).forEach(r=>byKey[r.program+'|'+r.item_key]=r);
@@ -3639,7 +3704,8 @@ async function finRateCards(b){
         <div class="rc-label"><div class="rc-name">${escapeHtml(r.label)}</div>${r.unit?`<div class="rc-unit">${escapeHtml(r.unit)}</div>`:''}</div>
         <div class="rc-amt">UGX <input type="text" class="rc-input" style="width:150px" value="${escapeHtml(String(r.amount_text??r.amount??r._default??''))}" placeholder="—" data-prog="${r.program}" data-key="${r.item_key}" data-label="${escapeHtml(r.label)}" data-unit="${escapeHtml(r.unit||'')}"/></div>
       </div>`).join('')}</div>`).join('')}
-    <div style="margin-top:16px"><button class="btn btn-primary" id="rcSave" style="width:auto">Save rate cards</button></div>`;
+    <div style="margin-top:16px"><button class="btn btn-primary" id="rcSave" style="width:auto">Save rate cards</button></div>
+    ${masterRateCardHtml()}`;
   $('#rcSave').onclick=async()=>{
     const btn=$('#rcSave');btn.disabled=true;btn.textContent='Saving…';
     const rows=[...b.querySelectorAll('.rc-input')].map(inp=>{
@@ -3998,6 +4064,8 @@ async function renderStaffChild(v,c){
       <p>${c.child_no?escapeHtml(c.child_no)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.delivery_channel||'direct'} channel${team.length?' · Team: '+escapeHtml(team.join(', ')):''}</p></div>
     </div>
 
+    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main"><div class="row-name">Professional service-unit rate</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per verified unit · paid to the assigned professional on finalizing each month</div></div><button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit</button></div>`:`<div class="row-card" style="cursor:pointer;border:1px dashed var(--line)" id="setRateCard"><div class="row-main"><div class="row-name" style="color:var(--muted)">No professional rate set for this child</div><div class="row-sub">Set the per-unit rate so pay is calculated on finalizing the month.</div></div><span style="color:var(--accent)">Set rate ›</span></div>`}
+
     <div class="qa-row">
       <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
       <div class="qa" id="qaSched">${icon('schedule')} Monthly schedule</div>
@@ -4041,6 +4109,7 @@ async function renderStaffChild(v,c){
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
+  { const er=$('#qaEditRate'); if(er) er.onclick=()=>openClientForm(c); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>openClientForm(c); }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
   // --- Care team: active + past professionals, with end / reactivate ---
@@ -4232,19 +4301,21 @@ async function renderChildPlan(v,c){
         kind:'svc_units', client_id:c.id, professional_id:profId, period_month:finPeriod,
         title:`Service units — ${finLabel}`, data:summary, created_by:ME.id, status:'finalized' });
       if(error){toast(error.message,true);fb.disabled=false;fb.textContent='Finalize month';return;}
-      // build the professional payable: units done this month × the child's rate
+      // build professional payables — ONE per professional, from THEIR OWN logged units × the child rate
       const rate = Number(c.prof_unit_rate||0);
-      const unitsDone = acts.reduce((a,x)=>a+x.done,0);
-      if(profId && rate>0 && unitsDone>0){
-        // avoid duplicate payable for the same child+month
-        await sb.from('prof_payables').delete().eq('professional_id',profId).eq('client_id',c.id).eq('period_month',finPeriod).eq('status','pending');
-        await sb.from('prof_payables').insert({
-          professional_id:profId, period_month:finPeriod, source:'child_units', client_id:c.id,
-          description:`${c.full_name} — ${unitsDone} unit${unitsDone>1?'s':''} @ ${rate.toLocaleString()} (${finLabel})`,
-          units:unitsDone, unit_rate:rate, amount:unitsDone*rate, status:'pending', created_by:ME.id
-        });
+      if(rate>0){
+        // units done in the chosen month, grouped by professional
+        const byProf={}; (monthSess||[]).forEach(s=>{ if(s.professional_id){ byProf[s.professional_id]=(byProf[s.professional_id]||0)+1; } });
+        // clear prior pending payables for this child+month to avoid duplicates
+        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('status','pending');
+        const profRows=Object.keys(byProf).filter(pid=>byProf[pid]>0).map(pid=>({
+          professional_id:pid, period_month:finPeriod, source:'child_units', client_id:c.id,
+          description:`${c.full_name} — ${byProf[pid]} unit${byProf[pid]>1?'s':''} @ ${rate.toLocaleString()} (${finLabel})`,
+          units:byProf[pid], unit_rate:rate, amount:byProf[pid]*rate, status:'pending', created_by:ME.id
+        }));
+        if(profRows.length){ await sb.from('prof_payables').insert(profRows); }
       }
-      toast(`${finLabel} finalized${(rate>0&&unitsDone>0)?' — professional pay queued':''}`);
+      toast(`${finLabel} finalized${(rate>0)?' — professional pay queued per professional':''}`);
       fb.textContent='✓ Finalized';
     };
   }
