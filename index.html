@@ -541,6 +541,45 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 /* -- Modal: friendly entrance -- */
 .modal{animation:popIn .3s cubic-bezier(.2,.7,.3,1) both}
 
+
+/* ===================== ASSESSMENT MODULE ===================== */
+.as-prog{height:8px;border-radius:99px;background:var(--accent-soft);overflow:hidden;margin:10px 0 4px}
+.as-prog>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-grad1),var(--accent-grad2));border-radius:99px;transition:width .25s ease}
+.as-sec{border:1px solid var(--line);border-radius:16px;background:var(--card);margin-bottom:14px;overflow:hidden}
+.as-sec>h4{margin:0;padding:14px 16px;background:var(--accent-soft);color:var(--accent-deep);font-family:'Fraunces',serif;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.as-sec>h4 .as-cnt{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;color:var(--muted);background:var(--card);border-radius:99px;padding:3px 10px}
+.as-sec .as-body{padding:6px 16px 14px}
+.as-sec.collapsed .as-body{display:none}
+.as-item{padding:14px 0;border-bottom:1px dashed var(--line)}
+.as-item:last-child{border-bottom:none}
+.as-item .as-q{font-size:14.5px;font-weight:600;color:var(--ink);line-height:1.4}
+.as-item .as-a{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
+.as-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.as-opt{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .12s ease;user-select:none}
+.as-opt:hover{border-color:var(--accent)}
+.as-opt.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.as-opt.on.neg{background:var(--danger);border-color:var(--danger)}
+.as-opt.on.pos{background:var(--ok);border-color:var(--ok)}
+.as-item input.as-num,.as-item input.as-txt{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:var(--card);color:var(--ink)}
+.as-item select.as-sel{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:var(--card);color:var(--ink)}
+.as-item textarea.as-area{width:100%;margin-top:9px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:var(--card);color:var(--ink)}
+.as-note{margin-top:8px}
+.as-note button{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;font-weight:600;cursor:pointer;padding:0}
+.as-note textarea{width:100%;margin-top:6px;padding:8px 10px;border:1px dashed var(--line);border-radius:9px;font:inherit;font-size:13px;background:var(--bg2);color:var(--ink);min-height:44px}
+.as-save{position:fixed;right:14px;bottom:14px;z-index:60;background:var(--ink);color:#fff;border-radius:99px;padding:8px 15px;font-size:12.5px;font-weight:600;opacity:0;transition:opacity .2s ease;pointer-events:none}
+.as-save.show{opacity:.92}
+.as-pill{display:inline-block;border-radius:99px;padding:3px 10px;font-size:11.5px;font-weight:700}
+.as-pill.done{background:#DCF1EA;color:#0B4D3C}
+.as-pill.prog{background:#FCF1DA;color:#9A6310}
+.as-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.as-tbl th{text-align:left;padding:8px 9px;background:var(--accent-soft);color:var(--accent-deep);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.as-tbl td{padding:8px 9px;border-bottom:1px solid var(--line);color:var(--ink);vertical-align:top}
+.as-rep-sec{border:1px solid var(--line);border-radius:16px;background:var(--card);margin-bottom:14px;padding:14px 16px}
+.as-rep-sec h4{margin:0 0 4px;font-family:'Fraunces',serif;font-size:16px;color:var(--accent-deep)}
+.as-rep-sec .as-hint{font-size:12px;color:var(--muted);margin-bottom:8px}
+.as-rep-sec textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:14px;line-height:1.55;background:var(--bg2);color:var(--ink);min-height:120px}
+.as-flag{border:1px solid #F3C9CB;background:#FDEEEF;color:#8E2226;border-radius:12px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.45}
+
 </style>
 </head>
 <body>
@@ -1035,7 +1074,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1103,7 +1142,11 @@ function go(view){
    report_edit:(vv)=>renderReportEdit(vv,SELECTED_REPORT),
    pro_reports:renderProReports,
    notifications:renderNotifications, waitlist:renderWaitlist, pending:renderPending,
-   child_progress:(vv)=>renderChildProgress(vv,SELECTED_CHILD)}[view]||(()=>{}))(v);
+   child_progress:(vv)=>renderChildProgress(vv,SELECTED_CHILD),
+   child_assessments:(vv)=>renderChildAssessments(vv,SELECTED_CHILD),
+   assessment:(vv)=>renderAssessment(vv,SELECTED_ASSESSMENT),
+   assess_protocol:(vv)=>renderAssessProtocol(vv,SELECTED_APROTO),
+   assessment_report:(vv)=>renderAssessmentReport(vv,SELECTED_ASSESSMENT)}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -1854,6 +1897,7 @@ async function renderProChild(v,c){
       <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
       <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
+      <div class="qa" id="qaAssessP">${icon('plan')} Assessments</div>
       <div class="qa" id="qaReview">${icon('assign')} Monthly review</div>
     </div>
 
@@ -1872,6 +1916,7 @@ async function renderProChild(v,c){
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaReview').onclick=()=>opFormModal('review',{client_id:c.id,client_name:c.full_name,professional_id:MY_PROF_ID,after:()=>toast('Review saved')});
+  { const _qap=$('#qaAssessP'); if(_qap) _qap.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
 
   const sr=$('#sessRows');
   sr.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:26px"><h4>No sessions yet</h4><p>Log your first session — it replaces the paper summary.</p></div>`;
@@ -4096,6 +4141,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaSched">${icon('schedule')} Monthly schedule</div>
       <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
       <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
+      <div class="qa" id="qaAssess">${icon('plan')} Assessments</div>
       <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
@@ -4131,6 +4177,7 @@ async function renderStaffChild(v,c){
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
   $('#qaReports').onclick=()=>{SELECTED_CHILD=c;go('child_reports');};
+  { const _qa=$('#qaAssess'); if(_qa) _qa.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
@@ -5629,6 +5676,2013 @@ function opFormModal(kind, ctx){ // ctx: {client_id, institution_id, professiona
     toast(def.title+' submitted'); close();
     if(typeof ctx.after==='function') ctx.after();
   };
+}
+
+
+
+/* =====================================================================
+   MINDORA ASSESSMENT MODULE  —  Stage 30
+   ---------------------------------------------------------------------
+   These are ORIGINAL Mindora criterion-referenced protocols. They are not
+   reproductions of any licensed instrument. Constructs and developmental
+   sequences are drawn from the public clinical literature (ASHA scope
+   documents, WHO ICF-CY, GRBAS, IDDSI, published developmental norms).
+   Results are DESCRIPTIVE and CRITERION-REFERENCED — they are not
+   standardized scores and must never be reported as such.
+
+   Where a licensed standardized instrument has been properly administered
+   with its own materials, its RESULTS are entered separately in the
+   Standardized Scores section and flow into the same report.
+   ===================================================================== */
+
+const ASSESS_VERSION = '1.0';
+
+/* ---- Response scales -------------------------------------------------
+   dir: +1  higher = better       (skill mastery)
+        -1  higher = more concern (severity, symptom frequency)
+         0  both extremes atypical (sensory responsivity)
+------------------------------------------------------------------------ */
+const AS_SCALES = {
+  M: { dir:+1, label:'Criterion mastery', opts:[
+    'Not observed','Emerging (max support)','Inconsistent (mod support)','Consistent (min support)','Independent / age-expected'] },
+  G: { dir:-1, label:'GRBAS', opts:['0 Normal','1 Slight','2 Moderate','3 Severe'] },
+  V: { dir:-1, label:'Impairment', opts:[
+    'Within normal limits','Mild','Moderate','Severe','Unable to assess'] },
+  F: { dir:-1, label:'Frequency', opts:['Never','Rarely','Sometimes','Often','Always'] },
+  S: { dir:0,  label:'Sensory responsivity', opts:[
+    'Much less than peers','Less than peers','Similar to peers','More than peers','Much more than peers'] },
+  Y: { dir:-1, label:'Presence', opts:['Absent','Present','Not tested'] },
+};
+
+/* Item shape:
+   c  code (unique within protocol)
+   t  item text
+   a  anchor — the developmental / evidence reference the rater uses
+   ty M|G|V|F|S|Y|C|N|T|X   (C=choice, N=number, T=free text, X=multi-select)
+   o  options for C / X
+   u  unit hint for N
+*/
+
+const ASSESS_PROTOCOLS = [
+
+/* ================= LANGUAGE — BAND A (0–36 months) ================= */
+{
+  code:'MND-LNG-01', domain:'language',
+  title:'Early Communication Profile',
+  band:'0–36 months',
+  purpose:'Criterion-referenced profile of prelinguistic foundations, emerging comprehension, first words and early combinations.',
+  sections:[
+    { s:'Preverbal & social foundations', items:[
+      {c:'a1', t:'Orients and responds to own name', a:'Expected by 9–12 months', ty:'M'},
+      {c:'a2', t:'Establishes and sustains eye contact during interaction', a:'Present from early infancy; dyadic gaze', ty:'M'},
+      {c:'a3', t:'Responds to joint attention (follows adult point or gaze shift)', a:'Expected 9–12 months', ty:'M'},
+      {c:'a4', t:'Initiates joint attention (shows, gives, points to share interest)', a:'Expected 12–15 months; key predictor of later language', ty:'M'},
+      {c:'a5', t:'Takes turns in vocal or gestural exchange', a:'Reciprocal turn-taking from 6–9 months', ty:'M'},
+      {c:'a6', t:'Uses conventional gestures (wave, reach, give, head shake)', a:'Expected 9–12 months', ty:'M'},
+      {c:'a7', t:'Points to request (protoimperative)', a:'Expected 10–12 months', ty:'M'},
+      {c:'a8', t:'Points to comment or share (protodeclarative)', a:'Expected 12–14 months', ty:'M'},
+      {c:'a9', t:'Imitates actions, gestures and sounds', a:'Vocal and motor imitation from 8–12 months', ty:'M'},
+      {c:'a10',t:'Responds to social routines and anticipates their sequence', a:'Peekaboo, songs with actions — 6–12 months', ty:'M'},
+    ]},
+    { s:'Receptive language', items:[
+      {c:'b1', t:'Orients to voice and to environmental sound', a:'From birth; localises by 6 months', ty:'M'},
+      {c:'b2', t:'Responds to simple prohibition ("no", "stop")', a:'Expected 9–12 months', ty:'M'},
+      {c:'b3', t:'Understands ten or more familiar words in context', a:'Expected by 12 months', ty:'M'},
+      {c:'b4', t:'Follows a one-step routine instruction WITH gesture', a:'Expected 12–15 months', ty:'M'},
+      {c:'b5', t:'Follows a one-step instruction WITHOUT gesture', a:'Expected 15–18 months', ty:'M'},
+      {c:'b6', t:'Identifies body parts on request', a:'3+ body parts by 18 months', ty:'M'},
+      {c:'b7', t:'Identifies familiar objects and pictures on request', a:'Expected 18–24 months', ty:'M'},
+      {c:'b8', t:'Understands two-word relations (agent+action, action+object)', a:'Expected 24 months', ty:'M'},
+      {c:'b9', t:'Understands simple wh-questions (where, what)', a:'Expected 24–30 months', ty:'M'},
+      {c:'b10',t:'Estimated receptive vocabulary (words understood)', a:'~50 words by 18m; ~200+ by 24m', ty:'N', u:'words'},
+    ]},
+    { s:'Expressive language', items:[
+      {c:'c1', t:'Vocalises with varied pitch and intonation', a:'Cooing 2–4 months; vocal play 4–6 months', ty:'M'},
+      {c:'c2', t:'Reduplicated babble (ba-ba-ba)', a:'Expected 6–9 months', ty:'M'},
+      {c:'c3', t:'Variegated babble and jargon with adult-like intonation', a:'Expected 9–12 months', ty:'M'},
+      {c:'c4', t:'Uses at least one true word meaningfully and consistently', a:'Expected by 12–14 months', ty:'M'},
+      {c:'c5', t:'Estimated expressive vocabulary (words used)', a:'~50 words by 18–24m signals readiness to combine', ty:'N', u:'words'},
+      {c:'c6', t:'Uses words for a range of functions (request, protest, comment, greet, label)', a:'Functional range expected by 18–24 months', ty:'M'},
+      {c:'c7', t:'Combines two words spontaneously', a:'Expected 18–24 months; late if absent at 24m', ty:'M'},
+      {c:'c8', t:'Produces three-word combinations', a:'Expected 24–36 months', ty:'M'},
+      {c:'c9', t:'Uses early morphology (plural -s, present progressive -ing)', a:'Emerges 24–30 months', ty:'M'},
+      {c:'c10',t:'Asks simple questions', a:'Expected 24–36 months', ty:'M'},
+    ]},
+    { s:'Play & symbolic development', items:[
+      {c:'d1', t:'Exploratory / sensorimotor play (mouths, bangs, shakes)', a:'Expected 6–12 months', ty:'M'},
+      {c:'d2', t:'Functional play with real objects, self-directed', a:'Expected 12–15 months', ty:'M'},
+      {c:'d3', t:'Functional play directed to another person or doll', a:'Expected 15–18 months', ty:'M'},
+      {c:'d4', t:'Object substitution in play (block used as a car)', a:'Expected 18–24 months', ty:'M'},
+      {c:'d5', t:'Sequenced pretend play (two or more linked steps)', a:'Expected 24–30 months', ty:'M'},
+    ]},
+    { s:'Communication means & effectiveness', items:[
+      {c:'e1', t:'Primary communication modality', a:'Record what the child actually uses most', ty:'C',
+        o:['Vocalisation only','Gesture only','Gesture + vocalisation','Single words','Word combinations','Sign / key word signing','AAC — low tech','AAC — high tech','Behaviour (crying, leading, pulling)']},
+      {c:'e2', t:'Rate of communicative acts in ten minutes of play', a:'Low rate is a red flag independent of vocabulary size', ty:'N', u:'acts / 10 min'},
+      {c:'e3', t:'Repairs the message when not understood', a:'Persistence and repair emerge 18–24 months', ty:'M'},
+      {c:'e4', t:'Intelligibility to a familiar listener', a:'~50% at 24m, ~75% at 36m', ty:'N', u:'%'},
+      {c:'e5', t:'Parent / caregiver concern about communication', a:'Caregiver concern is a validated predictor', ty:'V'},
+    ]},
+    { s:'Clinician observations', items:[
+      {c:'z1', t:'Behaviour during assessment, cooperation and validity of the sample', a:'State if findings under-represent true ability', ty:'T'},
+      {c:'z2', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= LANGUAGE — BAND B (3–8 years) ================= */
+{
+  code:'MND-LNG-02', domain:'language',
+  title:'Structured Language Profile',
+  band:'3–8 years',
+  purpose:'Criterion-referenced profile of receptive and expressive language across form, content and use, with early narrative.',
+  sections:[
+    { s:'Receptive — content (semantics)', items:[
+      {c:'a1', t:'Identifies vocabulary across everyday categories', a:'Breadth expected to expand rapidly 3–8y', ty:'M'},
+      {c:'a2', t:'Understands category labels and superordinates (fruit, furniture)', a:'Expected from 4 years', ty:'M'},
+      {c:'a3', t:'Understands spatial concepts (in, on, under, behind, between, next to)', a:'Most mastered by 5 years', ty:'M'},
+      {c:'a4', t:'Understands temporal concepts (before, after, first, last, yesterday)', a:'Expected 5–6 years', ty:'M'},
+      {c:'a5', t:'Understands quantity concepts (more, less, same, all, some, none)', a:'Expected 4–5 years', ty:'M'},
+      {c:'a6', t:'Understands descriptive concepts (size, colour, shape, texture)', a:'Expected 3–5 years', ty:'M'},
+    ]},
+    { s:'Receptive — form (syntax & morphology)', items:[
+      {c:'b1', t:'Follows two-step related directions', a:'Expected 3–4 years', ty:'M'},
+      {c:'b2', t:'Follows two-step unrelated directions', a:'Expected 4–5 years', ty:'M'},
+      {c:'b3', t:'Follows three-step directions', a:'Expected 5–6 years', ty:'M'},
+      {c:'b4', t:'Comprehends negatives ("the boy who is NOT running")', a:'Expected 4–5 years', ty:'M'},
+      {c:'b5', t:'Comprehends passive voice ("the dog was chased by the cat")', a:'Reliable by 6–8 years', ty:'M'},
+      {c:'b6', t:'Comprehends relative clauses', a:'Expected 6–8 years', ty:'M'},
+      {c:'b7', t:'Comprehends what / where / who questions', a:'Expected by 3–4 years', ty:'M'},
+      {c:'b8', t:'Comprehends why / how / when questions', a:'Expected 4–6 years', ty:'M'},
+    ]},
+    { s:'Expressive — form', items:[
+      {c:'c1', t:'Mean length of utterance in morphemes (from language sample)', a:'~3.0 at 3y; ~4.5 at 4y; ~5.5+ at 5y', ty:'N', u:'MLU-m'},
+      {c:'c2', t:'Regular plural -s', a:'Mastered ~27–33 months', ty:'M'},
+      {c:'c3', t:'Present progressive -ing', a:'Mastered ~19–28 months', ty:'M'},
+      {c:'c4', t:'Possessive \u2019s', a:'Mastered ~26–40 months', ty:'M'},
+      {c:'c5', t:'Regular past tense -ed', a:'Mastered ~26–48 months', ty:'M'},
+      {c:'c6', t:'Irregular past tense (went, ran)', a:'Mastered ~25–46 months; overregularisation is normal', ty:'M'},
+      {c:'c7', t:'Copula and auxiliary "is / are"', a:'Mastered ~29–46 months; a marker of DLD when persistently omitted', ty:'M'},
+      {c:'c8', t:'Third person singular -s', a:'Mastered ~27–46 months; sensitive clinical marker', ty:'M'},
+      {c:'c9', t:'Pronouns used accurately (I, me, he, she, they)', a:'Largely accurate by 4–5 years', ty:'M'},
+      {c:'c10',t:'Conjunctions (and, because, but, so, if)', a:'"and" ~3y; "because/so" ~4–5y', ty:'M'},
+      {c:'c11',t:'Produces complex sentences with subordinate clauses', a:'Expected from 4–5 years', ty:'M'},
+      {c:'c12',t:'Forms questions with correct inversion', a:'Expected 4–5 years', ty:'M'},
+    ]},
+    { s:'Expressive — content', items:[
+      {c:'d1', t:'Expressive vocabulary adequate for age and curriculum', a:'Judged against classroom demand', ty:'M'},
+      {c:'d2', t:'Word-finding difficulty (latency, circumlocution, "thing", "stuff")', a:'Frequent non-specific words suggest retrieval difficulty', ty:'F'},
+      {c:'d3', t:'Generates exemplars within a category on demand', a:'Fluency task — expected from 4–5 years', ty:'M'},
+      {c:'d4', t:'Defines familiar words with adequate specificity', a:'Function-based at 4y, class-based by 7–8y', ty:'M'},
+    ]},
+    { s:'Expressive — use (pragmatics)', items:[
+      {c:'e1', t:'Initiates interaction with adults', a:'', ty:'M'},
+      {c:'e2', t:'Initiates interaction with peers', a:'', ty:'M'},
+      {c:'e3', t:'Maintains a topic across several conversational turns', a:'2–3 turns at 3y; extended by 5–6y', ty:'M'},
+      {c:'e4', t:'Makes relevant, signalled topic shifts', a:'Expected 5–6 years', ty:'M'},
+      {c:'e5', t:'Requests clarification when the message is unclear', a:'Expected from 4–5 years', ty:'M'},
+      {c:'e6', t:'Responds to clarification requests and repairs the message', a:'Expected from 3–4 years', ty:'M'},
+      {c:'e7', t:'Adjusts language to the listener (adult / younger child / peer)', a:'Emerges 4–5 years', ty:'M'},
+      {c:'e8', t:'Uses and interprets non-verbal cues appropriately', a:'', ty:'M'},
+    ]},
+    { s:'Narrative & discourse', items:[
+      {c:'f1', t:'Retells a familiar story preserving sequence', a:'Expected 4–5 years', ty:'M'},
+      {c:'f2', t:'Narrative contains setting, character, problem and resolution', a:'Complete episode structure expected 6–8 years', ty:'M'},
+      {c:'f3', t:'Recounts a personal event coherently to a naive listener', a:'Expected 5–6 years', ty:'M'},
+      {c:'f4', t:'Uses cohesive devices accurately (pronoun reference, connectives)', a:'Referential clarity expected by 7–8 years', ty:'M'},
+    ]},
+    { s:'Clinician observations', items:[
+      {c:'z1', t:'Language sample context, length and representativeness', a:'', ty:'T'},
+      {c:'z2', t:'Behaviour during assessment and validity of findings', a:'', ty:'T'},
+      {c:'z3', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= LANGUAGE — BAND C (8–18 years) ================= */
+{
+  code:'MND-LNG-03', domain:'language',
+  title:'Advanced Language & Discourse Profile',
+  band:'8–18 years',
+  purpose:'Criterion-referenced profile of higher-order language: complex syntax, figurative and inferential language, discourse, and the language–literacy interface.',
+  sections:[
+    { s:'Higher-order comprehension', items:[
+      {c:'a1', t:'Comprehends complex multi-clause spoken sentences', a:'', ty:'M'},
+      {c:'a2', t:'Comprehends embedded and relative clauses', a:'', ty:'M'},
+      {c:'a3', t:'Follows extended multi-part verbal instructions', a:'Classroom demand increases sharply from 8y', ty:'M'},
+      {c:'a4', t:'Comprehends connected discourse at lecture / lesson level', a:'', ty:'M'},
+      {c:'a5', t:'Retains and manipulates verbal information (verbal working memory)', a:'Underpins classroom listening', ty:'M'},
+      {c:'a6', t:'Comprehension holds up under time pressure and noise', a:'', ty:'M'},
+    ]},
+    { s:'Figurative & inferential language', items:[
+      {c:'b1', t:'Interprets idioms', a:'Develops through adolescence; context-dependent', ty:'M'},
+      {c:'b2', t:'Interprets metaphor and simile', a:'', ty:'M'},
+      {c:'b3', t:'Interprets sarcasm, irony and humour', a:'Consolidates in adolescence', ty:'M'},
+      {c:'b4', t:'Derives inferences not explicitly stated', a:'Central to reading comprehension', ty:'M'},
+      {c:'b5', t:'Predicts outcomes from context', a:'', ty:'M'},
+      {c:'b6', t:'Identifies main idea and summarises accurately', a:'', ty:'M'},
+      {c:'b7', t:'Interprets ambiguous language and multiple meanings', a:'', ty:'M'},
+    ]},
+    { s:'Expressive — syntax & lexicon', items:[
+      {c:'c1', t:'Uses complex syntax in spoken output', a:'Adolescent syntax should exceed simple SVO', ty:'M'},
+      {c:'c2', t:'Uses academic and subject-specific vocabulary', a:'Tier 2 / Tier 3 vocabulary', ty:'M'},
+      {c:'c3', t:'Precision of word choice', a:'Reliance on non-specific words suggests weakness', ty:'M'},
+      {c:'c4', t:'Word retrieval in connected speech', a:'Latency, fillers, circumlocution', ty:'M'},
+      {c:'c5', t:'Maintains cohesion across extended output', a:'', ty:'M'},
+      {c:'c6', t:'Verbal fluency without excessive reformulation or mazing', a:'', ty:'M'},
+    ]},
+    { s:'Discourse & pragmatics', items:[
+      {c:'d1', t:'Expository discourse — explains a process or topic clearly', a:'Core academic genre', ty:'M'},
+      {c:'d2', t:'Persuasive discourse — states and defends a position', a:'Expected in adolescence', ty:'M'},
+      {c:'d3', t:'Narrative — produces a well-structured extended narrative', a:'', ty:'M'},
+      {c:'d4', t:'Conversational turn-taking with peers', a:'', ty:'M'},
+      {c:'d5', t:'Perspective-taking in conversation', a:'', ty:'M'},
+      {c:'d6', t:'Reads and uses non-verbal and paralinguistic cues', a:'', ty:'M'},
+      {c:'d7', t:'Shifts register between formal and informal contexts', a:'', ty:'M'},
+      {c:'d8', t:'Negotiates, requests help and self-advocates', a:'', ty:'M'},
+    ]},
+    { s:'Language–literacy interface', items:[
+      {c:'e1', t:'Reading comprehension relative to decoding accuracy', a:'Discrepancy suggests a language-based comprehension difficulty', ty:'M'},
+      {c:'e2', t:'Written expression — organisation and structure', a:'', ty:'M'},
+      {c:'e3', t:'Written expression — syntax and mechanics', a:'', ty:'M'},
+      {c:'e4', t:'Note-taking and study language', a:'', ty:'M'},
+      {c:'e5', t:'Curriculum access is affected by language', a:'', ty:'V'},
+    ]},
+    { s:'Self-report & impact', items:[
+      {c:'f1', t:'Young person\u2019s own report of communication difficulty', a:'Self-report has independent clinical value from 8y', ty:'V'},
+      {c:'f2', t:'Impact on classroom participation', a:'', ty:'V'},
+      {c:'f3', t:'Impact on peer relationships', a:'', ty:'V'},
+      {c:'f4', t:'Impact on confidence and wellbeing', a:'', ty:'V'},
+      {c:'f5', t:'Young person\u2019s own priorities and goals', a:'Record in their words', ty:'T'},
+    ]},
+    { s:'Clinician observations', items:[
+      {c:'z1', t:'Sample context and representativeness', a:'', ty:'T'},
+      {c:'z2', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= SPEECH 1 ================= */
+{
+  code:'MND-SPC-01', domain:'speech',
+  title:'Phonological & Articulation Inventory',
+  band:'All ages',
+  purpose:'Independent and relational analysis of the speech sound system: phonetic inventory, syllable shapes, pattern analysis, and intelligibility.',
+  sections:[
+    { s:'Phonetic inventory — consonants produced (any position)', items:[
+      {c:'a1', t:'Stops /p b t d k g/', a:'Independent analysis — what the child CAN produce', ty:'M'},
+      {c:'a2', t:'Nasals /m n \u014b/', a:'Early developing', ty:'M'},
+      {c:'a3', t:'Fricatives /f v s z \u0283 \u0292 h/', a:'/s z/ and /\u0283/ later developing', ty:'M'},
+      {c:'a4', t:'Affricates /t\u0283 d\u0292/', a:'Typically acquired 3;6–5;0', ty:'M'},
+      {c:'a5', t:'Liquids /l r/', a:'/r/ may not stabilise until 6;0–7;0', ty:'M'},
+      {c:'a6', t:'Glides /w j/', a:'Early developing', ty:'M'},
+      {c:'a7', t:'Vowel inventory complete for the ambient language(s)', a:'Vowel errors are atypical beyond early childhood', ty:'M'},
+    ]},
+    { s:'Syllable & word shapes', items:[
+      {c:'b1', t:'CV', a:'', ty:'M'},
+      {c:'b2', t:'CVC', a:'Expected by 24 months', ty:'M'},
+      {c:'b3', t:'CVCV', a:'', ty:'M'},
+      {c:'b4', t:'Initial consonant clusters', a:'Emerge ~3;6; mastered ~5;0', ty:'M'},
+      {c:'b5', t:'Final consonant clusters', a:'', ty:'M'},
+      {c:'b6', t:'Multisyllabic words (three or more syllables)', a:'Breakdown here is a red flag for motor speech involvement', ty:'M'},
+    ]},
+    { s:'Phonological patterns — TYPICAL (age-appropriate or delayed)', items:[
+      {c:'c1', t:'Final consonant deletion', a:'Typically suppressed by 3;3', ty:'F'},
+      {c:'c2', t:'Cluster reduction', a:'Typically suppressed by 4;0–5;0', ty:'F'},
+      {c:'c3', t:'Weak syllable deletion', a:'Typically suppressed by 4;0', ty:'F'},
+      {c:'c4', t:'Reduplication', a:'Typically suppressed by 2;6', ty:'F'},
+      {c:'c5', t:'Velar fronting (k\u2192t, g\u2192d)', a:'Typically suppressed by 3;6', ty:'F'},
+      {c:'c6', t:'Stopping of fricatives', a:'Suppressed progressively 3;0–5;0', ty:'F'},
+      {c:'c7', t:'Gliding of liquids (r\u2192w, l\u2192j)', a:'Typically suppressed by 5;0–6;0', ty:'F'},
+      {c:'c8', t:'Assimilation / consonant harmony', a:'Typically suppressed by 3;0', ty:'F'},
+    ]},
+    { s:'Phonological patterns — ATYPICAL (clinically significant at any age)', items:[
+      {c:'d1', t:'Initial consonant deletion', a:'ATYPICAL — not part of normal development', ty:'F'},
+      {c:'d2', t:'Backing (t\u2192k, d\u2192g)', a:'ATYPICAL — strong marker of disorder', ty:'F'},
+      {c:'d3', t:'Glottal replacement', a:'ATYPICAL — also raises question of velopharyngeal involvement', ty:'F'},
+      {c:'d4', t:'Vowel distortion or neutralisation', a:'ATYPICAL — consider motor speech involvement', ty:'F'},
+      {c:'d5', t:'Sound preference / systemic substitution', a:'ATYPICAL', ty:'F'},
+      {c:'d6', t:'Inconsistent production of the same word across trials', a:'ATYPICAL — consider inconsistent phonological disorder or CAS', ty:'F'},
+    ]},
+    { s:'Articulation — distortions', items:[
+      {c:'e1', t:'Interdental lisp on /s z/', a:'', ty:'Y'},
+      {c:'e2', t:'Lateral lisp on /s z/', a:'ATYPICAL at any age', ty:'Y'},
+      {c:'e3', t:'Distortion of /r/', a:'', ty:'Y'},
+      {c:'e4', t:'Palatal / retracted articulation', a:'', ty:'Y'},
+      {c:'e5', t:'Audible nasal emission on pressure consonants', a:'Raises question of velopharyngeal insufficiency', ty:'Y'},
+    ]},
+    { s:'Measures & contexts', items:[
+      {c:'f1', t:'Percentage of Consonants Correct (PCC)', a:'>85% mild; 65–85% mild–moderate; 50–65% moderate–severe; <50% severe', ty:'N', u:'%'},
+      {c:'f2', t:'Intelligibility — familiar listener, known context', a:'~50% at 2y, 75% at 3y, ~100% at 4y', ty:'N', u:'%'},
+      {c:'f3', t:'Intelligibility — unfamiliar listener, unknown context', a:'The functionally important figure', ty:'N', u:'%'},
+      {c:'f4', t:'Accuracy in single words', a:'', ty:'M'},
+      {c:'f5', t:'Accuracy in connected speech', a:'Accuracy typically drops here', ty:'M'},
+      {c:'f6', t:'Accuracy in spontaneous conversation', a:'', ty:'M'},
+      {c:'f7', t:'Stimulability for error sounds', a:'Stimulable sounds are strong first targets (EBP)', ty:'M'},
+      {c:'f8', t:'Overall severity of speech sound disorder', a:'Clinical judgement, informed by PCC and intelligibility', ty:'V'},
+    ]},
+    { s:'Clinician observations', items:[
+      {c:'z1', t:'Language(s) spoken and phonology of the ambient language — errors judged against the correct target', a:'Essential: do not treat dialectal or L1-influenced patterns as disorder', ty:'T'},
+      {c:'z2', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= SPEECH 2 ================= */
+{
+  code:'MND-SPC-02', domain:'speech',
+  title:'Motor Speech Examination',
+  band:'All ages',
+  purpose:'Differential examination for motor speech involvement — features consistent with childhood apraxia of speech and with dysarthria.',
+  sections:[
+    { s:'Diadochokinesis', items:[
+      {c:'a1', t:'/p\u028c/ repetitions per second', a:'~4–5 per second by school age', ty:'N', u:'per sec'},
+      {c:'a2', t:'/t\u028c/ repetitions per second', a:'', ty:'N', u:'per sec'},
+      {c:'a3', t:'/k\u028c/ repetitions per second', a:'', ty:'N', u:'per sec'},
+      {c:'a4', t:'/p\u028ct\u028ck\u028c/ sequence — accuracy and consistency', a:'Sequencing breakdown is more informative than rate alone', ty:'M'},
+      {c:'a5', t:'Sequencing errors (transposition, omission) on the AMR/SMR task', a:'', ty:'F'},
+    ]},
+    { s:'Features consistent with Childhood Apraxia of Speech', items:[
+      {c:'b1', t:'Inconsistent errors on repeated productions of the same word', a:'ASHA consensus feature 1', ty:'F'},
+      {c:'b2', t:'Lengthened and disrupted coarticulatory transitions between sounds and syllables', a:'ASHA consensus feature 2', ty:'F'},
+      {c:'b3', t:'Inappropriate prosody, especially lexical or phrasal stress', a:'ASHA consensus feature 3', ty:'F'},
+      {c:'b4', t:'Groping or articulatory searching before initiation', a:'Supportive feature', ty:'F'},
+      {c:'b5', t:'Vowel distortions', a:'Supportive feature', ty:'F'},
+      {c:'b6', t:'Errors increase with utterance length and complexity', a:'Supportive feature', ty:'F'},
+      {c:'b7', t:'Automatic speech better than volitional speech', a:'Supportive feature', ty:'F'},
+      {c:'b8', t:'Reduced expressive output relative to comprehension', a:'', ty:'F'},
+    ]},
+    { s:'Features consistent with Dysarthria', items:[
+      {c:'c1', t:'Reduced respiratory support for speech (short phrases, running out of air)', a:'', ty:'F'},
+      {c:'c2', t:'Imprecise consonants', a:'', ty:'F'},
+      {c:'c3', t:'Hypernasality', a:'', ty:'F'},
+      {c:'c4', t:'Audible nasal emission', a:'', ty:'F'},
+      {c:'c5', t:'Reduced loudness', a:'', ty:'F'},
+      {c:'c6', t:'Monopitch or monoloudness', a:'', ty:'F'},
+      {c:'c7', t:'Slow rate of speech', a:'', ty:'F'},
+      {c:'c8', t:'Strained-strangled or harsh voice quality', a:'', ty:'F'},
+      {c:'c9', t:'Drooling or poor secretion management during speech', a:'', ty:'F'},
+      {c:'c10',t:'Weakness or asymmetry observed in the oral mechanism', a:'Cross-reference MND-OMS-01', ty:'F'},
+    ]},
+    { s:'Prosody & rate', items:[
+      {c:'d1', t:'Overall rate of speech', a:'', ty:'C', o:['Within normal limits','Slow','Fast','Variable / inconsistent']},
+      {c:'d2', t:'Lexical and phrasal stress assignment', a:'', ty:'M'},
+      {c:'d3', t:'Intonation contour', a:'', ty:'M'},
+      {c:'d4', t:'Loudness control', a:'', ty:'M'},
+    ]},
+    { s:'Clinical impression', items:[
+      {c:'e1', t:'Motor speech impression', a:'State the evidence, not just the label', ty:'C',
+        o:['No motor speech disorder identified','Features consistent with Childhood Apraxia of Speech','Features consistent with dysarthria','Mixed motor speech presentation','Insufficient evidence — reassess','Unable to assess']},
+      {c:'e2', t:'Evidence supporting this impression', a:'Cite the specific features observed', ty:'T'},
+      {c:'e3', t:'Overall severity of motor speech involvement', a:'', ty:'V'},
+      {c:'e4', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= VOICE 1 ================= */
+{
+  code:'MND-VOI-01', domain:'voice',
+  title:'GRBAS Perceptual Voice Profile',
+  band:'All ages',
+  purpose:'Perceptual evaluation of voice using the GRBAS scale (an internationally standard, freely available perceptual protocol) with extended perceptual and aerodynamic observations.',
+  sections:[
+    { s:'GRBAS — rate on sustained vowel and connected speech', items:[
+      {c:'g',  t:'G — Grade (overall degree of hoarseness / deviance)', a:'0 normal · 1 slight · 2 moderate · 3 severe', ty:'G'},
+      {c:'r',  t:'R — Roughness (irregularity of vocal fold vibration)', a:'0 normal · 1 slight · 2 moderate · 3 severe', ty:'G'},
+      {c:'b',  t:'B — Breathiness (audible air escape)', a:'0 normal · 1 slight · 2 moderate · 3 severe', ty:'G'},
+      {c:'a',  t:'A — Asthenia (weakness, hypofunction)', a:'0 normal · 1 slight · 2 moderate · 3 severe', ty:'G'},
+      {c:'s',  t:'S — Strain (hyperfunction, effortful phonation)', a:'0 normal · 1 slight · 2 moderate · 3 severe', ty:'G'},
+    ]},
+    { s:'Extended perceptual features', items:[
+      {c:'p1', t:'Pitch appropriateness for age and sex', a:'', ty:'C', o:['Appropriate','Too low','Too high','Variable / unstable','Unable to judge']},
+      {c:'p2', t:'Loudness appropriateness', a:'', ty:'C', o:['Appropriate','Too quiet','Too loud','Poorly controlled','Unable to judge']},
+      {c:'p3', t:'Resonance', a:'Hypernasality raises the question of velopharyngeal insufficiency', ty:'C',
+        o:['Within normal limits','Hypernasal','Hyponasal','Mixed','Cul-de-sac','Unable to judge']},
+      {c:'p4', t:'Voice onset', a:'', ty:'C', o:['Within normal limits','Hard glottal attack','Breathy onset','Delayed onset']},
+      {c:'p5', t:'Diplophonia', a:'', ty:'Y'},
+      {c:'p6', t:'Pitch breaks', a:'', ty:'Y'},
+      {c:'p7', t:'Phonation breaks / aphonic episodes', a:'', ty:'Y'},
+      {c:'p8', t:'Habitual glottal fry', a:'', ty:'Y'},
+      {c:'p9', t:'Audible inhalation / stridor', a:'Stridor requires urgent ENT review', ty:'Y'},
+    ]},
+    { s:'Aerodynamic & functional measures', items:[
+      {c:'m1', t:'Maximum phonation time on sustained /a/', a:'Child ~10s; adolescent/adult 15–25s. Short MPT suggests glottal incompetence or poor support', ty:'N', u:'seconds'},
+      {c:'m2', t:'s/z ratio', a:'>1.4 suggests laryngeal pathology', ty:'N', u:'ratio'},
+      {c:'m3', t:'Habitual pitch (if instrumentation available)', a:'Optional', ty:'N', u:'Hz'},
+      {c:'m4', t:'Pitch range — can move up and down the range', a:'', ty:'M'},
+      {c:'m5', t:'Can produce a clear voice on any task (best voice elicited)', a:'Best-voice probing has direct prognostic value', ty:'M'},
+      {c:'m6', t:'Description of the best voice elicited and how it was achieved', a:'', ty:'T'},
+    ]},
+    { s:'Impact', items:[
+      {c:'i1', t:'Voice-related activity limitation', a:'', ty:'V'},
+      {c:'i2', t:'Voice-related participation restriction (classroom, social)', a:'', ty:'V'},
+      {c:'i3', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= VOICE 2 ================= */
+{
+  code:'MND-VOI-02', domain:'voice',
+  title:'Vocal Behaviour & Function Inventory',
+  band:'All ages',
+  purpose:'Structured case history of phonotraumatic behaviour, irritant exposure, onset and course, and functional impact — the behavioural substrate for voice therapy planning.',
+  sections:[
+    { s:'Phonotraumatic behaviours', items:[
+      {c:'a1', t:'Shouting or yelling', a:'', ty:'F'},
+      {c:'a2', t:'Screaming', a:'', ty:'F'},
+      {c:'a3', t:'Habitually loud talking', a:'', ty:'F'},
+      {c:'a4', t:'Throat clearing', a:'A key maintaining behaviour', ty:'F'},
+      {c:'a5', t:'Coughing (non-productive / habitual)', a:'', ty:'F'},
+      {c:'a6', t:'Talking over background noise', a:'', ty:'F'},
+      {c:'a7', t:'Excessive overall talking (high vocal load)', a:'', ty:'F'},
+      {c:'a8', t:'Singing at extremes of range or without training', a:'', ty:'F'},
+      {c:'a9', t:'Character voices, sound effects, vocal play', a:'A very common driver in children', ty:'F'},
+      {c:'a10',t:'Whispering to compensate', a:'Whispering can increase strain, not reduce it', ty:'F'},
+    ]},
+    { s:'Hydration & irritants', items:[
+      {c:'b1', t:'Adequate daily fluid intake', a:'Systemic hydration supports mucosal wave', ty:'M'},
+      {c:'b2', t:'Exposure to smoke (household, cooking fire, tobacco)', a:'', ty:'F'},
+      {c:'b3', t:'Exposure to dust, fumes or strong odours', a:'', ty:'F'},
+      {c:'b4', t:'Reflux symptoms (heartburn, sour taste, night cough, morning hoarseness)', a:'LPR is a frequent contributor', ty:'F'},
+      {c:'b5', t:'Allergy or post-nasal drip', a:'', ty:'F'},
+      {c:'b6', t:'Frequent upper respiratory infections', a:'', ty:'F'},
+    ]},
+    { s:'Onset & course', items:[
+      {c:'c1', t:'Onset', a:'', ty:'C', o:['Sudden','Gradual','Present since birth','Following illness','Following trauma or surgery','Unclear']},
+      {c:'c2', t:'Course', a:'', ty:'C', o:['Constant','Intermittent','Progressively worsening','Improving','Fluctuates with use','Diurnal variation']},
+      {c:'c3', t:'Voice is worse by the end of the day', a:'Suggests a use-related / phonotraumatic pattern', ty:'F'},
+      {c:'c4', t:'Duration of the problem', a:'Hoarseness >2–4 weeks warrants laryngeal visualisation', ty:'T'},
+    ]},
+    { s:'Function & impact', items:[
+      {c:'d1', t:'Vocal fatigue with use', a:'', ty:'F'},
+      {c:'d2', t:'Pain, ache or discomfort on voicing', a:'', ty:'F'},
+      {c:'d3', t:'Voice fails or cuts out during the day', a:'', ty:'F'},
+      {c:'d4', t:'Avoids speaking situations because of the voice', a:'', ty:'F'},
+      {c:'d5', t:'Impact on schooling and classroom participation', a:'', ty:'V'},
+      {c:'d6', t:'Impact on social participation and self-image', a:'', ty:'V'},
+    ]},
+    { s:'Medical', items:[
+      {c:'e1', t:'Laryngeal visualisation (laryngoscopy / stroboscopy) has been performed', a:'MANDATORY before voice therapy commences — no exceptions', ty:'Y'},
+      {c:'e2', t:'Findings of laryngeal examination', a:'Record the ENT report verbatim where available', ty:'T'},
+      {c:'e3', t:'ENT referral indicated', a:'', ty:'Y'},
+      {c:'e4', t:'Relevant medical, surgical or medication history', a:'', ty:'T'},
+      {c:'e5', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= COGNITION 1 ================= */
+{
+  code:'MND-COG-01', domain:'cognition',
+  title:'Attention & Executive Function Observation Profile',
+  band:'3–18 years',
+  purpose:'Criterion-referenced observation of attention, working memory, inhibition, flexibility and planning as they present in functional and learning contexts.',
+  sections:[
+    { s:'Attention', items:[
+      {c:'a1', t:'Sustained attention to an adult-directed, non-preferred task', a:'Record in minutes — the functionally relevant figure', ty:'N', u:'minutes'},
+      {c:'a2', t:'Sustained attention to a preferred, self-chosen activity', a:'A large gap between a1 and a2 is itself clinically meaningful', ty:'N', u:'minutes'},
+      {c:'a3', t:'Selective attention — filters out competing distraction', a:'', ty:'M'},
+      {c:'a4', t:'Shifts attention between tasks on request', a:'', ty:'M'},
+      {c:'a5', t:'Divided attention — manages two demands at once', a:'', ty:'M'},
+      {c:'a6', t:'Attention to auditory / verbal input specifically', a:'Distinguish from visual attention — often dissociated', ty:'M'},
+      {c:'a7', t:'Re-engages after interruption without full adult reset', a:'', ty:'M'},
+    ]},
+    { s:'Working memory', items:[
+      {c:'b1', t:'Retains and executes a multi-step instruction', a:'', ty:'M'},
+      {c:'b2', t:'Verbal span (digits or unrelated words repeated back)', a:'~4 items at 5–6y; ~5–6 items by adolescence', ty:'N', u:'items'},
+      {c:'b3', t:'Holds information in mind while manipulating it', a:'', ty:'M'},
+      {c:'b4', t:'Retains task instructions across the duration of the task', a:'', ty:'M'},
+    ]},
+    { s:'Inhibition & self-regulation', items:[
+      {c:'c1', t:'Inhibits an impulsive or prepotent response', a:'', ty:'M'},
+      {c:'c2', t:'Waits for a turn', a:'', ty:'M'},
+      {c:'c3', t:'Tolerates delay of gratification', a:'', ty:'M'},
+      {c:'c4', t:'Modulates activity level to the demands of the setting', a:'', ty:'M'},
+      {c:'c5', t:'Manages frustration when a task is difficult', a:'', ty:'M'},
+    ]},
+    { s:'Cognitive flexibility', items:[
+      {c:'d1', t:'Shifts strategy when the first attempt fails', a:'', ty:'M'},
+      {c:'d2', t:'Tolerates change to routine or expectation', a:'', ty:'M'},
+      {c:'d3', t:'Accepts an alternative solution proposed by another', a:'', ty:'M'},
+      {c:'d4', t:'Moves on from an error without derailing', a:'', ty:'M'},
+    ]},
+    { s:'Planning, initiation & organisation', items:[
+      {c:'e1', t:'Plans a multi-step activity before starting', a:'', ty:'M'},
+      {c:'e2', t:'Sequences the steps logically', a:'', ty:'M'},
+      {c:'e3', t:'Organises materials and workspace', a:'', ty:'M'},
+      {c:'e4', t:'Initiates a task without adult prompting', a:'Initiation failure is often mistaken for non-compliance', ty:'M'},
+      {c:'e5', t:'Monitors own performance and self-corrects', a:'', ty:'M'},
+      {c:'e6', t:'Sustains effort to task completion', a:'', ty:'M'},
+      {c:'e7', t:'Manages time and pacing', a:'', ty:'M'},
+    ]},
+    { s:'Learning & processing', items:[
+      {c:'f1', t:'Response latency', a:'', ty:'C', o:['Within normal limits','Mildly delayed','Markedly delayed','Impulsively fast','Variable']},
+      {c:'f2', t:'Learns from demonstration / modelling', a:'', ty:'M'},
+      {c:'f3', t:'Learns from verbal instruction alone', a:'A gap between f2 and f3 has direct teaching implications', ty:'M'},
+      {c:'f4', t:'Retains learning across sessions', a:'', ty:'M'},
+      {c:'f5', t:'Generalises learning to a new context or person', a:'The real test of intervention effect', ty:'M'},
+    ]},
+    { s:'Support & impact', items:[
+      {c:'g1', t:'Level of adult support currently required to function in class', a:'', ty:'C',
+        o:['Independent','Occasional prompting','Frequent prompting','Continuous adult support','1:1 support throughout','Not applicable']},
+      {c:'g2', t:'Impact on learning', a:'', ty:'V'},
+      {c:'g3', t:'Supports and accommodations that demonstrably help', a:'', ty:'T'},
+      {c:'g4', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= COGNITION 2 ================= */
+{
+  code:'MND-COG-02', domain:'cognition',
+  title:'Play & Symbolic Representation Scale',
+  band:'0–8 years',
+  purpose:'Developmental sequence of play and symbolic thought — the cognitive substrate of language. Play level is a strong index of representational capacity.',
+  sections:[
+    { s:'Developmental play sequence', items:[
+      {c:'a1', t:'Sensorimotor / exploratory play (mouthing, banging, shaking)', a:'6–12 months', ty:'M'},
+      {c:'a2', t:'Relational play (combining two objects without regard to function)', a:'9–12 months', ty:'M'},
+      {c:'a3', t:'Functional play with real objects, directed to self', a:'12–15 months', ty:'M'},
+      {c:'a4', t:'Functional play directed to another person or a doll', a:'15–18 months', ty:'M'},
+      {c:'a5', t:'Object substitution (a block becomes a car)', a:'18–24 months — the first true symbolic act', ty:'M'},
+      {c:'a6', t:'Agent play (the doll is made to act, not acted upon)', a:'24 months', ty:'M'},
+      {c:'a7', t:'Imaginary object (pretends an absent object is present)', a:'24–30 months', ty:'M'},
+      {c:'a8', t:'Imaginary attribute (pretends the cup is hot)', a:'30 months', ty:'M'},
+      {c:'a9', t:'Two-step planned pretend sequence', a:'24–30 months', ty:'M'},
+      {c:'a10',t:'Multi-step planned pretend sequence with a narrative thread', a:'3–4 years', ty:'M'},
+      {c:'a11',t:'Role play — takes on and announces a role', a:'3–4 years', ty:'M'},
+      {c:'a12',t:'Sociodramatic play with peers, with negotiated roles', a:'4–5 years', ty:'M'},
+      {c:'a13',t:'Games with rules', a:'5–7 years', ty:'M'},
+    ]},
+    { s:'Social dimension of play', items:[
+      {c:'b1', t:'Solitary play', a:'', ty:'M'},
+      {c:'b2', t:'Parallel play (alongside, not with)', a:'2–3 years', ty:'M'},
+      {c:'b3', t:'Associative play (shared materials, loose coordination)', a:'3–4 years', ty:'M'},
+      {c:'b4', t:'Cooperative play (shared goal, coordinated roles)', a:'4–5 years', ty:'M'},
+    ]},
+    { s:'Quality of play', items:[
+      {c:'c1', t:'Flexibility — accepts variation and new ideas within play', a:'', ty:'M'},
+      {c:'c2', t:'Repetitive or restricted play themes', a:'', ty:'F'},
+      {c:'c3', t:'Play is initiated independently rather than adult-led', a:'', ty:'M'},
+      {c:'c4', t:'Duration of engaged, purposeful play', a:'', ty:'N', u:'minutes'},
+      {c:'c5', t:'Play with materials matches developmental rather than chronological age', a:'', ty:'M'},
+      {c:'c6', t:'Highest play level observed — describe', a:'', ty:'T'},
+      {c:'c7', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= BEHAVIOUR 1 ================= */
+{
+  code:'MND-BEH-01', domain:'behavior',
+  title:'ABC Functional Behaviour Record',
+  band:'All ages',
+  purpose:'Antecedent–Behaviour–Consequence analysis leading to a hypothesised function and a matched replacement behaviour. Function, not topography, drives the plan.',
+  sections:[
+    { s:'Definition & context', items:[
+      {c:'a1', t:'Target behaviour — operational definition (observable, measurable, someone else could count it)', a:'"Hits" not "is aggressive". If two people could not agree on whether it occurred, rewrite it.', ty:'T'},
+      {c:'a2', t:'Setting and context observed', a:'', ty:'T'},
+      {c:'a3', t:'Date, time and duration of the observation', a:'', ty:'T'},
+      {c:'a4', t:'Who was present', a:'', ty:'T'},
+    ]},
+    { s:'A — Antecedent', items:[
+      {c:'b1', t:'What happened immediately before the behaviour', a:'Be specific about the demand, transition, denial or sensory event', ty:'T'},
+      {c:'b2', t:'Setting events / slow triggers (poor sleep, illness, hunger, earlier conflict)', a:'These raise the probability without directly triggering', ty:'T'},
+      {c:'b3', t:'Common antecedent category', a:'', ty:'C',
+        o:['Demand or instruction given','Transition or change','Access denied / item removed','Attention withdrawn','Sensory event','Unstructured time','Peer interaction','Unclear']},
+    ]},
+    { s:'B — Behaviour', items:[
+      {c:'c1', t:'What the child actually did', a:'Describe, do not interpret', ty:'T'},
+      {c:'c2', t:'Duration of the episode', a:'', ty:'T'},
+      {c:'c3', t:'Intensity', a:'', ty:'V'},
+      {c:'c4', t:'Escalation pattern — early warning signs observed', a:'Identifying the early stage is where the plan works', ty:'T'},
+    ]},
+    { s:'C — Consequence', items:[
+      {c:'d1', t:'What happened immediately after', a:'', ty:'T'},
+      {c:'d2', t:'What the adult(s) did', a:'', ty:'T'},
+      {c:'d3', t:'What the child obtained or avoided as a result', a:'This is the pivot of the whole analysis', ty:'T'},
+      {c:'d4', t:'How long recovery took', a:'', ty:'T'},
+    ]},
+    { s:'Functional hypothesis', items:[
+      {c:'e1', t:'Hypothesised function', a:'Behaviour is communication. Name what it is communicating.', ty:'C',
+        o:['Escape / avoidance of demand','Access to attention','Access to a tangible or activity','Sensory / automatic reinforcement','Communication of an unmet need','Pain or physical discomfort','Multiple functions','Unclear — further data needed']},
+      {c:'e2', t:'Evidence supporting this hypothesis', a:'Patterns across repeated observations, not a single incident', ty:'T'},
+      {c:'e3', t:'Competing hypotheses considered and why they were rejected', a:'', ty:'T'},
+    ]},
+    { s:'Plan', items:[
+      {c:'f1', t:'Replacement behaviour to be taught — must achieve the SAME function, more efficiently', a:'If it is harder than the behaviour it replaces, it will not be used', ty:'T'},
+      {c:'f2', t:'Antecedent strategies (prevention)', a:'', ty:'T'},
+      {c:'f3', t:'Teaching strategies (skill building)', a:'', ty:'T'},
+      {c:'f4', t:'Consequence strategies (response to the behaviour)', a:'', ty:'T'},
+      {c:'f5', t:'How the plan will be measured', a:'', ty:'T'},
+    ]},
+    { s:'Risk & safeguarding', items:[
+      {c:'g1', t:'Risk to self', a:'', ty:'V'},
+      {c:'g2', t:'Risk to others', a:'', ty:'V'},
+      {c:'g3', t:'Restrictive practice used or being considered', a:'', ty:'Y'},
+      {c:'g4', t:'Safeguarding threshold met', a:'If yes, complete MND-REC-10 Safeguarding Incident Report immediately — do not rely on this record alone', ty:'Y'},
+      {c:'g5', t:'Immediate actions taken', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= BEHAVIOUR 2 ================= */
+{
+  code:'MND-BEH-02', domain:'behavior',
+  title:'Behaviour Frequency & Interference Rating',
+  band:'All ages',
+  purpose:'Structured frequency and interference profile across presentation clusters, giving a baseline against which change can be measured.',
+  sections:[
+    { s:'Externalising', items:[
+      {c:'a1', t:'Aggression toward others (hitting, kicking, biting, pushing)', a:'', ty:'F'},
+      {c:'a2', t:'Self-injurious behaviour', a:'', ty:'F'},
+      {c:'a3', t:'Property destruction', a:'', ty:'F'},
+      {c:'a4', t:'Non-compliance / refusal', a:'', ty:'F'},
+      {c:'a5', t:'Verbal outbursts, shouting, swearing', a:'', ty:'F'},
+      {c:'a6', t:'Elopement — leaving without permission', a:'', ty:'F'},
+    ]},
+    { s:'Internalising', items:[
+      {c:'b1', t:'Social withdrawal', a:'', ty:'F'},
+      {c:'b2', t:'Anxiety-linked avoidance', a:'', ty:'F'},
+      {c:'b3', t:'Low mood or flat affect', a:'', ty:'F'},
+      {c:'b4', t:'Somatic complaints without medical cause', a:'', ty:'F'},
+      {c:'b5', t:'Selective mutism — speaks in some settings but not others', a:'Distinguish from language impairment', ty:'F'},
+    ]},
+    { s:'Regulation', items:[
+      {c:'c1', t:'Dysregulation episodes / meltdowns', a:'', ty:'F'},
+      {c:'c2', t:'Difficulty recovering after dysregulation', a:'', ty:'F'},
+      {c:'c3', t:'Rapid or unpredictable mood shifts', a:'', ty:'F'},
+      {c:'c4', t:'Escalates quickly with little warning', a:'', ty:'F'},
+    ]},
+    { s:'Repetitive & restricted', items:[
+      {c:'d1', t:'Motor stereotypies', a:'', ty:'F'},
+      {c:'d2', t:'Insistence on sameness / distress at change', a:'', ty:'F'},
+      {c:'d3', t:'Restricted interests interfering with other activity', a:'', ty:'F'},
+      {c:'d4', t:'Ritualised routines that must be completed', a:'', ty:'F'},
+    ]},
+    { s:'Attention & activity', items:[
+      {c:'e1', t:'Hyperactivity', a:'', ty:'F'},
+      {c:'e2', t:'Impulsivity', a:'', ty:'F'},
+      {c:'e3', t:'Inattention', a:'', ty:'F'},
+    ]},
+    { s:'Interference & support', items:[
+      {c:'f1', t:'Interference with learning', a:'', ty:'V'},
+      {c:'f2', t:'Interference with social participation', a:'', ty:'V'},
+      {c:'f3', t:'Interference with family life', a:'', ty:'V'},
+      {c:'f4', t:'Interference with self-care and independence', a:'', ty:'V'},
+      {c:'f5', t:'A behaviour support plan is currently in place', a:'', ty:'Y'},
+      {c:'f6', t:'Behaviours are BEST explained by an unmet communication need', a:'Always ask this before any behavioural formulation', ty:'Y'},
+      {c:'f7', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= SENSORY 1 ================= */
+{
+  code:'MND-SEN-01', domain:'sensory',
+  title:'Sensory Response Profile',
+  band:'All ages',
+  purpose:'Descriptive profile of sensory responsivity across systems. Rate each item RELATIVE TO SAME-AGE PEERS. Both extremes are clinically meaningful.',
+  sections:[
+    { s:'Auditory', items:[
+      {c:'a1', t:'Reacts to loud or unexpected sounds', a:'', ty:'S'},
+      {c:'a2', t:'Distressed by everyday sounds (hand dryer, blender, assembly)', a:'', ty:'S'},
+      {c:'a3', t:'Notices sounds that others do not', a:'', ty:'S'},
+      {c:'a4', t:'Appears not to hear when spoken to (hearing confirmed normal)', a:'Hearing MUST be confirmed before interpreting this as sensory', ty:'S'},
+      {c:'a5', t:'Seeks out sound or makes noise for its own sake', a:'', ty:'S'},
+    ]},
+    { s:'Visual', items:[
+      {c:'b1', t:'Bothered by bright or fluorescent light', a:'', ty:'S'},
+      {c:'b2', t:'Stares at spinning or moving objects', a:'', ty:'S'},
+      {c:'b3', t:'Looks at objects from unusual angles or close up', a:'', ty:'S'},
+      {c:'b4', t:'Misses visual detail or overlooks things in plain sight', a:'', ty:'S'},
+      {c:'b5', t:'Overwhelmed in visually busy environments', a:'', ty:'S'},
+    ]},
+    { s:'Tactile', items:[
+      {c:'c1', t:'Distressed by grooming (hair washing, nail cutting, tooth brushing)', a:'', ty:'S'},
+      {c:'c2', t:'Distressed by clothing textures, seams or labels', a:'', ty:'S'},
+      {c:'c3', t:'Avoids messy play, glue, sand, paint', a:'', ty:'S'},
+      {c:'c4', t:'Reduced response to pain, heat or cold', a:'Reduced pain response is a safeguarding-relevant finding', ty:'S'},
+      {c:'c5', t:'Seeks deep pressure, squeezing, tight spaces', a:'', ty:'S'},
+      {c:'c6', t:'Touches people and objects constantly', a:'', ty:'S'},
+      {c:'c7', t:'Mouths or chews non-food objects', a:'', ty:'S'},
+    ]},
+    { s:'Vestibular', items:[
+      {c:'d1', t:'Distressed by movement, swings, or heights', a:'', ty:'S'},
+      {c:'d2', t:'Seeks spinning, swinging or rapid movement', a:'', ty:'S'},
+      {c:'d3', t:'Fearful when feet leave the ground', a:'', ty:'S'},
+      {c:'d4', t:'Constantly moving, rocking, or unable to sit still', a:'', ty:'S'},
+      {c:'d5', t:'Becomes nauseated or unwell with movement', a:'', ty:'S'},
+    ]},
+    { s:'Proprioceptive', items:[
+      {c:'e1', t:'Uses excessive force (pressing, gripping, slamming)', a:'', ty:'S'},
+      {c:'e2', t:'Crashes, bumps or falls deliberately', a:'', ty:'S'},
+      {c:'e3', t:'Poor body awareness — bumps into people and furniture', a:'', ty:'S'},
+      {c:'e4', t:'Slumps, leans, fatigues quickly, low postural tone', a:'', ty:'S'},
+    ]},
+    { s:'Oral sensory', items:[
+      {c:'f1', t:'Restricted food range driven by TEXTURE', a:'Distinguish from oral-motor skill limitation — cross-reference MND-OMS-02', ty:'S'},
+      {c:'f2', t:'Gags at the sight, smell or texture of food', a:'', ty:'S'},
+      {c:'f3', t:'Overstuffs the mouth', a:'', ty:'S'},
+      {c:'f4', t:'Seeks strong flavours, spice, sour or crunch', a:'', ty:'S'},
+    ]},
+    { s:'Olfactory & gustatory', items:[
+      {c:'g1', t:'Distressed by smells others do not notice', a:'', ty:'S'},
+      {c:'g2', t:'Smells objects, food or people', a:'', ty:'S'},
+    ]},
+    { s:'Interoception', items:[
+      {c:'h1', t:'Recognises hunger and thirst', a:'Rate relative to peers', ty:'S'},
+      {c:'h2', t:'Recognises the need to use the toilet', a:'', ty:'S'},
+      {c:'h3', t:'Recognises fatigue', a:'', ty:'S'},
+      {c:'h4', t:'Recognises own emotional state before it escalates', a:'The foundation of self-regulation', ty:'S'},
+    ]},
+    { s:'Clinician observations', items:[
+      {c:'z1', t:'Hearing and vision status — confirmed and dated', a:'Sensory findings cannot be interpreted without this', ty:'T'},
+      {c:'z2', t:'Overall pattern observed (describe in your own words)', a:'', ty:'T'},
+      {c:'z3', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= SENSORY 2 ================= */
+{
+  code:'MND-SEN-02', domain:'sensory',
+  title:'Sensory Environment & Regulation Interview',
+  band:'All ages',
+  purpose:'Contextual interview with caregivers and teachers: the sensory demands of the real environments, the pattern of dysregulation, and what actually works.',
+  sections:[
+    { s:'Environmental demand', items:[
+      {c:'a1', t:'Sensory demands of the classroom / school environment', a:'Noise, crowding, transitions, lighting, uniform', ty:'T'},
+      {c:'a2', t:'Sensory demands of the home environment', a:'', ty:'T'},
+      {c:'a3', t:'Environments in which the child is most settled — and why', a:'The exceptions tell you what to build', ty:'T'},
+      {c:'a4', t:'Environments in which the child struggles most — and why', a:'', ty:'T'},
+    ]},
+    { s:'Pattern of dysregulation', items:[
+      {c:'b1', t:'Known triggers', a:'', ty:'T'},
+      {c:'b2', t:'Early warning signs — what the child looks like BEFORE escalation', a:'The single most useful piece of information in the interview', ty:'T'},
+      {c:'b3', t:'Presentation at peak dysregulation', a:'', ty:'T'},
+      {c:'b4', t:'Typical recovery time', a:'', ty:'C',
+        o:['Under 5 minutes','5–15 minutes','15–30 minutes','30–60 minutes','Over 60 minutes','Rest of the day']},
+      {c:'b5', t:'Frequency of dysregulation episodes', a:'', ty:'F'},
+    ]},
+    { s:'What works', items:[
+      {c:'c1', t:'Strategies that currently help', a:'', ty:'T'},
+      {c:'c2', t:'Strategies that do NOT help, or that escalate', a:'Equally important — stop doing these', ty:'T'},
+      {c:'c3', t:'Environmental adaptations already in place', a:'', ty:'T'},
+      {c:'c4', t:'A sensory or regulation plan is currently in place', a:'', ty:'Y'},
+    ]},
+    { s:'Self-regulation capacity', items:[
+      {c:'d1', t:'Child can identify their own state', a:'', ty:'M'},
+      {c:'d2', t:'Child can request a break or ask for support', a:'', ty:'M'},
+      {c:'d3', t:'Child uses a regulation strategy independently', a:'', ty:'M'},
+      {c:'d4', t:'Child requires adult-mediated regulation', a:'', ty:'F'},
+      {c:'d5', t:'Child can return to task after regulating', a:'', ty:'M'},
+    ]},
+    { s:'Caregiver & staff capacity', items:[
+      {c:'e1', t:'Caregiver confidence in supporting regulation', a:'', ty:'M'},
+      {c:'e2', t:'School staff confidence in supporting regulation', a:'', ty:'M'},
+      {c:'e3', t:'Consistency of approach across home and school', a:'Inconsistency undermines everything else', ty:'M'},
+      {c:'e4', t:'Caregiver priorities', a:'In their words', ty:'T'},
+      {c:'e5', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= ORAL MOTOR 1 ================= */
+{
+  code:'MND-OMS-01', domain:'oral_motor',
+  title:'Oral Structure & Function Examination',
+  band:'All ages',
+  purpose:'Systematic examination of oral structures at rest and in function, including a cranial nerve screen relevant to speech and swallowing.',
+  sections:[
+    { s:'Structure at rest', items:[
+      {c:'a1', t:'Facial symmetry', a:'Asymmetry may indicate CN VII involvement', ty:'V'},
+      {c:'a2', t:'Lip posture at rest', a:'', ty:'C', o:['Closed / competent','Habitually open','Incompetent — cannot achieve seal','Unable to assess']},
+      {c:'a3', t:'Jaw alignment and symmetry', a:'', ty:'V'},
+      {c:'a4', t:'Dentition', a:'', ty:'C',
+        o:['Within normal limits','Malocclusion — Class II','Malocclusion — Class III','Open bite','Missing teeth','Caries / poor dental health','Orthodontic appliance present','Unable to assess']},
+      {c:'a5', t:'Hard palate', a:'', ty:'C', o:['Intact and normally arched','High-arched','Cleft — repaired','Cleft — unrepaired','Suspected submucous cleft','Unable to assess']},
+      {c:'a6', t:'Soft palate and uvula', a:'A bifid uvula raises the question of submucous cleft — DO NOT proceed without ENT review', ty:'C',
+        o:['Intact','Bifid uvula','Cleft — repaired','Cleft — unrepaired','Short soft palate','Unable to assess']},
+      {c:'a7', t:'Tongue size and appearance', a:'', ty:'V'},
+      {c:'a8', t:'Lingual frenulum', a:'Assess FUNCTION, not appearance. Restriction only matters if it limits function.', ty:'C',
+        o:['Within normal limits','Short but functionally adequate','Restricted — limits elevation','Restricted — limits protrusion','Ankyloglossia — functionally significant','Unable to assess']},
+      {c:'a9', t:'Tonsils', a:'Grade 3–4 tonsils may affect resonance and airway', ty:'C',
+        o:['Within normal limits','Enlarged','Markedly enlarged / obstructive','Absent — removed','Unable to assess']},
+      {c:'a10',t:'Oral hygiene and mucosal health', a:'Poor oral hygiene is a direct aspiration-pneumonia risk factor', ty:'V'},
+    ]},
+    { s:'Function — lips (CN VII)', items:[
+      {c:'b1', t:'Lip rounding', a:'', ty:'M'},
+      {c:'b2', t:'Lip spreading', a:'', ty:'M'},
+      {c:'b3', t:'Alternating round–spread', a:'', ty:'M'},
+      {c:'b4', t:'Lip seal maintained against resistance', a:'', ty:'M'},
+      {c:'b5', t:'Bilabial closure for /p b m/', a:'', ty:'M'},
+    ]},
+    { s:'Function — tongue (CN XII)', items:[
+      {c:'c1', t:'Protrusion', a:'', ty:'M'},
+      {c:'c2', t:'Retraction', a:'', ty:'M'},
+      {c:'c3', t:'Lateralisation to both corners', a:'Essential for bolus management', ty:'M'},
+      {c:'c4', t:'Elevation to the alveolar ridge, mouth open', a:'Dissociation from the jaw is the key skill', ty:'M'},
+      {c:'c5', t:'Tip elevation INSIDE the mouth without jaw assistance', a:'', ty:'M'},
+      {c:'c6', t:'Movement against resistance (strength)', a:'', ty:'M'},
+      {c:'c7', t:'Deviation on protrusion', a:'Deviation points toward the weaker side', ty:'Y'},
+      {c:'c8', t:'Fasciculations or atrophy', a:'A red flag — requires neurological referral', ty:'Y'},
+    ]},
+    { s:'Function — jaw (CN V)', items:[
+      {c:'d1', t:'Opening and closing', a:'', ty:'M'},
+      {c:'d2', t:'Lateralisation', a:'', ty:'M'},
+      {c:'d3', t:'Graded control and stability', a:'Jaw instability underlies many lip and tongue difficulties', ty:'M'},
+      {c:'d4', t:'Bite strength and symmetry', a:'', ty:'M'},
+    ]},
+    { s:'Function — velum (CN IX, X)', items:[
+      {c:'e1', t:'Velar elevation on sustained /a/', a:'', ty:'M'},
+      {c:'e2', t:'Symmetry of velar elevation', a:'', ty:'V'},
+      {c:'e3', t:'Gag reflex', a:'Presence or absence of the gag has NO predictive value for swallow safety', ty:'C',
+        o:['Present — normal','Hyperactive','Hypoactive','Absent','Not tested']},
+      {c:'e4', t:'Volitional cough', a:'A weak volitional cough is a genuine aspiration-risk indicator', ty:'M'},
+      {c:'e5', t:'Voluntary swallow on command', a:'', ty:'M'},
+    ]},
+    { s:'Tone, symmetry & habits', items:[
+      {c:'f1', t:'Facial tone', a:'', ty:'C', o:['Normal','Low / hypotonic','High / hypertonic','Asymmetric','Unable to assess']},
+      {c:'f2', t:'Lingual tone', a:'', ty:'C', o:['Normal','Low / hypotonic','High / hypertonic','Unable to assess']},
+      {c:'f3', t:'Digit or thumb sucking', a:'', ty:'Y'},
+      {c:'f4', t:'Tongue thrust on swallow', a:'', ty:'Y'},
+      {c:'f5', t:'Habitual mouth breathing', a:'Consider airway / adenotonsillar review', ty:'Y'},
+      {c:'f6', t:'Bruxism', a:'', ty:'Y'},
+      {c:'f7', t:'Drooling — severity', a:'', ty:'V'},
+      {c:'f8', t:'Drooling — frequency', a:'', ty:'F'},
+    ]},
+    { s:'Impression', items:[
+      {c:'z1', t:'Summary of oral structure and function findings', a:'Note: non-speech oral-motor exercises are NOT supported by evidence for improving speech sound production. Findings here inform differential diagnosis and feeding management, not an exercise programme.', ty:'T'},
+      {c:'z2', t:'Referrals indicated (ENT, dentistry, orthodontics, neurology, plastics)', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= ORAL MOTOR 2 ================= */
+{
+  code:'MND-OMS-02', domain:'oral_motor',
+  title:'Feeding Skill Observation',
+  band:'0–18 years',
+  purpose:'Direct observation of feeding skill across utensils and textures, and of self-feeding independence. Skill limitation, not preference, is the focus.',
+  sections:[
+    { s:'Positioning & readiness', items:[
+      {c:'a1', t:'Postural stability for feeding (hips, trunk, feet supported)', a:'Stability precedes mobility — poor positioning masquerades as oral-motor difficulty', ty:'M'},
+      {c:'a2', t:'Head and trunk control', a:'', ty:'M'},
+      {c:'a3', t:'Alertness and state regulation for feeding', a:'', ty:'M'},
+      {c:'a4', t:'Positioning and seating actually used', a:'', ty:'T'},
+    ]},
+    { s:'Breast / bottle (if applicable)', items:[
+      {c:'b1', t:'Latch and seal', a:'', ty:'M'},
+      {c:'b2', t:'Suck–swallow–breathe coordination', a:'Typically 1:1:1 in a mature pattern', ty:'M'},
+      {c:'b3', t:'Endurance sustained across the full feed', a:'Fatigue late in the feed is a common early sign', ty:'M'},
+      {c:'b4', t:'Nipple, flow rate and equipment used', a:'', ty:'T'},
+    ]},
+    { s:'Spoon', items:[
+      {c:'c1', t:'Accepts the spoon without distress', a:'', ty:'M'},
+      {c:'c2', t:'Upper lip clears the spoon actively', a:'Expected ~6–9 months', ty:'M'},
+      {c:'c3', t:'Jaw stability on the spoon', a:'', ty:'M'},
+      {c:'c4', t:'Manages the bolus without loss', a:'', ty:'M'},
+    ]},
+    { s:'Cup & straw', items:[
+      {c:'d1', t:'Accepts an open cup', a:'Expected from ~9–12 months', ty:'M'},
+      {c:'d2', t:'Jaw stability on the cup rim (no jaw clamping)', a:'', ty:'M'},
+      {c:'d3', t:'Manages consecutive sips without loss of control', a:'Expected ~18–24 months', ty:'M'},
+      {c:'d4', t:'Straw drinking with lip seal, not jaw stabilisation', a:'', ty:'M'},
+    ]},
+    { s:'Chewing', items:[
+      {c:'e1', t:'Munching — vertical up-and-down pattern', a:'Expected ~6–9 months', ty:'M'},
+      {c:'e2', t:'Diagonal chew', a:'Expected ~9–12 months', ty:'M'},
+      {c:'e3', t:'Rotary chew', a:'Expected ~12–24 months; mature by ~3 years', ty:'M'},
+      {c:'e4', t:'Lateralises the bolus to the molar surfaces', a:'The rate-limiting skill for solid textures', ty:'M'},
+      {c:'e5', t:'Forms a cohesive bolus and clears it', a:'', ty:'M'},
+      {c:'e6', t:'Manages mixed textures (e.g. soup with pieces)', a:'The hardest texture — often the last to be safe', ty:'M'},
+    ]},
+    { s:'Self-feeding', items:[
+      {c:'f1', t:'Finger feeding', a:'Expected ~9 months', ty:'M'},
+      {c:'f2', t:'Spoon use', a:'Scooping ~15–18m; competent ~24m', ty:'M'},
+      {c:'f3', t:'Fork use', a:'Expected ~2–3 years', ty:'M'},
+      {c:'f4', t:'Knife use for cutting', a:'Expected ~5–7 years', ty:'M'},
+      {c:'f5', t:'Overall independence at mealtimes', a:'', ty:'M'},
+    ]},
+    { s:'Diet & intake', items:[
+      {c:'g1', t:'Textures currently accepted (IDDSI)', a:'Tick all that apply', ty:'X',
+        o:['0 Thin liquid','1 Slightly thick','2 Mildly thick','3 Moderately thick / Liquidised','4 Extremely thick / Pureed','5 Minced & moist','6 Soft & bite-sized','7 Regular / Easy to chew']},
+      {c:'g2', t:'Approximate number of foods accepted', a:'Under ~20 foods suggests significant restriction', ty:'N', u:'foods'},
+      {c:'g3', t:'Food refusal or selectivity', a:'', ty:'F'},
+      {c:'g4', t:'Typical mealtime duration', a:'Meals over 30 minutes are a recognised marker of feeding difficulty', ty:'N', u:'minutes'},
+      {c:'g5', t:'Growth or weight concern has been flagged', a:'If yes, ensure paediatric / nutrition review', ty:'Y'},
+      {c:'g6', t:'Fatigue across the meal', a:'', ty:'F'},
+      {c:'g7', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= DYSPHAGIA 1 ================= */
+{
+  code:'MND-DYS-01', domain:'dysphagia',
+  title:'Clinical Swallow Evaluation (IDDSI-aligned)',
+  band:'All ages',
+  purpose:'Bedside / clinical evaluation of swallow safety and efficiency. NOTE: a clinical evaluation CANNOT rule out aspiration. Where risk is suspected, instrumental assessment is required.',
+  sections:[
+    { s:'Pre-feeding status', items:[
+      {c:'a1', t:'Alertness and level of consciousness', a:'Do not trial oral intake in a child who cannot sustain alertness', ty:'C',
+        o:['Alert and sustained','Alert but fluctuating','Drowsy — rousable','Not sufficiently alert to trial']},
+      {c:'a2', t:'Respiratory status at baseline', a:'', ty:'C',
+        o:['Within normal limits','Increased work of breathing','Tachypnoeic','Requires respiratory support','Tracheostomy in situ']},
+      {c:'a3', t:'Oral hygiene', a:'Poor oral hygiene multiplies aspiration-pneumonia risk — address this regardless of diet decisions', ty:'V'},
+      {c:'a4', t:'Secretion management', a:'', ty:'V'},
+      {c:'a5', t:'Volitional cough strength', a:'A weak cough removes the child\u2019s main airway protection', ty:'M'},
+      {c:'a6', t:'Baseline voice quality (before any intake)', a:'You need this baseline to interpret post-swallow changes', ty:'C',
+        o:['Clear','Wet / gurgly','Hoarse','Weak','Aphonic','Non-verbal — unable to judge']},
+      {c:'a7', t:'Baseline oxygen saturation, if monitored', a:'', ty:'N', u:'%'},
+    ]},
+    { s:'Oral phase', items:[
+      {c:'b1', t:'Oral acceptance of the bolus', a:'', ty:'M'},
+      {c:'b2', t:'Bolus containment — anterior loss', a:'', ty:'V'},
+      {c:'b3', t:'Bolus manipulation and mastication', a:'', ty:'M'},
+      {c:'b4', t:'Bolus propulsion to the back of the mouth', a:'', ty:'M'},
+      {c:'b5', t:'Oral residue after the swallow', a:'', ty:'V'},
+      {c:'b6', t:'Oral transit delay / bolus holding', a:'', ty:'V'},
+      {c:'b7', t:'Premature spillage into the pharynx (suspected)', a:'', ty:'Y'},
+    ]},
+    { s:'Pharyngeal phase — clinical signs', items:[
+      {c:'c1', t:'Delayed initiation of the swallow', a:'', ty:'V'},
+      {c:'c2', t:'Multiple swallows per bolus', a:'', ty:'F'},
+      {c:'c3', t:'Cough DURING the swallow', a:'', ty:'F'},
+      {c:'c4', t:'Cough AFTER the swallow', a:'', ty:'F'},
+      {c:'c5', t:'Throat clearing', a:'', ty:'F'},
+      {c:'c6', t:'Wet or gurgly voice after the swallow', a:'Compare against the baseline recorded above', ty:'F'},
+      {c:'c7', t:'Change in respiratory rate, effort or pattern', a:'', ty:'F'},
+      {c:'c8', t:'Oxygen desaturation during or after intake', a:'A drop of \u22653% is significant', ty:'Y'},
+      {c:'c9', t:'Watery eyes, facial flushing, or distress', a:'Often the only sign in a non-verbal child', ty:'F'},
+      {c:'c10',t:'Reduced laryngeal elevation on palpation', a:'', ty:'V'},
+      {c:'c11',t:'Fatigue or deterioration across the trial', a:'Always trial to fatigue, not just the first spoonful', ty:'F'},
+    ]},
+    { s:'Consistencies trialled', items:[
+      {c:'d1', t:'Consistencies trialled in this evaluation (IDDSI)', a:'Tick all that were actually trialled', ty:'X',
+        o:['0 Thin liquid','1 Slightly thick','2 Mildly thick','3 Moderately thick / Liquidised','4 Extremely thick / Pureed','5 Minced & moist','6 Soft & bite-sized','7 Regular / Easy to chew']},
+      {c:'d2', t:'Findings by consistency — record what happened with each', a:'Be specific: which consistency, which sign, at what point in the trial', ty:'T'},
+      {c:'d3', t:'Consistencies NOT trialled and why', a:'', ty:'T'},
+    ]},
+    { s:'Risk indicators', items:[
+      {c:'e1', t:'Clinical signs consistent with penetration or aspiration', a:'', ty:'Y'},
+      {c:'e2', t:'Silent aspiration suspected', a:'Absence of cough does NOT mean absence of aspiration. Up to half of aspiration is silent.', ty:'Y'},
+      {c:'e3', t:'History of recurrent chest infections or pneumonia', a:'The single strongest historical risk marker', ty:'Y'},
+      {c:'e4', t:'History of unexplained fever', a:'', ty:'Y'},
+      {c:'e5', t:'Weight loss or faltering growth', a:'', ty:'Y'},
+      {c:'e6', t:'Prolonged mealtimes / reduced oral intake', a:'', ty:'Y'},
+      {c:'e7', t:'Caregiver reports choking episodes', a:'', ty:'Y'},
+    ]},
+    { s:'Clinical impression & management', items:[
+      {c:'f1', t:'Dysphagia severity', a:'', ty:'V'},
+      {c:'f2', t:'Phase(s) affected', a:'', ty:'X',
+        o:['Oral preparatory','Oral','Pharyngeal','Oesophageal — suspected','No phase clearly affected']},
+      {c:'f3', t:'Aspiration risk', a:'', ty:'C', o:['None identified','Low','Moderate','High','Cannot determine clinically']},
+      {c:'f4', t:'Instrumental assessment indicated', a:'A clinical evaluation cannot exclude aspiration. If risk is present, say so and refer.', ty:'C',
+        o:['Not indicated','VFSS — routine','VFSS — urgent','FEES — routine','FEES — urgent','Either modality — urgent','Indicated but not accessible — document limitation']},
+      {c:'f5', t:'Recommended IDDSI food level', a:'', ty:'C',
+        o:['3 Liquidised','4 Pureed','5 Minced & moist','6 Soft & bite-sized','7 Regular / Easy to chew','Nil by mouth','Not applicable']},
+      {c:'f6', t:'Recommended IDDSI drink level', a:'', ty:'C',
+        o:['0 Thin','1 Slightly thick','2 Mildly thick','3 Moderately thick','4 Extremely thick','Nil by mouth','Not applicable']},
+      {c:'f7', t:'Compensatory strategies recommended', a:'', ty:'X',
+        o:['Upright 90\u00b0 during meals','Remain upright 30 min after','Chin tuck','Head turn','Small bolus size','Slow rate / pacing','Alternate solids and liquids','Multiple swallows per bolus','Effortful swallow','Verbal cue to swallow','Full supervision at all meals','Rest breaks during the meal','Modified utensils / cup']},
+      {c:'f8', t:'Nil by mouth recommended', a:'', ty:'Y'},
+      {c:'f9', t:'Discussion of alternative nutrition required', a:'', ty:'Y'},
+      {c:'f10',t:'Onward medical referral required', a:'', ty:'Y'},
+      {c:'f11',t:'Clinical reasoning — state the evidence for the recommendations above', a:'This paragraph is the defensible core of the report. Do not leave it blank.', ty:'T'},
+    ]},
+  ]
+},
+
+/* ================= DYSPHAGIA 2 ================= */
+{
+  code:'MND-DYS-02', domain:'dysphagia',
+  title:'Mealtime Observation & Risk Screen',
+  band:'All ages',
+  purpose:'Observation of a real meal in the real setting — where risk actually lives. Assesses the feeder and the environment as well as the child.',
+  sections:[
+    { s:'Context', items:[
+      {c:'a1', t:'Setting observed (home, school, clinic)', a:'', ty:'T'},
+      {c:'a2', t:'Who fed the child', a:'', ty:'T'},
+      {c:'a3', t:'Meal and textures presented', a:'', ty:'T'},
+      {c:'a4', t:'Position of the child during the meal', a:'', ty:'C',
+        o:['Upright, well supported','Upright, unsupported','Reclined','Carried / in arms','Lying','Variable / changed during meal']},
+      {c:'a5', t:'Duration of the meal', a:'', ty:'N', u:'minutes'},
+      {c:'a6', t:'Distraction in the environment (screens, noise, movement)', a:'', ty:'F'},
+    ]},
+    { s:'The feeder', items:[
+      {c:'b1', t:'Rate of presentation is appropriately paced', a:'Feeder pace is the most modifiable risk factor in the whole picture', ty:'M'},
+      {c:'b2', t:'Bolus size presented', a:'', ty:'C', o:['Small / appropriate','Appropriate','Oversized','Variable']},
+      {c:'b3', t:'Waits for the swallow before presenting the next bolus', a:'', ty:'M'},
+      {c:'b4', t:'Cues the child to swallow', a:'', ty:'F'},
+      {c:'b5', t:'Recognises and responds to signs of difficulty', a:'', ty:'M'},
+      {c:'b6', t:'Recommendations already in place are being followed', a:'If not, ask WHY before re-issuing the same advice', ty:'M'},
+      {c:'b7', t:'Caregiver understands the rationale for the recommendations', a:'', ty:'M'},
+    ]},
+    { s:'The child during the meal', items:[
+      {c:'c1', t:'Coughing during the meal', a:'', ty:'F'},
+      {c:'c2', t:'Choking episodes', a:'', ty:'F'},
+      {c:'c3', t:'Gagging', a:'', ty:'F'},
+      {c:'c4', t:'Vomiting or regurgitation', a:'', ty:'F'},
+      {c:'c5', t:'Wet voice or wet breathing during the meal', a:'', ty:'F'},
+      {c:'c6', t:'Colour change, watery eyes, or distress', a:'', ty:'F'},
+      {c:'c7', t:'Refusal behaviours', a:'', ty:'F'},
+      {c:'c8', t:'Distress at mealtimes', a:'', ty:'F'},
+      {c:'c9', t:'Fatigue across the meal', a:'', ty:'F'},
+      {c:'c10',t:'Achieves adequate intake within a reasonable time', a:'', ty:'M'},
+      {c:'c11',t:'Kept upright after the meal', a:'', ty:'M'},
+    ]},
+    { s:'Risk & action', items:[
+      {c:'d1', t:'Overall mealtime risk', a:'', ty:'C',
+        o:['Low — no action needed','Moderate — plan required','High — plan required urgently','Immediate action taken — unsafe']},
+      {c:'d2', t:'Environmental or practice risks identified', a:'', ty:'T'},
+      {c:'d3', t:'Actions agreed, with who is responsible and by when', a:'An action without an owner and a date is not an action', ty:'T'},
+      {c:'d4', t:'Mealtime plan issued or updated', a:'', ty:'Y'},
+      {c:'d5', t:'Training provided to the feeder', a:'', ty:'Y'},
+      {c:'d6', t:'Escalation required (medical, safeguarding, urgent instrumental)', a:'', ty:'Y'},
+      {c:'d7', t:'Additional observations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+];
+
+const AS_DOMAIN_LABEL = {
+  language:'Language', speech:'Speech', voice:'Voice', cognition:'Cognition',
+  behavior:'Behaviour', sensory:'Sensory', oral_motor:'Oral motor', dysphagia:'Dysphagia'
+};
+const AS_DOMAIN_ORDER = ['language','speech','voice','cognition','behavior','sensory','oral_motor','dysphagia'];
+
+/* ---------------------------------------------------------------------
+   HELPERS
+--------------------------------------------------------------------- */
+let SELECTED_ASSESSMENT = null;
+let SELECTED_APROTO     = null;
+let AS_SAVE_TIMER       = null;
+
+function asProto(code){ return ASSESS_PROTOCOLS.find(p=>p.code===code)||null; }
+function asAllItems(p){ const out=[]; (p.sections||[]).forEach(s=>(s.items||[]).forEach(i=>out.push(Object.assign({_sec:s.s},i)))); return out; }
+
+// an item counts as "answered" if it has a value
+function asAnswered(r){
+  if(!r) return false;
+  const v=r.v;
+  if(v===null||v===undefined) return false;
+  if(Array.isArray(v)) return v.length>0;
+  if(typeof v==='string') return v.trim()!=='';
+  return true;
+}
+function asProgress(p, responses){
+  const items=asAllItems(p); if(!items.length) return 0;
+  let n=0; items.forEach(i=>{ if(asAnswered((responses||{})[i.c])) n++; });
+  return Math.round(n*100/items.length);
+}
+function asOptsFor(item){
+  if(item.ty==='C'||item.ty==='X') return item.o||[];
+  const sc=AS_SCALES[item.ty];
+  return sc?sc.opts:[];
+}
+function asLabel(item, v){
+  const opts=asOptsFor(item);
+  if(typeof v==='number' && opts[v]!==undefined) return opts[v];
+  return v;
+}
+
+/* ---------------------------------------------------------------------
+   RED FLAGS — findings that must not be buried in a paragraph
+--------------------------------------------------------------------- */
+const AS_FLAG_RULES=[
+  {p:'MND-DYS-01', c:'e2', when:v=>v===1, msg:'Silent aspiration suspected. A clinical evaluation cannot exclude aspiration — instrumental assessment (VFSS or FEES) is indicated.'},
+  {p:'MND-DYS-01', c:'e1', when:v=>v===1, msg:'Clinical signs consistent with penetration or aspiration were observed.'},
+  {p:'MND-DYS-01', c:'e3', when:v=>v===1, msg:'History of recurrent chest infection — the strongest historical marker of aspiration risk.'},
+  {p:'MND-DYS-01', c:'f3', when:(v,it)=>['High','Moderate'].includes(asLabel(it,v)), msg:'Aspiration risk rated moderate or high.'},
+  {p:'MND-DYS-01', c:'f8', when:v=>v===1, msg:'Nil by mouth recommended — ensure the medical team and caregivers are informed today.'},
+  {p:'MND-DYS-02', c:'d1', when:(v,it)=>String(asLabel(it,v)||'').startsWith('High')||String(asLabel(it,v)||'').startsWith('Immediate'), msg:'Mealtime risk rated high or unsafe.'},
+  {p:'MND-BEH-01', c:'g4', when:v=>v===1, msg:'Safeguarding threshold met — complete MND-REC-10 Safeguarding Incident Report now. This record does not replace it.'},
+  {p:'MND-BEH-01', c:'g1', when:(v,it)=>['Severe'].includes(asLabel(it,v)), msg:'Severe risk to self recorded.'},
+  {p:'MND-BEH-01', c:'g2', when:(v,it)=>['Severe'].includes(asLabel(it,v)), msg:'Severe risk to others recorded.'},
+  {p:'MND-VOI-01', c:'p9', when:v=>v===1, msg:'Stridor observed — urgent ENT review required before any voice work.'},
+  {p:'MND-VOI-02', c:'e1', when:v=>v===0, msg:'Laryngeal visualisation has NOT been performed. Voice therapy must not commence until the larynx has been examined.'},
+  {p:'MND-OMS-01', c:'a6', when:(v,it)=>String(asLabel(it,v)||'').includes('Bifid'), msg:'Bifid uvula noted — possible submucous cleft. ENT referral required before proceeding.'},
+  {p:'MND-OMS-01', c:'c8', when:v=>v===1, msg:'Tongue fasciculations or atrophy noted — neurological referral required.'},
+  {p:'MND-OMS-02', c:'g5', when:v=>v===1, msg:'Growth or weight concern flagged — ensure paediatric / nutrition review.'},
+];
+function asFlags(protoRows){
+  const out=[];
+  (protoRows||[]).forEach(row=>{
+    const def=asProto(row.protocol_code); if(!def) return;
+    AS_FLAG_RULES.filter(r=>r.p===row.protocol_code).forEach(rule=>{
+      const r=(row.responses||{})[rule.c]; if(!asAnswered(r)) return;
+      const item=asAllItems(def).find(i=>i.c===rule.c); if(!item) return;
+      try{ if(rule.when(r.v, item)) out.push(rule.msg); }catch(e){}
+    });
+  });
+  return out;
+}
+
+/* ---------------------------------------------------------------------
+   NARRATIVE GENERATION
+   Turns the responses into descriptive clinical prose, section by section.
+--------------------------------------------------------------------- */
+function asNarrative(def, responses){
+  const R=responses||{};
+  const paras=[];
+
+  (def.sections||[]).forEach(sec=>{
+    const strengths=[], emerging=[], absent=[], present=[], sev=[], freq=[],
+          hyper=[], hypo=[], vals=[], notes=[], texts=[];
+
+    (sec.items||[]).forEach(it=>{
+      const r=R[it.c]; if(!asAnswered(r)) return;
+      const v=r.v;
+      const stem=it.t.replace(/\s*\(.*?\)\s*$/,'').trim();
+      const lower=stem.charAt(0).toLowerCase()+stem.slice(1);
+
+      switch(it.ty){
+        case 'M':
+          if(v>=3) strengths.push(lower);
+          else if(v>=1) emerging.push(lower+' ('+AS_SCALES.M.opts[v].toLowerCase()+')');
+          else absent.push(lower);
+          break;
+        case 'G':
+          sev.push(stem+': '+AS_SCALES.G.opts[v]);
+          break;
+        case 'V':
+          if(v===4) vals.push(stem+': unable to assess');
+          else if(v>0) sev.push(stem+' — '+AS_SCALES.V.opts[v].toLowerCase());
+          break;
+        case 'F':
+          if(v>=2) freq.push(lower+' ('+AS_SCALES.F.opts[v].toLowerCase()+')');
+          break;
+        case 'S':
+          if(v<=1) hypo.push(lower);
+          else if(v>=3) hyper.push(lower);
+          break;
+        case 'Y':
+          if(v===1) present.push(lower);
+          break;
+        case 'C':
+          vals.push(stem+': '+asLabel(it,v));
+          break;
+        case 'X':
+          if(Array.isArray(v)&&v.length) vals.push(stem+': '+v.join('; '));
+          break;
+        case 'N':
+          vals.push(stem+': '+v+(it.u?' '+it.u:''));
+          break;
+        case 'T':
+          if(String(v).trim()) texts.push(String(v).trim());
+          break;
+      }
+      if(r.n && String(r.n).trim()) notes.push(stem+' — '+String(r.n).trim());
+    });
+
+    const bits=[];
+    if(strengths.length) bits.push('The child is consistent or independent in the following: '+strengths.join('; ')+'.');
+    if(emerging.length)  bits.push('The following are emerging or inconsistent and require support: '+emerging.join('; ')+'.');
+    if(absent.length)    bits.push('The following were not observed: '+absent.join('; ')+'.');
+    if(sev.length)       bits.push(sev.join('. ')+'.');
+    if(freq.length)      bits.push('Observed with clinically relevant frequency: '+freq.join('; ')+'.');
+    if(hyper.length)     bits.push('Responses GREATER than same-age peers were recorded for: '+hyper.join('; ')+'.');
+    if(hypo.length)      bits.push('Responses LESS than same-age peers were recorded for: '+hypo.join('; ')+'.');
+    if(present.length)   bits.push('Present on examination: '+present.join('; ')+'.');
+    if(vals.length)      bits.push(vals.join('. ')+'.');
+    if(texts.length)     bits.push(texts.join(' '));
+    if(notes.length)     bits.push('Clinician notes: '+notes.join('. ')+'.');
+
+    if(bits.length) paras.push(sec.s.toUpperCase()+'\n'+bits.join(' '));
+  });
+
+  if(!paras.length) return '';
+  const head=def.title+' ('+def.code+', v'+ASSESS_VERSION+') — a Mindora criterion-referenced protocol. '+
+             'Findings are descriptive and criterion-referenced; they are not standardized scores.';
+  return head+'\n\n'+paras.join('\n\n');
+}
+
+/* ---------------------------------------------------------------------
+   REPORT BUILDER
+--------------------------------------------------------------------- */
+function asAgeStr(a){
+  if(a.age_years==null && a.age_months==null) return '';
+  const y=a.age_years||0, m=a.age_months||0;
+  return y+' years '+m+' months';
+}
+function asBuildSections(child, a, protoRows, scores){
+  const done=(protoRows||[]).slice().sort((x,y)=>
+    AS_DOMAIN_ORDER.indexOf(x.protocol_domain)-AS_DOMAIN_ORDER.indexOf(y.protocol_domain));
+
+  const ident=[
+    'Name: '+(child.full_name||''),
+    child.child_no?'File number: '+child.child_no:'',
+    child.dob?'Date of birth: '+fmtDate(child.dob):'',
+    asAgeStr(a)?'Age at assessment: '+asAgeStr(a):'',
+    'Date of assessment: '+fmtDate(a.assessment_date),
+    'Assessed by: '+(a.examiner_name||'')+(a.examiner_discipline?', '+a.examiner_discipline:''),
+    a.informants?'Informants: '+a.informants:'',
+    'Consent: '+(a.consent_obtained?'Obtained':'NOT RECORDED — obtain before the report is released'),
+  ].filter(Boolean).join('\n');
+
+  const procLines=[];
+  if(done.length){
+    procLines.push('Mindora criterion-referenced protocols administered:');
+    done.forEach(p=>procLines.push('  · '+p.protocol_title+' ('+p.protocol_code+', v'+p.protocol_version+')'));
+  }
+  if((scores||[]).length){
+    const tools=[...new Set(scores.map(s=>s.tool_name+(s.tool_edition?' ('+s.tool_edition+')':'')))];
+    procLines.push('');
+    procLines.push('Standardized instruments administered:');
+    tools.forEach(t=>procLines.push('  · '+t));
+  }
+  procLines.push('');
+  procLines.push('Note on interpretation: Mindora protocols are criterion-referenced. They describe what the child can and cannot do against published developmental and clinical criteria. They do not yield standard scores, percentiles or age equivalents. Where standard scores are reported below, they derive from the licensed instrument named, administered in full with its own materials.');
+
+  // findings grouped by domain
+  const byDom={};
+  done.forEach(p=>{ (byDom[p.protocol_domain]=byDom[p.protocol_domain]||[]).push(p); });
+  const findings=AS_DOMAIN_ORDER.filter(d=>byDom[d]).map(d=>{
+    const body=byDom[d].map(p=>p.narrative||asNarrative(asProto(p.protocol_code)||{sections:[]},p.responses)).filter(Boolean).join('\n\n');
+    return '### '+(AS_DOMAIN_LABEL[d]||d).toUpperCase()+'\n\n'+body;
+  }).join('\n\n');
+
+  let std='No standardized instrument was administered in this assessment episode.';
+  if((scores||[]).length){
+    std=scores.map(s=>{
+      const cols=[
+        s.tool_name+(s.tool_edition?' ('+s.tool_edition+')':''),
+        s.subtest?'Subtest: '+s.subtest:'',
+        s.raw_score?'Raw '+s.raw_score:'',
+        s.standard_score?'Standard score '+s.standard_score:'',
+        s.scaled_score?'Scaled score '+s.scaled_score:'',
+        s.percentile?'Percentile '+s.percentile:'',
+        (s.ci_low&&s.ci_high)?'90% CI '+s.ci_low+'–'+s.ci_high:'',
+        s.descriptor?'Descriptor: '+s.descriptor:'',
+        s.administered_on?'Administered '+fmtDate(s.administered_on):'',
+        s.administered_by?'by '+s.administered_by:'',
+      ].filter(Boolean);
+      return '· '+cols.join(' · ')+(s.notes?'\n  '+s.notes:'');
+    }).join('\n');
+  }
+
+  // impression scaffold — pulls the concerns, leaves the reasoning to the clinician
+  const flags=asFlags(done);
+  const concerns=[];
+  done.forEach(p=>{
+    const def=asProto(p.protocol_code); if(!def) return;
+    const R=p.responses||{};
+    asAllItems(def).forEach(it=>{
+      const r=R[it.c]; if(!asAnswered(r)) return;
+      if(it.ty==='M' && r.v<=1) concerns.push(AS_DOMAIN_LABEL[def.domain]+': '+it.t);
+      if(it.ty==='V' && r.v>=2 && r.v<=3) concerns.push(AS_DOMAIN_LABEL[def.domain]+': '+it.t+' — '+AS_SCALES.V.opts[r.v]);
+      if(it.ty==='G' && r.v>=2) concerns.push('Voice: '+it.t+' — '+AS_SCALES.G.opts[r.v]);
+      if(it.ty==='F' && r.v>=3) concerns.push(AS_DOMAIN_LABEL[def.domain]+': '+it.t+' — '+AS_SCALES.F.opts[r.v]);
+    });
+  });
+
+  const impression =
+    (flags.length?'PRIORITY FINDINGS\n'+flags.map(f=>'  ! '+f).join('\n')+'\n\n':'')+
+    'AREAS OF DIFFICULTY IDENTIFIED\n'+
+    (concerns.length?concerns.slice(0,40).map(c=>'  · '+c).join('\n'):'  · None recorded.')+
+    '\n\nCLINICAL FORMULATION\n'+
+    '[Write the formulation here. State what the pattern of findings means, what it does NOT mean, '+
+    'the differential you considered, and the confidence you hold in it. This section is generated as a '+
+    'scaffold only — the reasoning is yours.]';
+
+  const recs =
+    'RECOMMENDATIONS\n'+
+    (flags.length?flags.map((f,i)=>(i+1)+'. '+f).join('\n')+'\n':'')+
+    '[Add recommendations. For each one state: what, who does it, how often, and how it will be reviewed.]\n\n'+
+    'ONWARD REFERRALS\n[List, or state "none indicated".]\n\n'+
+    'REVIEW\n[State when this will be reviewed and against what.]';
+
+  const goals =
+    '[Write goals here. Each goal should be specific, measurable, tied to a finding above, and '+
+    'meaningful in the child\u2019s everyday life. State the baseline you are measuring from.]';
+
+  return [
+    {k:'identifying',   t:'Identifying information',        v:ident},
+    {k:'referral',      t:'Reason for referral',            v:a.reason_for_referral||''},
+    {k:'background',    t:'Background and relevant history', v:a.background||''},
+    {k:'procedures',    t:'Assessment procedures',          v:procLines.join('\n')},
+    {k:'findings',      t:'Findings',                       v:findings||'No protocols have been completed for this assessment.'},
+    {k:'standardized',  t:'Standardized test results',      v:std},
+    {k:'impression',    t:'Clinical impression and formulation', v:impression},
+    {k:'recommendations',t:'Recommendations',               v:recs},
+    {k:'goals',         t:'Proposed goals',                 v:goals},
+    {k:'examiner',      t:'Examiner',                       v:(a.examiner_name||'')+(a.examiner_discipline?'\n'+a.examiner_discipline:'')+'\nMindora Inclusive Child Development Services\nDate: '+fmtDate(a.assessment_date)},
+  ];
+}
+
+function asBuildSummary(child, a, sections, protoRows){
+  const get=k=>{const s=(sections||[]).find(x=>x.k===k); return s?s.v:'';};
+  const flags=asFlags(protoRows);
+  const doms=[...new Set((protoRows||[]).map(p=>AS_DOMAIN_LABEL[p.protocol_domain]||p.protocol_domain))];
+  return [
+    (child.full_name||'')+' — Clinical summary',
+    'Assessed '+fmtDate(a.assessment_date)+(asAgeStr(a)?' at '+asAgeStr(a):'')+' by '+(a.examiner_name||'—')+'.',
+    '',
+    'Areas assessed: '+(doms.length?doms.join(', '):'—')+'.',
+    '',
+    (flags.length?'PRIORITY:\n'+flags.map(f=>'  ! '+f).join('\n')+'\n':''),
+    'IMPRESSION',
+    get('impression').split('CLINICAL FORMULATION')[1]
+      ? get('impression').split('CLINICAL FORMULATION')[1].trim()
+      : '[Carry the formulation across from the report, in two or three sentences.]',
+    '',
+    'RECOMMENDATIONS',
+    '[Carry across the three or four that matter most.]',
+    '',
+    'This summary is drawn from the full assessment report of '+fmtDate(a.assessment_date)+'. '+
+    'Mindora protocol findings are criterion-referenced and descriptive, not standardized scores.'
+  ].filter(x=>x!==null).join('\n');
+}
+
+/* ---------------------------------------------------------------------
+   VIEW: list of assessments for a child
+--------------------------------------------------------------------- */
+async function renderChildAssessments(v,c){
+  if(!c){ go(isStaff()?'clients':'pro_children'); return; }
+  const {data:list}=await sb.from('assessments').select('*')
+    .eq('client_id',c.id).order('assessment_date',{ascending:false});
+
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Assessments</h1>
+      <p>Mindora criterion-referenced protocols, standardized test results, the assessment report, and the clinical summary.</p></div>
+    <div class="section-head"><h3>Assessment episodes</h3><button class="btn btn-primary btn-sm" id="newAs" style="width:auto">+ New assessment</button></div>
+    <div class="rows" id="asRows"></div>`;
+  $('#backBtn').onclick=()=>{ SELECTED_CHILD=c; go(isStaff()?'staff_child':'pro_child'); };
+  $('#newAs').onclick=()=>asNewForm(c);
+
+  const rows=$('#asRows');
+  if(!list||!list.length){
+    rows.innerHTML='<div class="empty" style="padding:26px"><h4>No assessments yet</h4><p>Start an assessment episode, then add the protocols you want to administer.</p></div>';
+    return;
+  }
+  for(const a of list){
+    const {data:ps}=await sb.from('assessment_protocols').select('protocol_code,status,completed_pct').eq('assessment_id',a.id);
+    const n=(ps||[]).length, done=(ps||[]).filter(p=>p.status==='complete').length;
+    const pill=a.status==='signed'?'<span class="as-pill done">Signed</span>'
+             :a.status==='complete'?'<span class="as-pill done">Complete</span>'
+             :'<span class="as-pill prog">Draft</span>';
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${icon('plan')}</div>
+      <div class="row-main">
+        <div class="row-name">Assessment — ${fmtDate(a.assessment_date)}</div>
+        <div class="row-sub">${escapeHtml(a.examiner_name||'—')}${a.examiner_discipline?' · '+escapeHtml(a.examiner_discipline):''} · ${done}/${n} protocol${n===1?'':'s'} complete</div>
+      </div>${pill}</div>`);
+    card.onclick=()=>{ SELECTED_CHILD=c; SELECTED_ASSESSMENT=a; go('assessment'); };
+    rows.appendChild(card);
+  }
+}
+
+function asNewForm(c){
+  const today=isoD(new Date());
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>New assessment</h3><div class="sub">${escapeHtml(c.full_name)}</div>
+    <div class="form-row"><label>Date of assessment</label><input type="date" id="as_date" value="${today}"/></div>
+    <div class="form-row"><label>Assessed by</label><input id="as_exam" value="${escapeHtml(ME.full_name||'')}"/></div>
+    <div class="form-row"><label>Discipline</label><input id="as_disc" placeholder="e.g. Speech and Language Therapist"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-row" style="flex:1"><label>Age — years</label><input type="number" id="as_ay" min="0"/></div>
+      <div class="form-row" style="flex:1"><label>Age — months</label><input type="number" id="as_am" min="0" max="11"/></div>
+    </div>
+    <div class="form-row"><label>Reason for referral</label><textarea id="as_reason"></textarea></div>
+    <div class="form-row"><label>Background and relevant history</label><textarea id="as_bg"></textarea></div>
+    <div class="form-row"><label>Informants (who gave the history)</label><input id="as_inf" placeholder="e.g. mother, class teacher"/></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+      <input type="checkbox" id="as_consent" style="width:auto;margin:0"/> Consent to assess has been obtained</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="as_cancel">Cancel</button><button class="btn btn-primary" id="as_save">Create</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#as_cancel').onclick=close;
+  m.querySelector('#as_save').onclick=async()=>{
+    const b=m.querySelector('#as_save'); b.disabled=true; b.textContent='Creating…';
+    const g=id=>m.querySelector('#'+id).value.trim();
+    const {data,error}=await sb.from('assessments').insert({
+      client_id:c.id,
+      examiner_profile_id:ME.id,
+      examiner_name:g('as_exam')||null,
+      examiner_discipline:g('as_disc')||null,
+      assessment_date:g('as_date')||isoD(new Date()),
+      age_years:g('as_ay')?parseInt(g('as_ay'),10):null,
+      age_months:g('as_am')?parseInt(g('as_am'),10):null,
+      reason_for_referral:g('as_reason')||null,
+      background:g('as_bg')||null,
+      informants:g('as_inf')||null,
+      consent_obtained:m.querySelector('#as_consent').checked,
+      created_by:ME.id
+    }).select().single();
+    if(error){ toast(error.message,true); b.disabled=false; b.textContent='Create'; return; }
+    toast('Assessment created'); close();
+    SELECTED_CHILD=c; SELECTED_ASSESSMENT=data; go('assessment');
+  };
+}
+
+/* ---------------------------------------------------------------------
+   VIEW: one assessment episode
+--------------------------------------------------------------------- */
+async function renderAssessment(v,a){
+  if(!a){ go('child_assessments'); return; }
+  const c=SELECTED_CHILD;
+  const [{data:ps},{data:scores},{data:rep}]=await Promise.all([
+    sb.from('assessment_protocols').select('*').eq('assessment_id',a.id).order('protocol_domain'),
+    sb.from('standardized_scores').select('*').eq('assessment_id',a.id).order('created_at'),
+    sb.from('assessment_reports').select('*').eq('assessment_id',a.id).maybeSingle()
+  ]);
+  const flags=asFlags(ps||[]);
+
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessments</button>
+    <div class="welcome"><h1>Assessment — ${fmtDate(a.assessment_date)}</h1>
+      <p>${escapeHtml(c?c.full_name:'')} · ${escapeHtml(a.examiner_name||'—')}${asAgeStr(a)?' · '+asAgeStr(a):''}</p></div>
+
+    ${!a.consent_obtained?`<div class="as-flag">Consent has not been recorded for this assessment. Record it before the report is released.</div>`:''}
+    ${flags.length?`<div class="as-flag">PRIORITY FINDINGS<br>${flags.map(f=>'· '+escapeHtml(f)).join('<br>')}</div>`:''}
+
+    <div class="section-head"><h3>Protocols</h3><button class="btn btn-primary btn-sm" id="addProto" style="width:auto">+ Add protocol</button></div>
+    <div class="rows" id="protoRows"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Standardized test results</h3><button class="btn btn-primary btn-sm" id="addScore" style="width:auto">+ Add result</button></div>
+    <div id="scoreWrap"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Report</h3></div>
+    <div class="rows" id="repRow"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Episode</h3></div>
+    <div class="rows">
+      <div class="row-card" id="editEp"><div class="row-main"><div class="row-name">Edit episode details</div><div class="row-sub">Date, examiner, referral, background, consent</div></div><span style="color:var(--accent)">Edit ›</span></div>
+      ${isStaff()?`<div class="row-card" id="delEp" style="border-color:#F3C9CB"><div class="row-main"><div class="row-name" style="color:var(--danger)">Delete this assessment</div><div class="row-sub">Removes all protocols, scores and the report</div></div></div>`:''}
+    </div>`;
+
+  $('#backBtn').onclick=()=>{ SELECTED_CHILD=c; go('child_assessments'); };
+  $('#addProto').onclick=()=>asAddProtoModal(a,(ps||[]).map(p=>p.protocol_code),()=>renderAssessment($('#view'),a));
+  $('#addScore').onclick=()=>asScoreForm(a,null,()=>renderAssessment($('#view'),a));
+  $('#editEp').onclick=()=>asEditEpisode(a,()=>renderAssessment($('#view'),a));
+  const de=$('#delEp'); if(de) de.onclick=async()=>{
+    if(!confirm('Delete this entire assessment, including all protocols, scores and the report?')) return;
+    await sb.from('assessments').delete().eq('id',a.id);
+    toast('Assessment deleted'); SELECTED_CHILD=c; go('child_assessments');
+  };
+
+  // protocols
+  const pr=$('#protoRows');
+  if(!ps||!ps.length){
+    pr.innerHTML='<div class="empty" style="padding:24px"><h4>No protocols added</h4><p>Add the protocols you intend to administer. You can fill them in over several sessions — everything saves as you go.</p></div>';
+  } else {
+    ps.slice().sort((x,y)=>AS_DOMAIN_ORDER.indexOf(x.protocol_domain)-AS_DOMAIN_ORDER.indexOf(y.protocol_domain)).forEach(p=>{
+      const pct=p.completed_pct||0;
+      const pill=p.status==='complete'?'<span class="as-pill done">Complete</span>':`<span class="as-pill prog">${pct}%</span>`;
+      const card=el(`<div class="row-card" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="row-main">
+            <div class="row-name">${escapeHtml(p.protocol_title||p.protocol_code)}</div>
+            <div class="row-sub">${escapeHtml(AS_DOMAIN_LABEL[p.protocol_domain]||'')} · ${escapeHtml(p.protocol_code)} v${escapeHtml(p.protocol_version)}</div>
+          </div>${pill}
+          <button class="btn btn-ghost btn-sm pDel" style="width:auto;color:var(--danger)">Remove</button>
+        </div>
+        <div class="as-prog"><i style="width:${pct}%"></i></div>
+      </div>`);
+      card.onclick=e=>{ if(e.target.closest('.pDel')) return; SELECTED_APROTO=p; SELECTED_ASSESSMENT=a; go('assess_protocol'); };
+      card.querySelector('.pDel').onclick=async(e)=>{
+        e.stopPropagation();
+        if(!confirm('Remove this protocol and everything recorded in it?')) return;
+        await sb.from('assessment_protocols').delete().eq('id',p.id);
+        toast('Protocol removed'); renderAssessment($('#view'),a);
+      };
+      pr.appendChild(card);
+    });
+  }
+
+  // standardized scores
+  const sw=$('#scoreWrap');
+  if(!scores||!scores.length){
+    sw.innerHTML='<div class="empty" style="padding:22px"><h4>No standardized results entered</h4><p>Where you have administered a licensed instrument in full with its own materials, enter the <strong>results</strong> here. Mindora does not reproduce test items or norms.</p></div>';
+  } else {
+    sw.innerHTML=`<table class="as-tbl"><thead><tr>
+      <th>Tool</th><th>Subtest</th><th>Raw</th><th>Standard</th><th>Scaled</th><th>%ile</th><th>CI</th><th>Descriptor</th><th></th>
+    </tr></thead><tbody>${scores.map(s=>`<tr data-id="${s.id}">
+      <td><strong>${escapeHtml(s.tool_name)}</strong>${s.tool_edition?'<br><span style="color:var(--muted)">'+escapeHtml(s.tool_edition)+'</span>':''}</td>
+      <td>${escapeHtml(s.subtest||'—')}</td>
+      <td>${escapeHtml(s.raw_score||'—')}</td>
+      <td>${escapeHtml(s.standard_score||'—')}</td>
+      <td>${escapeHtml(s.scaled_score||'—')}</td>
+      <td>${escapeHtml(s.percentile||'—')}</td>
+      <td>${(s.ci_low&&s.ci_high)?escapeHtml(s.ci_low+'–'+s.ci_high):'—'}</td>
+      <td>${escapeHtml(s.descriptor||'—')}</td>
+      <td><button class="btn btn-ghost btn-sm sEd" style="width:auto;padding:4px 8px">Edit</button></td>
+    </tr>`).join('')}</tbody></table>`;
+    sw.querySelectorAll('.sEd').forEach(b=>b.onclick=()=>{
+      const id=b.closest('tr').dataset.id;
+      asScoreForm(a, scores.find(s=>s.id===id), ()=>renderAssessment($('#view'),a));
+    });
+  }
+
+  // report
+  const rr=$('#repRow');
+  const anyDone=(ps||[]).some(p=>p.status==='complete');
+  if(rep){
+    const card=el(`<div class="row-card"><div class="row-ava">${icon('schedule')}</div>
+      <div class="row-main"><div class="row-name">Assessment report</div>
+      <div class="row-sub">${rep.status==='final'?'Final':'Draft'} · updated ${fmtDate(rep.updated_at)}</div></div>
+      <span style="color:var(--accent)">Open ›</span></div>`);
+    card.onclick=()=>{ SELECTED_ASSESSMENT=a; go('assessment_report'); };
+    rr.appendChild(card);
+  } else {
+    const card=el(`<div class="row-card" style="border:1px dashed var(--line)">
+      <div class="row-main"><div class="row-name">Generate the assessment report</div>
+      <div class="row-sub">${anyDone?'Draws the findings from every protocol and standardized result, then hands it to you to edit.':'Complete at least one protocol first.'}</div></div>
+      <span style="color:var(--accent)">${anyDone?'Generate ›':''}</span></div>`);
+    if(anyDone) card.onclick=async()=>{
+      const secs=asBuildSections(c,a,ps||[],scores||[]);
+      const {data,error}=await sb.from('assessment_reports').insert({
+        assessment_id:a.id, sections:secs, generated_at:new Date().toISOString(), updated_by:ME.id
+      }).select().single();
+      if(error){ toast(error.message,true); return; }
+      toast('Report generated'); SELECTED_ASSESSMENT=a; go('assessment_report');
+    };
+    rr.appendChild(card);
+  }
+}
+
+function asAddProtoModal(a, already, after){
+  const groups=AS_DOMAIN_ORDER.map(d=>({
+    d, label:AS_DOMAIN_LABEL[d],
+    items:ASSESS_PROTOCOLS.filter(p=>p.domain===d)
+  }));
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
+    <h3>Add protocols</h3><div class="sub">Tick every protocol you intend to administer in this episode.</div>
+    <div style="max-height:56vh;overflow:auto;margin:10px 0">
+      ${groups.map(g=>`<div class="as-sec"><h4>${escapeHtml(g.label)}<span class="as-cnt">${g.items.length}</span></h4>
+        <div class="as-body">${g.items.map(p=>{
+          const has=already.includes(p.code);
+          return `<div class="as-item"><label style="display:flex;gap:10px;align-items:flex-start;cursor:${has?'default':'pointer'}">
+            <input type="checkbox" data-code="${p.code}" ${has?'checked disabled':''} style="width:auto;margin:3px 0 0"/>
+            <span><span class="as-q">${escapeHtml(p.title)}</span>
+            <span class="as-a">${escapeHtml(p.code)} · ${escapeHtml(p.band)} — ${escapeHtml(p.purpose)}</span></span>
+          </label></div>`;
+        }).join('')}</div></div>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="ap_cancel">Cancel</button><button class="btn btn-primary" id="ap_save">Add selected</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelectorAll('.as-sec>h4').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('collapsed'));
+  m.querySelector('#ap_cancel').onclick=close;
+  m.querySelector('#ap_save').onclick=async()=>{
+    const picked=[...m.querySelectorAll('input[data-code]:checked:not(:disabled)')].map(i=>i.dataset.code);
+    if(!picked.length){ close(); return; }
+    const b=m.querySelector('#ap_save'); b.disabled=true; b.textContent='Adding…';
+    const rows=picked.map(code=>{
+      const p=asProto(code);
+      return { assessment_id:a.id, protocol_code:code, protocol_title:p.title, protocol_domain:p.domain,
+               protocol_version:ASSESS_VERSION, administered_by:ME.id, administered_name:ME.full_name||null };
+    });
+    const {error}=await sb.from('assessment_protocols').insert(rows);
+    if(error){ toast(error.message,true); b.disabled=false; b.textContent='Add selected'; return; }
+    toast(picked.length+' protocol'+(picked.length===1?'':'s')+' added'); close(); after&&after();
+  };
+}
+
+function asEditEpisode(a, after){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Edit assessment</h3>
+    <div class="form-row"><label>Date of assessment</label><input type="date" id="ae_date" value="${a.assessment_date||''}"/></div>
+    <div class="form-row"><label>Assessed by</label><input id="ae_exam" value="${escapeHtml(a.examiner_name||'')}"/></div>
+    <div class="form-row"><label>Discipline</label><input id="ae_disc" value="${escapeHtml(a.examiner_discipline||'')}"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-row" style="flex:1"><label>Age — years</label><input type="number" id="ae_ay" value="${a.age_years??''}"/></div>
+      <div class="form-row" style="flex:1"><label>Age — months</label><input type="number" id="ae_am" value="${a.age_months??''}"/></div>
+    </div>
+    <div class="form-row"><label>Reason for referral</label><textarea id="ae_reason">${escapeHtml(a.reason_for_referral||'')}</textarea></div>
+    <div class="form-row"><label>Background and relevant history</label><textarea id="ae_bg">${escapeHtml(a.background||'')}</textarea></div>
+    <div class="form-row"><label>Informants</label><input id="ae_inf" value="${escapeHtml(a.informants||'')}"/></div>
+    <div class="form-row"><label>Status</label><select id="ae_status">
+      <option value="draft"${a.status==='draft'?' selected':''}>Draft</option>
+      <option value="complete"${a.status==='complete'?' selected':''}>Complete</option>
+      <option value="signed"${a.status==='signed'?' selected':''}>Signed</option>
+    </select></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+      <input type="checkbox" id="ae_consent" ${a.consent_obtained?'checked':''} style="width:auto;margin:0"/> Consent obtained</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="ae_cancel">Cancel</button><button class="btn btn-primary" id="ae_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#ae_cancel').onclick=close;
+  m.querySelector('#ae_save').onclick=async()=>{
+    const g=id=>m.querySelector('#'+id).value.trim();
+    const {error}=await sb.from('assessments').update({
+      assessment_date:g('ae_date')||a.assessment_date,
+      examiner_name:g('ae_exam')||null,
+      examiner_discipline:g('ae_disc')||null,
+      age_years:g('ae_ay')?parseInt(g('ae_ay'),10):null,
+      age_months:g('ae_am')?parseInt(g('ae_am'),10):null,
+      reason_for_referral:g('ae_reason')||null,
+      background:g('ae_bg')||null,
+      informants:g('ae_inf')||null,
+      status:m.querySelector('#ae_status').value,
+      consent_obtained:m.querySelector('#ae_consent').checked
+    }).eq('id',a.id);
+    if(error){ toast(error.message,true); return; }
+    const {data}=await sb.from('assessments').select('*').eq('id',a.id).single();
+    SELECTED_ASSESSMENT=data||a;
+    toast('Saved'); close(); after&&after();
+  };
+}
+
+function asScoreForm(a, s, after){
+  s=s||{};
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${s.id?'Edit':'Add'} standardized result</h3>
+    <div class="sub">Enter the RESULT of an instrument you administered in full with its own licensed materials. Do not enter test items.</div>
+    <div class="form-row"><label>Instrument</label><input id="ss_tool" value="${escapeHtml(s.tool_name||'')}" placeholder="e.g. CELF-5"/></div>
+    <div class="form-row"><label>Edition / standardization</label><input id="ss_ed" value="${escapeHtml(s.tool_edition||'')}"/></div>
+    <div class="form-row"><label>Subtest / index</label><input id="ss_sub" value="${escapeHtml(s.subtest||'')}"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-row" style="flex:1"><label>Raw</label><input id="ss_raw" value="${escapeHtml(s.raw_score||'')}"/></div>
+      <div class="form-row" style="flex:1"><label>Standard</label><input id="ss_std" value="${escapeHtml(s.standard_score||'')}"/></div>
+      <div class="form-row" style="flex:1"><label>Scaled</label><input id="ss_scl" value="${escapeHtml(s.scaled_score||'')}"/></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="form-row" style="flex:1"><label>Percentile</label><input id="ss_pct" value="${escapeHtml(s.percentile||'')}"/></div>
+      <div class="form-row" style="flex:1"><label>CI low</label><input id="ss_cil" value="${escapeHtml(s.ci_low||'')}"/></div>
+      <div class="form-row" style="flex:1"><label>CI high</label><input id="ss_cih" value="${escapeHtml(s.ci_high||'')}"/></div>
+    </div>
+    <div class="form-row"><label>Descriptor</label><input id="ss_desc" value="${escapeHtml(s.descriptor||'')}" placeholder="e.g. Below average"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-row" style="flex:1"><label>Administered on</label><input type="date" id="ss_on" value="${s.administered_on||''}"/></div>
+      <div class="form-row" style="flex:1"><label>Administered by</label><input id="ss_by" value="${escapeHtml(s.administered_by||ME.full_name||'')}"/></div>
+    </div>
+    <div class="form-row"><label>Notes on validity or interpretation</label><textarea id="ss_notes">${escapeHtml(s.notes||'')}</textarea></div>
+    <div class="modal-actions">
+      ${s.id?'<button class="btn btn-ghost" id="ss_del" style="color:var(--danger)">Delete</button>':''}
+      <button class="btn btn-ghost" id="ss_cancel">Cancel</button><button class="btn btn-primary" id="ss_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#ss_cancel').onclick=close;
+  const del=m.querySelector('#ss_del');
+  if(del) del.onclick=async()=>{
+    if(!confirm('Delete this result?')) return;
+    await sb.from('standardized_scores').delete().eq('id',s.id);
+    toast('Deleted'); close(); after&&after();
+  };
+  m.querySelector('#ss_save').onclick=async()=>{
+    const g=id=>m.querySelector('#'+id).value.trim();
+    if(!g('ss_tool')){ toast('Name the instrument',true); return; }
+    const payload={
+      assessment_id:a.id, tool_name:g('ss_tool'), tool_edition:g('ss_ed')||null, subtest:g('ss_sub')||null,
+      raw_score:g('ss_raw')||null, standard_score:g('ss_std')||null, scaled_score:g('ss_scl')||null,
+      percentile:g('ss_pct')||null, ci_low:g('ss_cil')||null, ci_high:g('ss_cih')||null,
+      descriptor:g('ss_desc')||null, administered_on:g('ss_on')||null, administered_by:g('ss_by')||null,
+      notes:g('ss_notes')||null
+    };
+    let error;
+    if(s.id) ({error}=await sb.from('standardized_scores').update(payload).eq('id',s.id));
+    else     ({error}=await sb.from('standardized_scores').insert(Object.assign(payload,{created_by:ME.id})));
+    if(error){ toast(error.message,true); return; }
+    toast('Saved'); close(); after&&after();
+  };
+}
+
+/* ---------------------------------------------------------------------
+   VIEW: fill a protocol  (real-time, autosaving)
+--------------------------------------------------------------------- */
+async function renderAssessProtocol(v,row){
+  if(!row){ go('assessment'); return; }
+  const {data:fresh}=await sb.from('assessment_protocols').select('*').eq('id',row.id).single();
+  row=fresh||row; SELECTED_APROTO=row;
+  const def=asProto(row.protocol_code);
+  const a=SELECTED_ASSESSMENT, c=SELECTED_CHILD;
+  if(!def){ v.innerHTML='<div class="empty"><h4>Protocol not found</h4></div>'; return; }
+
+  const R=Object.assign({}, row.responses||{});
+
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessment</button>
+    <div class="welcome">
+      <h1>${escapeHtml(def.title)}</h1>
+      <p>${escapeHtml(c?c.full_name:'')} · ${escapeHtml(def.code)} v${ASSESS_VERSION} · ${escapeHtml(def.band)}</p>
+    </div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:2px;background:var(--accent-soft);border:1px solid var(--accent)">
+      <div class="row-sub" style="white-space:normal">${escapeHtml(def.purpose)}</div>
+      <div class="row-sub" style="white-space:normal;margin-top:6px"><strong>This is a Mindora criterion-referenced protocol.</strong> It describes performance against published developmental and clinical criteria. It does not produce standard scores or percentiles.</div>
+      <div class="as-prog" style="margin-top:10px"><i id="progBar" style="width:${row.completed_pct||0}%"></i></div>
+      <div class="row-sub"><span id="progTxt">${row.completed_pct||0}%</span> complete</div>
+    </div>
+    <div id="secs" style="margin-top:14px"></div>
+    <div style="display:flex;gap:10px;margin:8px 0 30px">
+      <button class="btn btn-ghost" id="markIncomplete" style="flex:1">Leave as in progress</button>
+      <button class="btn btn-primary" id="markComplete" style="flex:1">Mark protocol complete</button>
+    </div>
+    <div class="as-save" id="saveTag">Saved</div>`;
+
+  $('#backBtn').onclick=()=>{ SELECTED_ASSESSMENT=a; go('assessment'); };
+
+  const wrap=$('#secs');
+  def.sections.forEach((sec,si)=>{
+    const secEl=el(`<div class="as-sec"><h4>${escapeHtml(sec.s)}<span class="as-cnt" data-cnt="${si}"></span></h4><div class="as-body"></div></div>`);
+    const body=secEl.querySelector('.as-body');
+    secEl.querySelector('h4').onclick=()=>secEl.classList.toggle('collapsed');
+
+    sec.items.forEach(it=>{
+      const cur=R[it.c]||{};
+      const itEl=el(`<div class="as-item" data-c="${it.c}">
+        <div class="as-q">${escapeHtml(it.t)}</div>
+        ${it.a?`<div class="as-a">${escapeHtml(it.a)}</div>`:''}
+        <div class="as-ctl"></div>
+        <div class="as-note">
+          <button type="button" class="noteTog">${cur.n?'Edit note':'+ Add note'}</button>
+          <textarea class="noteBox" placeholder="Observation, example, qualifier…" style="display:${cur.n?'block':'none'}">${escapeHtml(cur.n||'')}</textarea>
+        </div>
+      </div>`);
+      const ctl=itEl.querySelector('.as-ctl');
+
+      if(['M','G','V','F','S','Y'].includes(it.ty)){
+        const sc=AS_SCALES[it.ty];
+        const opts=el(`<div class="as-opts"></div>`);
+        sc.opts.forEach((label,idx)=>{
+          const b=el(`<div class="as-opt" data-v="${idx}">${escapeHtml(label)}</div>`);
+          const tone = sc.dir===0 ? (idx===2?'pos':(idx===0||idx===4?'neg':''))
+                     : sc.dir>0   ? (idx>=3?'pos':(idx===0?'neg':''))
+                                  : (idx===0?'pos':(idx>=2?'neg':''));
+          if(tone) b.classList.add(tone);
+          if(cur.v===idx) b.classList.add('on');
+          b.onclick=()=>{
+            const already=b.classList.contains('on');
+            opts.querySelectorAll('.as-opt').forEach(x=>x.classList.remove('on'));
+            if(already){ delete R[it.c]; }
+            else { b.classList.add('on'); R[it.c]=Object.assign({},R[it.c]||{},{v:idx}); }
+            queueSave();
+          };
+          opts.appendChild(b);
+        });
+        ctl.appendChild(opts);
+      }
+      else if(it.ty==='C'){
+        const sel=el(`<select class="as-sel"><option value="">— select —</option>${
+          (it.o||[]).map((o,i)=>`<option value="${i}"${cur.v===i?' selected':''}>${escapeHtml(o)}</option>`).join('')}</select>`);
+        sel.onchange=()=>{
+          if(sel.value===''){ delete R[it.c]; }
+          else R[it.c]=Object.assign({},R[it.c]||{},{v:parseInt(sel.value,10)});
+          queueSave();
+        };
+        ctl.appendChild(sel);
+      }
+      else if(it.ty==='X'){
+        const opts=el(`<div class="as-opts"></div>`);
+        const chosen=Array.isArray(cur.v)?cur.v.slice():[];
+        (it.o||[]).forEach(o=>{
+          const b=el(`<div class="as-opt">${escapeHtml(o)}</div>`);
+          if(chosen.includes(o)) b.classList.add('on');
+          b.onclick=()=>{
+            const i=chosen.indexOf(o);
+            if(i>=0){ chosen.splice(i,1); b.classList.remove('on'); }
+            else { chosen.push(o); b.classList.add('on'); }
+            if(chosen.length) R[it.c]=Object.assign({},R[it.c]||{},{v:chosen.slice()});
+            else delete R[it.c];
+            queueSave();
+          };
+          opts.appendChild(b);
+        });
+        ctl.appendChild(opts);
+      }
+      else if(it.ty==='N'){
+        const inp=el(`<input class="as-num" type="number" step="any" value="${cur.v??''}" placeholder="${escapeHtml(it.u||'')}"/>`);
+        inp.oninput=()=>{
+          if(inp.value===''){ delete R[it.c]; }
+          else R[it.c]=Object.assign({},R[it.c]||{},{v:parseFloat(inp.value)});
+          queueSave();
+        };
+        ctl.appendChild(inp);
+      }
+      else if(it.ty==='T'){
+        const ta=el(`<textarea class="as-area" rows="3">${escapeHtml(cur.v||'')}</textarea>`);
+        ta.oninput=()=>{
+          if(!ta.value.trim()){ delete R[it.c]; }
+          else R[it.c]=Object.assign({},R[it.c]||{},{v:ta.value});
+          queueSave();
+        };
+        ctl.appendChild(ta);
+      }
+
+      const tog=itEl.querySelector('.noteTog'), box=itEl.querySelector('.noteBox');
+      tog.onclick=()=>{ box.style.display = box.style.display==='none'?'block':'none'; if(box.style.display==='block') box.focus(); };
+      box.oninput=()=>{
+        const val=box.value;
+        if(!val.trim()){ if(R[it.c]) delete R[it.c].n; }
+        else R[it.c]=Object.assign({},R[it.c]||{},{n:val});
+        tog.textContent = val.trim()?'Edit note':'+ Add note';
+        queueSave();
+      };
+
+      body.appendChild(itEl);
+    });
+    wrap.appendChild(secEl);
+  });
+
+  function refreshCounts(){
+    def.sections.forEach((sec,si)=>{
+      const n=sec.items.filter(i=>asAnswered(R[i.c])).length;
+      const tag=wrap.querySelector(`[data-cnt="${si}"]`);
+      if(tag) tag.textContent=n+'/'+sec.items.length;
+    });
+    const pct=asProgress(def,R);
+    $('#progBar').style.width=pct+'%';
+    $('#progTxt').textContent=pct+'%';
+    return pct;
+  }
+  refreshCounts();
+
+  function queueSave(){
+    const pct=refreshCounts();
+    clearTimeout(AS_SAVE_TIMER);
+    AS_SAVE_TIMER=setTimeout(async()=>{
+      const tag=$('#saveTag'); if(tag){ tag.textContent='Saving…'; tag.classList.add('show'); }
+      const {error}=await sb.from('assessment_protocols').update({
+        responses:R, completed_pct:pct, narrative:asNarrative(def,R)
+      }).eq('id',row.id);
+      if(tag){
+        tag.textContent = error?'Not saved':'Saved';
+        setTimeout(()=>tag.classList.remove('show'),1400);
+      }
+      if(error) toast(error.message,true);
+    },700);
+  }
+
+  $('#markComplete').onclick=async()=>{
+    const pct=asProgress(def,R);
+    const {error}=await sb.from('assessment_protocols').update({
+      responses:R, completed_pct:pct, narrative:asNarrative(def,R),
+      status:'complete', completed_at:new Date().toISOString()
+    }).eq('id',row.id);
+    if(error){ toast(error.message,true); return; }
+    toast('Protocol marked complete'); SELECTED_ASSESSMENT=a; go('assessment');
+  };
+  $('#markIncomplete').onclick=async()=>{
+    await sb.from('assessment_protocols').update({
+      responses:R, completed_pct:asProgress(def,R), narrative:asNarrative(def,R),
+      status:'in_progress', completed_at:null
+    }).eq('id',row.id);
+    toast('Saved'); SELECTED_ASSESSMENT=a; go('assessment');
+  };
+}
+
+/* ---------------------------------------------------------------------
+   VIEW: the assessment report + clinical summary
+--------------------------------------------------------------------- */
+async function renderAssessmentReport(v,a){
+  if(!a){ go('child_assessments'); return; }
+  const c=SELECTED_CHILD;
+  const [{data:rep},{data:ps},{data:scores},{data:aFresh}]=await Promise.all([
+    sb.from('assessment_reports').select('*').eq('assessment_id',a.id).maybeSingle(),
+    sb.from('assessment_protocols').select('*').eq('assessment_id',a.id),
+    sb.from('standardized_scores').select('*').eq('assessment_id',a.id).order('created_at'),
+    sb.from('assessments').select('*').eq('id',a.id).single()
+  ]);
+  if(aFresh){ a=aFresh; SELECTED_ASSESSMENT=a; }
+  if(!rep){ toast('No report yet',true); go('assessment'); return; }
+
+  let secs = Array.isArray(rep.sections)?rep.sections:asBuildSections(c,a,ps||[],scores||[]);
+
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessment</button>
+    <div class="welcome"><h1>Assessment report</h1>
+      <p>${escapeHtml(c?c.full_name:'')} · ${fmtDate(a.assessment_date)} · ${rep.status==='final'?'Final':'Draft'}</p></div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-ghost btn-sm" id="regen" style="width:auto">Regenerate from protocols</button>
+      <button class="btn btn-ghost btn-sm" id="printRep" style="width:auto">Print / PDF</button>
+      <button class="btn btn-ghost btn-sm" id="finalRep" style="width:auto">${rep.status==='final'?'Reopen as draft':'Mark final'}</button>
+    </div>
+
+    <div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)">
+      <div class="row-sub" style="white-space:normal">Every section below is editable. Regenerating rewrites the <em>Findings</em>, <em>Procedures</em> and <em>Standardized results</em> sections from the protocols — anything you have written in the impression, recommendations and goals is preserved.</div>
+    </div>
+
+    <div id="repSecs" style="margin-top:14px"></div>
+
+    <div class="section-head" style="margin-top:24px"><h3>Clinical summary</h3>
+      <button class="btn btn-primary btn-sm" id="genSum" style="width:auto">Generate from report</button></div>
+    <div class="as-rep-sec">
+      <div class="as-hint">The short version that goes to the parent, the school, or the next clinician. Generated from the report above, then edited by you.</div>
+      <textarea id="sumBox" style="min-height:220px">${escapeHtml(a.clinical_summary||'')}</textarea>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-primary btn-sm" id="saveSum" style="width:auto">Save summary</button>
+        <button class="btn btn-ghost btn-sm" id="printSum" style="width:auto">Print summary</button>
+      </div>
+    </div>
+    <div class="as-save" id="repTag">Saved</div>
+    <div style="height:30px"></div>`;
+
+  $('#backBtn').onclick=()=>{ SELECTED_ASSESSMENT=a; go('assessment'); };
+
+  const wrap=$('#repSecs');
+  secs.forEach((s,i)=>{
+    const secEl=el(`<div class="as-rep-sec">
+      <h4>${escapeHtml(s.t)}</h4>
+      <textarea data-i="${i}">${escapeHtml(s.v||'')}</textarea>
+    </div>`);
+    const ta=secEl.querySelector('textarea');
+    ta.oninput=()=>{ secs[i].v=ta.value; queueRepSave(); };
+    wrap.appendChild(secEl);
+  });
+  growAllTextareas(wrap);
+
+  let repTimer=null;
+  function queueRepSave(){
+    clearTimeout(repTimer);
+    repTimer=setTimeout(async()=>{
+      const tag=$('#repTag'); if(tag){ tag.textContent='Saving…'; tag.classList.add('show'); }
+      const {error}=await sb.from('assessment_reports').update({sections:secs, updated_by:ME.id}).eq('id',rep.id);
+      if(tag){ tag.textContent=error?'Not saved':'Saved'; setTimeout(()=>tag.classList.remove('show'),1400); }
+      if(error) toast(error.message,true);
+    },700);
+  }
+
+  $('#regen').onclick=async()=>{
+    if(!confirm('Rewrite Findings, Procedures and Standardized results from the protocols? Your impression, recommendations and goals will be kept.')) return;
+    const fresh=asBuildSections(c,a,ps||[],scores||[]);
+    const keep=['impression','recommendations','goals','background','referral'];
+    const merged=fresh.map(f=>{
+      if(keep.includes(f.k)){
+        const old=secs.find(s=>s.k===f.k);
+        if(old && old.v && old.v.trim()) return Object.assign({},f,{v:old.v});
+      }
+      return f;
+    });
+    const {error}=await sb.from('assessment_reports').update({
+      sections:merged, generated_at:new Date().toISOString(), updated_by:ME.id
+    }).eq('id',rep.id);
+    if(error){ toast(error.message,true); return; }
+    toast('Report regenerated'); renderAssessmentReport($('#view'),a);
+  };
+
+  $('#finalRep').onclick=async()=>{
+    const next=rep.status==='final'?'draft':'final';
+    await sb.from('assessment_reports').update({status:next, updated_by:ME.id}).eq('id',rep.id);
+    toast(next==='final'?'Report marked final':'Report reopened');
+    renderAssessmentReport($('#view'),a);
+  };
+
+  $('#genSum').onclick=async()=>{
+    const txt=asBuildSummary(c,a,secs,ps||[]);
+    $('#sumBox').value=txt; growTextarea($('#sumBox'));
+    await sb.from('assessments').update({clinical_summary:txt}).eq('id',a.id);
+    toast('Summary generated — edit it before it goes out');
+  };
+  $('#saveSum').onclick=async()=>{
+    const {error}=await sb.from('assessments').update({
+      clinical_summary:$('#sumBox').value, summary_status:'draft'
+    }).eq('id',a.id);
+    toast(error?error.message:'Summary saved', !!error);
+  };
+
+  $('#printRep').onclick=()=>asPrint(c,a,secs.map(s=>[s.t,s.v]),'Assessment report');
+  $('#printSum').onclick=()=>asPrint(c,a,[['Clinical summary',$('#sumBox').value]],'Clinical summary');
+}
+
+/* ---------------------------------------------------------------------
+   PRINT / PDF — branded
+--------------------------------------------------------------------- */
+function asPrint(child, a, blocks, docTitle){
+  const w=window.open('','_blank');
+  if(!w){ toast('Allow pop-ups to print',true); return; }
+  const body=blocks.map(([t,v])=>`
+    <section><h2>${escapeHtml(t)}</h2><div class="body">${escapeHtml(v||'—').replace(/\n/g,'<br>')}</div></section>`).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)} — ${escapeHtml(child?child.full_name:'')}</title>
+  <style>
+    @page{margin:18mm 16mm}
+    *{box-sizing:border-box}
+    body{font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,sans-serif;color:#2A2330;font-size:12pt;line-height:1.55;margin:0}
+    .stripe{height:5px;background:linear-gradient(90deg,#000 0 33.3%,#FCDC04 33.3% 66.6%,#D90000 66.6% 100%)}
+    header{padding:16px 0 10px;border-bottom:2px solid #6C3483;margin-bottom:18px}
+    h1{font-family:Georgia,'Times New Roman',serif;color:#6C3483;margin:0 0 4px;font-size:20pt}
+    .meta{color:#6B6475;font-size:10pt}
+    h2{font-family:Georgia,serif;color:#4A1E63;font-size:13pt;margin:20px 0 6px;padding-bottom:4px;border-bottom:1px solid #E6D8EE;page-break-after:avoid}
+    section{page-break-inside:avoid}
+    .body{white-space:normal}
+    footer{margin-top:28px;padding-top:10px;border-top:1px solid #E6D8EE;color:#6B6475;font-size:9pt}
+    @media print{ .noprint{display:none} }
+  </style></head><body>
+  <div class="stripe"></div>
+  <header>
+    <h1>Mindora Inclusive Child Development Services</h1>
+    <div class="meta">${escapeHtml(docTitle)} · ${escapeHtml(child?child.full_name:'')}${child&&child.child_no?' · '+escapeHtml(child.child_no):''} · ${fmtDate(a.assessment_date)}</div>
+  </header>
+  ${body}
+  <footer>
+    Home, Hope &amp; Harmony · mindoraicds@gmail.com · 0741 397 167<br>
+    Mindora criterion-referenced protocol findings are descriptive and are not standardized scores.
+    Where standard scores appear, they derive from the licensed instrument named, administered in full with its own materials.<br>
+    Confidential. Prepared for the named child and their care team.
+  </footer>
+  <script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 
