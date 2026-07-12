@@ -218,9 +218,19 @@ a{color:var(--purple)}
 .form-row{margin-bottom:13px}
 .form-row.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-row label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
-.form-row input,.form-row select,.form-row textarea{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:11px;background:#FCFBFD}
-.form-row textarea{resize:vertical;min-height:64px}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:13px 15px;border:1.5px solid var(--line);border-radius:11px;background:#FCFBFD}
+.form-row textarea{resize:vertical;min-height:150px;line-height:1.6;font-size:15px;overflow:hidden;white-space:pre-wrap;word-wrap:break-word}
 .form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 4px rgba(142,68,173,.1)}
+.form-row textarea:focus{background:#fff}
+/* Collapsible clinical block */
+details.clin-fold{border:1.5px solid var(--line);border-radius:12px;background:#FCFBFD;margin:10px 0 16px;overflow:hidden}
+details.clin-fold>summary{list-style:none;cursor:pointer;padding:13px 15px;font-weight:600;color:var(--accent-deep);display:flex;align-items:center;gap:8px;user-select:none}
+details.clin-fold>summary::-webkit-details-marker{display:none}
+details.clin-fold>summary::before{content:'▸';font-size:13px;transition:transform .15s;color:var(--muted)}
+details.clin-fold[open]>summary::before{transform:rotate(90deg)}
+details.clin-fold[open]>summary{border-bottom:1px solid var(--line);background:#fff}
+details.clin-fold>summary .fold-note{color:var(--muted);font-weight:400;font-size:12px}
+details.clin-fold .fold-body{padding:14px 15px 4px}
 .modal-actions{display:flex;gap:10px;margin-top:20px}
 .modal-actions .btn{flex:1}
 
@@ -268,7 +278,7 @@ a{color:var(--purple)}
 .bubble-body{font-size:14.5px;white-space:pre-wrap;line-height:1.45}
 .chat-compose{display:flex;gap:10px;margin-top:14px;align-items:flex-end}
 .chat-att:not(:empty){margin-top:12px}
-.chat-compose textarea{flex:1;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fff;resize:vertical}
+.chat-compose textarea{flex:1;padding:11px 13px;border:1.5px solid var(--line);border-radius:12px;background:#fff;resize:vertical;min-height:48px;max-height:200px;line-height:1.5}
 .chat-compose textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 
 /* team grid + cards */
@@ -1076,6 +1086,43 @@ function updateNavButtons(){
   if(back) back.disabled = NAV_HISTORY.length===0;
   if(home) home.disabled = (currentView===homeView());
 }
+// ---- Auto-growing textareas ------------------------------------------------
+// Textareas expand to fit their content so nothing you type is ever hidden
+// above the visible line. Applies to every textarea in the app, including
+// ones rendered later inside modals.
+const TA_MIN=150, TA_MAX=900;
+function growTextarea(ta){
+  if(!ta || ta.tagName!=='TEXTAREA') return;
+  // the chat reply box stays compact; every other textarea opens large
+  const isChat = !!ta.closest('.chat-compose');
+  const min = isChat ? 48  : TA_MIN;
+  const max = isChat ? 200 : TA_MAX;
+  ta.style.height='auto';
+  const h=Math.min(Math.max(ta.scrollHeight+2, min), max);
+  ta.style.height=h+'px';
+  ta.style.overflowY = (ta.scrollHeight+2 > max) ? 'auto' : 'hidden';
+}
+function growAllTextareas(root){
+  (root||document).querySelectorAll('textarea').forEach(growTextarea);
+}
+// grow while typing (delegated — covers dynamically rendered forms)
+document.addEventListener('input', e=>{ if(e.target && e.target.tagName==='TEXTAREA') growTextarea(e.target); }, true);
+document.addEventListener('focusin', e=>{ if(e.target && e.target.tagName==='TEXTAREA') growTextarea(e.target); }, true);
+// grow any textarea that gets added to the page (forms, modals, sheets)
+const TA_OBS=new MutationObserver(muts=>{
+  for(const m of muts){
+    for(const n of m.addedNodes){
+      if(n.nodeType!==1) continue;
+      if(n.tagName==='TEXTAREA') growTextarea(n);
+      else if(n.querySelectorAll) n.querySelectorAll('textarea').forEach(growTextarea);
+    }
+  }
+});
+document.addEventListener('DOMContentLoaded', ()=>{
+  TA_OBS.observe(document.body,{childList:true,subtree:true});
+  growAllTextareas();
+});
+
 function go(view){
   // record where we came from (unless this navigation is itself a back-step)
   if(NAV_BACK){ NAV_BACK=false; }
@@ -1256,12 +1303,16 @@ function openClientForm(c){
     </div>
     <div class="form-row"><label>Presenting needs / notes <span style="color:var(--muted);font-weight:400">(intake — what the family reported)</span></label><textarea id="f_needs">${escapeHtml(c.presenting_needs||'')}</textarea></div>
     <div class="form-row"><label>Monthly service-unit fee (UGX) <span style="color:var(--muted);font-weight:400">— ONE fee per month for this child's whole assigned bundle (sessions + parent coaching + teacher training + documentation). Split across the care team. Director &amp; assigned pro only.</span></label><input id="f_unitrate" type="number" min="0" value="${c.prof_unit_rate??''}" placeholder="e.g. 250000"/></div>
-    <div style="border-top:1px solid var(--line);margin:6px 0 14px;padding-top:12px"><div class="row-name" style="color:var(--accent-deep)">Clinical summary <span style="color:var(--muted);font-weight:400;font-size:12px">— completed by the clinician; shown to the parent</span></div></div>
-    <div class="form-row"><label>Diagnosis / clinical classification</label><input id="f_cdiag" value="${escapeHtml(c.clinical_diagnosis||'')}" placeholder="e.g. Expressive language delay; ASD (Level 1)"/></div>
-    <div class="form-row"><label>Assessment findings</label><textarea id="f_cassess" placeholder="Key findings from assessment (standardised results, observations)">${escapeHtml(c.clinical_assessment||'')}</textarea></div>
-    <div class="form-row"><label>Clinical impressions</label><textarea id="f_cimp" placeholder="Clinician's interpretation of the child's presentation">${escapeHtml(c.clinical_impressions||'')}</textarea></div>
-    <div class="form-row"><label>Developmental / relevant history</label><textarea id="f_chist" placeholder="Birth, milestones, medical, family history relevant to the case">${escapeHtml(c.developmental_history||'')}</textarea></div>
-    <div class="form-row"><label>Clinical recommendations</label><textarea id="f_crec" placeholder="Recommended program, intensity, focus areas, referrals">${escapeHtml(c.clinical_recommendations||'')}</textarea></div>
+    <details class="clin-fold">
+      <summary>Clinical summary <span class="fold-note">— completed by the clinician; shown to the parent</span></summary>
+      <div class="fold-body">
+        <div class="form-row"><label>Diagnosis / clinical classification</label><input id="f_cdiag" value="${escapeHtml(c.clinical_diagnosis||'')}" placeholder="e.g. Expressive language delay; ASD (Level 1)"/></div>
+        <div class="form-row"><label>Assessment findings</label><textarea id="f_cassess" placeholder="Key findings from assessment (standardized results, observations)">${escapeHtml(c.clinical_assessment||'')}</textarea></div>
+        <div class="form-row"><label>Clinical impressions</label><textarea id="f_cimp" placeholder="Clinician's interpretation of the child's presentation">${escapeHtml(c.clinical_impressions||'')}</textarea></div>
+        <div class="form-row"><label>Developmental / relevant history</label><textarea id="f_chist" placeholder="Birth, milestones, medical, family history relevant to the case">${escapeHtml(c.developmental_history||'')}</textarea></div>
+        <div class="form-row"><label>Clinical recommendations</label><textarea id="f_crec" placeholder="Recommended program, intensity, focus areas, referrals">${escapeHtml(c.clinical_recommendations||'')}</textarea></div>
+      </div>
+    </details>
     <div class="form-row"><label>Child photo <span style="color:var(--muted);font-weight:400">(optional)</span></label><div id="f_photo_up"></div></div>
     <div style="border-top:1px solid var(--line);margin:6px 0 14px;padding-top:12px"><div class="row-name" style="color:var(--accent-deep)">School & class details</div></div>
     <div class="form-row"><label>Linked institution <span style="color:var(--muted);font-weight:400">(so the school portal sees this child)</span></label>
@@ -2079,8 +2130,11 @@ function clinicalSummaryHtml(c, secs, rep){
     return `<div class="section-head"><h3>Clinical summary</h3></div><div class="empty" style="padding:22px"><h4>Assessment in progress</h4><p>The clinical summary will appear here once the first assessment is completed.</p></div>`;
   }
   const stamp = c.clinical_updated_at ? `Updated ${fmtDate(c.clinical_updated_at)}` : '';
-  return `<div class="section-head"><h3>Clinical summary</h3>${stamp?`<span class="row-sub">${escapeHtml(stamp)}</span>`:''}</div>`+
-    clin.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('');
+  return `<details class="clin-fold">
+    <summary>Clinical summary <span class="fold-note">${stamp?escapeHtml(stamp):'— tap to view'}</span></summary>
+    <div class="fold-body">`+
+    clin.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('')+
+    `</div></details>`;
 }
 
 // ---- Shared: full session detail (read-only), respects parent visibility ----
@@ -2263,9 +2317,12 @@ async function renderParentChild(v,c){
 
   const clinBox=$('#clinBox');
   if(clin.length){
-    const stamp = c.clinical_updated_at ? `Updated ${fmtDate(c.clinical_updated_at)}` : (rep?escapeHtml(rep.title||'Latest report'):'');
-    clinBox.innerHTML=`<div class="section-head"><h3>Clinical summary</h3>${stamp?`<span class="row-sub">${escapeHtml(stamp)}</span>`:''}</div>`+
-      clin.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('');
+    const stamp = c.clinical_updated_at ? `Updated ${fmtDate(c.clinical_updated_at)}` : (rep?(rep.title||'Latest report'):'');
+    clinBox.innerHTML=`<details class="clin-fold">
+      <summary>Clinical summary <span class="fold-note">${stamp?escapeHtml(stamp):'— tap to view'}</span></summary>
+      <div class="fold-body">`+
+      clin.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('')+
+      `</div></details>`;
   } else {
     clinBox.innerHTML=`<div class="section-head"><h3>Clinical summary</h3></div>
       <div class="empty" style="padding:22px"><h4>Assessment in progress</h4><p>Your child's clinical summary will appear here once the team completes the first assessment.</p></div>`;
