@@ -580,6 +580,36 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 .as-rep-sec textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;font:inherit;font-size:14px;line-height:1.55;background:var(--bg2);color:var(--ink);min-height:120px}
 .as-flag{border:1px solid #F3C9CB;background:#FDEEEF;color:#8E2226;border-radius:12px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.45}
 
+
+/* ===================== DATA SAFETY (STAGE 31) ===================== */
+.ds-warn{border:1px solid #F0D9A8;background:#FDF6E7;color:#7A5410;border-radius:14px;padding:14px 16px;margin-bottom:16px}
+.ds-warn.danger{border-color:#F3C9CB;background:#FDEEEF;color:#8E2226}
+.ds-warn-t{font-weight:700;font-size:15px;margin-bottom:3px}
+.ds-warn-b{font-size:13px;line-height:1.5}
+.ds-tabs{display:flex;gap:8px;margin-bottom:16px}
+.ds-tab{flex:1;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .12s ease}
+.ds-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ds-card{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:16px 18px;margin-bottom:10px}
+.ds-card.ok{border-color:#9FD8C6;background:#F1FAF7}
+.ds-card.danger{border-color:#F3C9CB;background:#FDEEEF}
+.ds-big{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--ink);line-height:1.15}
+.ds-card.danger .ds-big{color:#8E2226}
+.ds-card.ok .ds-big{color:#0B4D3C}
+.ds-lbl{font-size:12.5px;color:var(--muted);margin-top:3px}
+.au-row{border:1px solid var(--line);background:var(--card);border-radius:13px;margin-bottom:8px;overflow:hidden}
+.au-row.ok{border-left:3px solid var(--ok)}
+.au-row.danger{border-left:3px solid var(--danger)}
+.au-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:11px 13px;cursor:pointer}
+.au-head:hover{background:var(--bg2)}
+.au-act{font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;background:var(--accent-soft);color:var(--accent-deep)}
+.au-act.INSERT{background:#DCF1EA;color:#0B4D3C}
+.au-act.DELETE{background:#FDEEEF;color:#8E2226}
+.au-tbl{font-size:13px;font-weight:600;color:var(--ink)}
+.au-who{font-size:12px;color:var(--muted);flex:1;min-width:90px}
+.au-when{font-size:11.5px;color:var(--muted)}
+.au-fields{padding:0 13px 10px;font-size:11.5px;color:var(--muted)}
+.au-detail{padding:0 13px 13px;border-top:1px dashed var(--line)}
+
 </style>
 </head>
 <body>
@@ -740,6 +770,7 @@ const NAV = {
     {k:'case_discussions',label:'Case discussions',icon:'chat'},
     {k:'support',label:'Support inbox',icon:'chat',directorOnly:true},
     {k:'access',label:'People & access',icon:'profile',directorOnly:true},
+    {k:'data_safety',label:'Data & audit',icon:'set',directorOnly:true},
     {k:'settings',label:'Settings',icon:'set',directorOnly:true},
   ],
   professional:[
@@ -1074,7 +1105,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1146,7 +1177,8 @@ function go(view){
    child_assessments:(vv)=>renderChildAssessments(vv,SELECTED_CHILD),
    assessment:(vv)=>renderAssessment(vv,SELECTED_ASSESSMENT),
    assess_protocol:(vv)=>renderAssessProtocol(vv,SELECTED_APROTO),
-   assessment_report:(vv)=>renderAssessmentReport(vv,SELECTED_ASSESSMENT)}[view]||(()=>{}))(v);
+   assessment_report:(vv)=>renderAssessmentReport(vv,SELECTED_ASSESSMENT),
+   data_safety:renderDataSafety}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -1202,7 +1234,9 @@ async function renderDashboard(v){
       </div>`;
     }
   }
+  const bkWarn = await backupWarningHtml();
   v.innerHTML=`
+    ${bkWarn}
     <div class="welcome">
       <h1>Hello, ${escapeHtml(firstName())} 👋</h1>
       <p>This is your live operations workspace. Everything you and your team enter here is shared and saved securely. Tap a card or use the menu to get started.</p>
@@ -1222,6 +1256,7 @@ async function renderDashboard(v){
     </div>`;
   $('#qaClient').onclick=()=>openClientForm();
   $('#qaClients').onclick=()=>go('clients');
+  wireBackupWarning();
   v.querySelectorAll('.attn-row').forEach(r=>r.onclick=()=>go(r.dataset.go));
 }
 
@@ -7683,6 +7718,302 @@ function asPrint(child, a, blocks, docTitle){
   <script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
   </body></html>`);
   w.document.close();
+}
+
+
+
+/* =====================================================================
+   MINDORA — STAGE 31
+   Data safety: backup / export, and the audit trail viewer.
+   ===================================================================== */
+
+let AUDIT_FILTER = { table:'', action:'', q:'' };
+let BACKUP_WARN_DAYS = 7;
+
+/* ---------------------------------------------------------------------
+   Dashboard warning — injected at the top of the director's dashboard
+--------------------------------------------------------------------- */
+async function backupWarningHtml(){
+  if(!isDirector()) return '';
+  const {data,error}=await sb.rpc('mnd_days_since_backup');
+  if(error) return '';
+  const d=Number(data);
+  if(d===9999){
+    return `<div class="ds-warn danger" id="dsWarn">
+      <div class="ds-warn-t">You have never taken a backup.</div>
+      <div class="ds-warn-b">Every child record, assessment and report exists in one place only. If that place is lost, Mindora is lost. This takes about thirty seconds.</div>
+      <button class="btn btn-primary btn-sm" id="dsWarnBtn" style="width:auto;margin-top:9px">Take a backup now</button>
+    </div>`;
+  }
+  if(d>=BACKUP_WARN_DAYS){
+    return `<div class="ds-warn ${d>=21?'danger':''}" id="dsWarn">
+      <div class="ds-warn-t">Last backup was ${d} days ago.</div>
+      <div class="ds-warn-b">Anything entered since then exists in one place only.</div>
+      <button class="btn btn-primary btn-sm" id="dsWarnBtn" style="width:auto;margin-top:9px">Take a backup now</button>
+    </div>`;
+  }
+  return '';
+}
+function wireBackupWarning(){
+  const b=$('#dsWarnBtn');
+  if(b) b.onclick=()=>go('data_safety');
+}
+
+/* ---------------------------------------------------------------------
+   VIEW: Data safety  (backup + audit, director/staff)
+--------------------------------------------------------------------- */
+let DS_TAB='backup';
+async function renderDataSafety(v){
+  v.innerHTML=`
+    <div class="welcome"><h1>Data safety</h1>
+      <p>Your backups, and the record of who changed what.</p></div>
+    <div class="ds-tabs">
+      <button class="ds-tab ${DS_TAB==='backup'?'on':''}" data-t="backup">Backup</button>
+      <button class="ds-tab ${DS_TAB==='audit'?'on':''}" data-t="audit">Audit trail</button>
+    </div>
+    <div id="dsBody"><div class="loading"><div class="spin"></div> Loading…</div></div>`;
+  v.querySelectorAll('.ds-tab').forEach(b=>b.onclick=()=>{
+    DS_TAB=b.dataset.t;
+    v.querySelectorAll('.ds-tab').forEach(x=>x.classList.toggle('on',x.dataset.t===DS_TAB));
+    (DS_TAB==='backup'?renderBackupTab:renderAuditTab)($('#dsBody'));
+  });
+  (DS_TAB==='backup'?renderBackupTab:renderAuditTab)($('#dsBody'));
+}
+
+/* ---------------------------------------------------------------------
+   TAB: Backup
+--------------------------------------------------------------------- */
+async function renderBackupTab(wrap){
+  if(!isDirector()){
+    wrap.innerHTML='<div class="empty" style="padding:26px"><h4>Director only</h4><p>Backups may only be taken by the Program Director.</p></div>';
+    return;
+  }
+  wrap.innerHTML='<div class="loading"><div class="spin"></div> Counting records…</div>';
+
+  const [{data:counts,error:cErr},{data:hist},{data:days}]=await Promise.all([
+    sb.rpc('mnd_export_counts'),
+    sb.from('backup_log').select('*').order('taken_at',{ascending:false}).limit(12),
+    sb.rpc('mnd_days_since_backup')
+  ]);
+
+  if(cErr){
+    wrap.innerHTML=`<div class="ds-warn danger"><div class="ds-warn-t">Cannot read the database.</div>
+      <div class="ds-warn-b">${escapeHtml(cErr.message)}<br><br>If this says the function does not exist, <strong>stage31.sql has not been run in Supabase yet</strong>.</div></div>`;
+    return;
+  }
+
+  const rows=(counts||[]).filter(r=>Number(r.row_count)>0)
+    .sort((a,b)=>Number(b.row_count)-Number(a.row_count));
+  const total=(counts||[]).reduce((s,r)=>s+Number(r.row_count),0);
+  const d=Number(days);
+  const last=(hist&&hist[0])?hist[0]:null;
+
+  const state = d===9999 ? {cls:'danger', t:'Never backed up'}
+              : d>=21    ? {cls:'danger', t:`${d} days ago`}
+              : d>=BACKUP_WARN_DAYS ? {cls:'', t:`${d} days ago`}
+              : {cls:'ok', t: d<=0?'Today':`${d} day${d===1?'':'s'} ago`};
+
+  wrap.innerHTML=`
+    <div class="ds-card ${state.cls==='ok'?'ok':state.cls==='danger'?'danger':''}">
+      <div class="ds-big">${escapeHtml(state.t)}</div>
+      <div class="ds-lbl">Last backup${last?' · by '+escapeHtml(last.taken_by_name||'—'):''}</div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-big">${total.toLocaleString()}</div>
+      <div class="ds-lbl">Records that would be saved right now</div>
+    </div>
+
+    <div class="section-head" style="margin-top:20px"><h3>Take a backup</h3></div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+      <div class="row-sub" style="white-space:normal">
+        This downloads <strong>one file</strong> to this device containing every record in Mindora.
+        Save it somewhere that is not Supabase — your laptop and Google Drive.
+        A copy stored in the same place as the original is not a backup.
+      </div>
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--muted)">
+        <input type="checkbox" id="bkAudit" style="width:auto;margin:0"/>
+        Include the audit trail (bigger file — do this once a month, and before anything contentious)
+      </label>
+      <button class="btn btn-primary" id="bkGo">Download backup</button>
+      <div id="bkStatus" class="row-sub" style="white-space:normal"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:20px"><h3>What is in it</h3></div>
+    <table class="as-tbl"><thead><tr><th>Table</th><th style="text-align:right">Records</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${escapeHtml(r.table_name)}</td>
+        <td style="text-align:right">${Number(r.row_count).toLocaleString()}</td></tr>`).join('')}
+      </tbody></table>
+    <div class="row-sub" style="margin-top:8px;white-space:normal">
+      Uploaded files (signed agreements, scans) are <strong>not</strong> in this download.
+      Those live in Supabase Storage and must be downloaded separately — see the recovery runbook.
+    </div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Backup history</h3></div>
+    <div class="rows" id="bkHist"></div>`;
+
+  const hw=$('#bkHist');
+  if(!hist||!hist.length){
+    hw.innerHTML='<div class="empty" style="padding:22px"><h4>No backups yet</h4><p>The first one is the one that matters most.</p></div>';
+  } else {
+    hist.forEach(h=>{
+      hw.appendChild(el(`<div class="row-card" style="cursor:default">
+        <div class="row-main">
+          <div class="row-name">${fmtDate(h.taken_at)} — ${Number(h.total_rows||0).toLocaleString()} records</div>
+          <div class="row-sub">${escapeHtml(h.taken_by_name||'—')}${h.size_bytes?' · '+fmtBytes(h.size_bytes):''}${h.note?' · '+escapeHtml(h.note):''}</div>
+        </div></div>`));
+    });
+  }
+
+  $('#bkGo').onclick=async()=>{
+    const btn=$('#bkGo'), st=$('#bkStatus');
+    const withAudit=$('#bkAudit').checked;
+    btn.disabled=true; btn.textContent='Building backup…';
+    st.textContent='This can take a minute on a slow connection. Do not close the page.';
+
+    const {data,error}=await sb.rpc('mnd_export_all',{p_include_audit:withAudit});
+    if(error){
+      btn.disabled=false; btn.textContent='Download backup';
+      st.innerHTML=`<span style="color:var(--danger)">Backup failed: ${escapeHtml(error.message)}</span>`;
+      toast('Backup failed',true);
+      return;
+    }
+
+    const text=JSON.stringify(data,null,2);
+    const bytes=new Blob([text]).size;
+    const stamp=isoD(new Date());
+    const name=`mindora-backup-${stamp}${withAudit?'-with-audit':''}.json`;
+
+    // download
+    const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+    const a=document.createElement('a');
+    a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),3000);
+
+    // record that it happened
+    await sb.from('backup_log').insert({
+      taken_by:ME.id, taken_by_name:ME.full_name||null,
+      row_counts:data.row_counts||null, total_rows:data.total_rows||null,
+      size_bytes:bytes, note:withAudit?'Includes audit trail':null
+    });
+
+    btn.disabled=false; btn.textContent='Download backup';
+    st.innerHTML=`<span style="color:var(--ok)"><strong>${escapeHtml(name)}</strong> downloaded — ${fmtBytes(bytes)}, ${Number(data.total_rows||0).toLocaleString()} records.</span><br>Now copy it to Google Drive or an external drive. It is not safe sitting only on this device.`;
+    toast('Backup downloaded');
+    renderBackupTab(wrap);
+  };
+}
+
+// fmtBytes() already exists earlier in the file — reusing it.
+
+/* ---------------------------------------------------------------------
+   TAB: Audit trail
+--------------------------------------------------------------------- */
+const AUDIT_ACTION_LBL={INSERT:'Created',UPDATE:'Changed',DELETE:'Deleted'};
+
+async function renderAuditTab(wrap){
+  wrap.innerHTML='<div class="loading"><div class="spin"></div> Loading…</div>';
+
+  // distinct tables present in the log, for the filter
+  const {data:tbls}=await sb.from('audit_log').select('table_name').limit(1000);
+  const tableOpts=[...new Set((tbls||[]).map(r=>r.table_name))].sort();
+
+  let q=sb.from('audit_log').select('*').order('changed_at',{ascending:false}).limit(120);
+  if(AUDIT_FILTER.table)  q=q.eq('table_name',AUDIT_FILTER.table);
+  if(AUDIT_FILTER.action) q=q.eq('action',AUDIT_FILTER.action);
+  const {data:logs,error}=await q;
+
+  if(error){
+    wrap.innerHTML=`<div class="ds-warn danger"><div class="ds-warn-t">Cannot read the audit log.</div>
+      <div class="ds-warn-b">${escapeHtml(error.message)}<br><br>If this says the table does not exist, <strong>stage31.sql has not been run in Supabase yet</strong>.</div></div>`;
+    return;
+  }
+
+  wrap.innerHTML=`
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div class="row-sub" style="white-space:normal">
+        Every change to every record, with who made it and what moved.
+        <strong>This log cannot be edited or deleted — not by anyone, including you.</strong>
+        That is deliberate: a record you can alter proves nothing.
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+      <select id="auTable" class="as-sel" style="flex:1;min-width:150px;margin:0">
+        <option value="">All tables</option>
+        ${tableOpts.map(t=>`<option value="${escapeHtml(t)}"${AUDIT_FILTER.table===t?' selected':''}>${escapeHtml(t)}</option>`).join('')}
+      </select>
+      <select id="auAction" class="as-sel" style="flex:1;min-width:130px;margin:0">
+        <option value="">All actions</option>
+        ${['INSERT','UPDATE','DELETE'].map(a=>`<option value="${a}"${AUDIT_FILTER.action===a?' selected':''}>${AUDIT_ACTION_LBL[a]}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="rows" id="auRows"></div>`;
+
+  $('#auTable').onchange=e=>{ AUDIT_FILTER.table=e.target.value; renderAuditTab(wrap); };
+  $('#auAction').onchange=e=>{ AUDIT_FILTER.action=e.target.value; renderAuditTab(wrap); };
+
+  const rows=$('#auRows');
+  if(!logs||!logs.length){
+    rows.innerHTML='<div class="empty" style="padding:24px"><h4>Nothing logged yet</h4><p>The audit trail starts recording from the moment stage31 was run. It cannot show you anything that happened before that.</p></div>';
+    return;
+  }
+
+  logs.forEach(l=>{
+    const fields=(l.changed_fields||[]);
+    const tone = l.action==='DELETE'?'danger':l.action==='INSERT'?'ok':'';
+    const card=el(`<div class="au-row ${tone}">
+      <div class="au-head">
+        <span class="au-act ${l.action}">${AUDIT_ACTION_LBL[l.action]||l.action}</span>
+        <span class="au-tbl">${escapeHtml(l.table_name)}</span>
+        <span class="au-who">${escapeHtml(l.actor_name||'system')}${l.actor_role?' ('+escapeHtml(l.actor_role)+')':''}</span>
+        <span class="au-when">${new Date(l.changed_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+      ${fields.length?`<div class="au-fields">${fields.slice(0,6).map(f=>escapeHtml(f)).join(' · ')}${fields.length>6?' · +'+(fields.length-6)+' more':''}</div>`:''}
+      <div class="au-detail" style="display:none"></div>
+    </div>`);
+
+    card.querySelector('.au-head').onclick=()=>{
+      const d=card.querySelector('.au-detail');
+      if(d.style.display==='block'){ d.style.display='none'; return; }
+      d.style.display='block';
+      d.innerHTML=auditDetailHtml(l);
+    };
+    rows.appendChild(card);
+  });
+}
+
+function auditDetailHtml(l){
+  const oldD=l.old_data||{}, newD=l.new_data||{};
+  const hide=new Set(['id','created_at','updated_at']);
+
+  if(l.action==='UPDATE'){
+    const f=(l.changed_fields||[]).filter(k=>!hide.has(k));
+    if(!f.length) return '<div class="row-sub">No substantive fields changed.</div>';
+    return `<table class="as-tbl"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>
+      ${f.map(k=>`<tr>
+        <td><strong>${escapeHtml(k)}</strong></td>
+        <td style="color:var(--danger)">${escapeHtml(auditVal(oldD[k]))}</td>
+        <td style="color:var(--ok)">${escapeHtml(auditVal(newD[k]))}</td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+
+  const src = l.action==='DELETE' ? oldD : newD;
+  const keys = Object.keys(src).filter(k=>!hide.has(k) && src[k]!==null && src[k]!=='');
+  if(!keys.length) return '<div class="row-sub">No detail recorded.</div>';
+  return `<table class="as-tbl"><thead><tr><th>Field</th><th>${l.action==='DELETE'?'Value at deletion':'Value'}</th></tr></thead><tbody>
+    ${keys.map(k=>`<tr><td><strong>${escapeHtml(k)}</strong></td><td>${escapeHtml(auditVal(src[k]))}</td></tr>`).join('')}
+  </tbody></table>`;
+}
+function auditVal(v){
+  if(v===null||v===undefined) return '—';
+  if(typeof v==='object') {
+    const s=JSON.stringify(v);
+    return s.length>200?s.slice(0,200)+'…':s;
+  }
+  const s=String(v);
+  return s.length>200?s.slice(0,200)+'…':s;
 }
 
 
