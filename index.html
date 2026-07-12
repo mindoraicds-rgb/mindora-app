@@ -7729,6 +7729,21 @@ function asPrint(child, a, blocks, docTitle){
 
 let AUDIT_FILTER = { table:'', action:'', q:'' };
 let BACKUP_WARN_DAYS = 7;
+let BK_FILES = [];
+
+/* Loads the zip tool only when it is actually needed.
+   Needs an internet connection at that moment — the rest of the
+   backup works offline. */
+function loadJSZip(){
+  return new Promise((resolve,reject)=>{
+    if(window.JSZip) return resolve(window.JSZip);
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=()=>window.JSZip?resolve(window.JSZip):reject(new Error('zip tool failed to start'));
+    s.onerror=()=>reject(new Error('no internet connection'));
+    document.head.appendChild(s);
+  });
+}
 
 /* ---------------------------------------------------------------------
    Dashboard warning — injected at the top of the director's dashboard
@@ -7824,19 +7839,57 @@ async function renderBackupTab(wrap){
       <div class="ds-lbl">Records that would be saved right now</div>
     </div>
 
-    <div class="section-head" style="margin-top:20px"><h3>Take a backup</h3></div>
+    <div class="section-head" style="margin-top:20px"><h3>1. Take a backup</h3></div>
     <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
       <div class="row-sub" style="white-space:normal">
-        This downloads <strong>one file</strong> to this device containing every record in Mindora.
-        Save it somewhere that is not Supabase — your laptop and Google Drive.
-        A copy stored in the same place as the original is not a backup.
+        This is the file that can <strong>rebuild Mindora</strong> if the database is lost.
+        It is written for a computer, not for you — you do not need to read it.
+        Save it somewhere that is not Supabase: your laptop <em>and</em> Google Drive.
       </div>
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--muted)">
         <input type="checkbox" id="bkAudit" style="width:auto;margin:0"/>
-        Include the audit trail (bigger file — do this once a month, and before anything contentious)
+        Include the audit trail (bigger file — do this monthly, and before anything contentious)
       </label>
-      <button class="btn btn-primary" id="bkGo">Download backup</button>
+      <button class="btn btn-primary" id="bkGo">Download backup file (.json)</button>
       <div id="bkStatus" class="row-sub" style="white-space:normal"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:20px"><h3>2. Download a readable copy</h3></div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+      <div class="row-sub" style="white-space:normal">
+        The same records, as a page that <strong>opens in any web browser on any device</strong> —
+        phone, tablet, borrowed laptop. Nothing to install. You can search it and print it.
+        This is the one you use to <em>check with your own eyes</em> that your children are really in there.
+      </div>
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">
+        It cannot restore the database. Keep the file above for that.
+      </div>
+      <button class="btn btn-ghost" id="bkHtml">Download readable copy (.html)</button>
+      <div id="bkHtmlStatus" class="row-sub" style="white-space:normal"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:20px"><h3>3. Download the files</h3></div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+      <div class="row-sub" style="white-space:normal">
+        Photographs, scanned consent forms, signed agreements — the actual files.
+        <strong>These are not in the backup file above.</strong> The backup knows they exist;
+        it does not contain them. They must be downloaded separately.
+      </div>
+      <div id="bkFilesInfo" class="row-sub">Checking…</div>
+      <button class="btn btn-ghost" id="bkFiles">Download all files (.zip)</button>
+      <div id="bkFilesStatus" class="row-sub" style="white-space:normal"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:20px"><h3>4. Check a backup you already have</h3></div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+      <div class="row-sub" style="white-space:normal">
+        Pick a <strong>.json</strong> backup you downloaded before. Mindora will open it, confirm it is not
+        damaged, and tell you exactly what is inside — and what has changed since.
+        <strong>A backup you have never opened is a rumour, not a safety net.</strong>
+      </div>
+      <input type="file" id="bkVerify" accept=".json,application/json"
+             style="font:inherit;font-size:13px;padding:9px;border:1px dashed var(--line);border-radius:11px;background:var(--bg2);color:var(--ink)"/>
+      <div id="bkVerifyOut"></div>
     </div>
 
     <div class="section-head" style="margin-top:20px"><h3>What is in it</h3></div>
@@ -7897,14 +7950,299 @@ async function renderBackupTab(wrap){
       size_bytes:bytes, note:withAudit?'Includes audit trail':null
     });
 
-    btn.disabled=false; btn.textContent='Download backup';
+    btn.disabled=false; btn.textContent='Download backup file (.json)';
     st.innerHTML=`<span style="color:var(--ok)"><strong>${escapeHtml(name)}</strong> downloaded — ${fmtBytes(bytes)}, ${Number(data.total_rows||0).toLocaleString()} records.</span><br>Now copy it to Google Drive or an external drive. It is not safe sitting only on this device.`;
     toast('Backup downloaded');
     renderBackupTab(wrap);
   };
+
+  /* ---- 2. readable copy ---- */
+  $('#bkHtml').onclick=async()=>{
+    const btn=$('#bkHtml'), st=$('#bkHtmlStatus');
+    btn.disabled=true; btn.textContent='Building readable copy…';
+    st.textContent='One moment.';
+
+    const {data,error}=await sb.rpc('mnd_export_all',{p_include_audit:false});
+    if(error){
+      btn.disabled=false; btn.textContent='Download readable copy (.html)';
+      st.innerHTML=`<span style="color:var(--danger)">Failed: ${escapeHtml(error.message)}</span>`;
+      return;
+    }
+    const html=buildReadableBackup(data);
+    const bytes=new Blob([html]).size;
+    const name=`mindora-records-${isoD(new Date())}.html`;
+    const url=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    const a=document.createElement('a');
+    a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),3000);
+
+    btn.disabled=false; btn.textContent='Download readable copy (.html)';
+    st.innerHTML=`<span style="color:var(--ok)"><strong>${escapeHtml(name)}</strong> downloaded — ${fmtBytes(bytes)}.</span><br>Open it by tapping the file. It works on any phone or computer, with or without internet.`;
+    toast('Readable copy downloaded');
+  };
+
+  /* ---- 3. the actual files ---- */
+  (async()=>{
+    const info=$('#bkFilesInfo'), btn=$('#bkFiles');
+    if(!info) return;
+    const {data:man,error}=await sb.rpc('mnd_export_storage_manifest');
+    if(error){
+      info.innerHTML=`<span style="color:var(--danger)">Cannot list files: ${escapeHtml(error.message)}</span>`;
+      if(btn) btn.disabled=true;
+      return;
+    }
+    const files=man||[];
+    if(!files.length){
+      info.textContent='No uploaded files found. Nothing to download here.';
+      if(btn) btn.disabled=true;
+      return;
+    }
+    const bytes=files.reduce((s,f)=>s+(Number(f.size_bytes)||0),0);
+    const buckets=[...new Set(files.map(f=>f.bucket))];
+    info.innerHTML=`<strong>${files.length}</strong> file${files.length===1?'':'s'} · ${fmtBytes(bytes)} · bucket${buckets.length===1?'':'s'}: ${escapeHtml(buckets.join(', '))}`;
+    BK_FILES=files;
+  })();
+
+  $('#bkFiles').onclick=async()=>{
+    const btn=$('#bkFiles'), st=$('#bkFilesStatus');
+    if(!BK_FILES||!BK_FILES.length){ toast('No files to download',true); return; }
+    btn.disabled=true;
+    st.textContent='Loading the zip tool…';
+
+    let JSZipLib;
+    try{ JSZipLib=await loadJSZip(); }
+    catch(err){
+      btn.disabled=false; btn.textContent='Download all files (.zip)';
+      st.innerHTML=`<span style="color:var(--danger)">Could not load the zip tool. You need an internet connection for this one step. (${escapeHtml(String(err.message||err))})</span>`;
+      return;
+    }
+
+    const zip=new JSZipLib();
+    let done=0, failed=[];
+    for(const f of BK_FILES){
+      btn.textContent=`Downloading ${done+1} of ${BK_FILES.length}…`;
+      st.textContent=f.path;
+      try{
+        const {data:blob,error}=await sb.storage.from(f.bucket).download(f.path);
+        if(error||!blob){ failed.push(f.path); }
+        else { zip.file(f.bucket+'/'+f.path, blob); done++; }
+      }catch(err){ failed.push(f.path); }
+    }
+
+    btn.textContent='Building the zip…';
+    st.textContent='Almost there.';
+    const blob=await zip.generateAsync({type:'blob'});
+    const name=`mindora-files-${isoD(new Date())}.zip`;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),3000);
+
+    btn.disabled=false; btn.textContent='Download all files (.zip)';
+    st.innerHTML=`<span style="color:${failed.length?'var(--warn)':'var(--ok)'}">
+      <strong>${escapeHtml(name)}</strong> — ${done} of ${BK_FILES.length} files, ${fmtBytes(blob.size)}.</span>` +
+      (failed.length?`<br><span style="color:var(--danger)"><strong>${failed.length} file${failed.length===1?'':'s'} failed and are NOT in the zip:</strong><br>${failed.slice(0,10).map(escapeHtml).join('<br>')}${failed.length>10?'<br>…and '+(failed.length-10)+' more':''}<br>Do not treat this as a complete backup of your files.</span>`
+                   :`<br>Keep this next to the .json backup. One is useless without the other.`);
+    toast(failed.length?'Zip built, some files failed':'Files downloaded', !!failed.length);
+  };
+
+  /* ---- 4. check a backup file ---- */
+  $('#bkVerify').onchange=async(e)=>{
+    const f=e.target.files&&e.target.files[0];
+    const out=$('#bkVerifyOut');
+    if(!f) return;
+    out.innerHTML='<div class="loading"><div class="spin"></div> Reading the file…</div>';
+
+    let data;
+    try{
+      data=JSON.parse(await f.text());
+    }catch(err){
+      out.innerHTML=`<div class="ds-warn danger" style="margin:10px 0 0">
+        <div class="ds-warn-t">This file is damaged and cannot be used.</div>
+        <div class="ds-warn-b">It could not be read (${escapeHtml(err.message)}).
+        Do not rely on it. Take a fresh backup now.</div></div>`;
+      return;
+    }
+    if(!data || data.mindora_backup!==true){
+      out.innerHTML=`<div class="ds-warn danger" style="margin:10px 0 0">
+        <div class="ds-warn-t">This is not a Mindora backup file.</div>
+        <div class="ds-warn-b">It opened, but it is not a backup taken from this system.</div></div>`;
+      return;
+    }
+
+    // compare against what is in the database right now
+    const {data:nowCounts}=await sb.rpc('mnd_export_counts');
+    const now={}; (nowCounts||[]).forEach(r=>{ now[r.table_name]=Number(r.row_count); });
+    const then=data.row_counts||{};
+    const names=[...new Set([...Object.keys(then),...Object.keys(now)])].sort();
+    const drift=names.map(t=>({t, then:Number(then[t]||0), now:Number(now[t]||0)}))
+                     .filter(r=>r.then||r.now);
+
+    const ageDays=Math.floor((Date.now()-new Date(data.exported_at).getTime())/86400000);
+    const missing=drift.filter(r=>r.now>r.then);
+
+    out.innerHTML=`
+      <div class="ds-warn ${ageDays>21?'danger':''}" style="margin:10px 0 0;${ageDays<=7?'border-color:#9FD8C6;background:#F1FAF7;color:#0B4D3C':''}">
+        <div class="ds-warn-t">This backup is readable and intact.</div>
+        <div class="ds-warn-b">
+          Taken <strong>${fmtDate(data.exported_at)}</strong> (${ageDays} day${ageDays===1?'':'s'} ago) ·
+          <strong>${Number(data.total_rows||0).toLocaleString()}</strong> records ·
+          ${data.includes_audit?'includes':'does not include'} the audit trail.
+        </div>
+      </div>
+      <table class="as-tbl" style="margin-top:10px"><tbody>
+        <tr><td><strong>Login accounts recorded</strong></td>
+            <td>${Array.isArray(data.auth_accounts)
+                  ? data.auth_accounts.length+' account'+(data.auth_accounts.length===1?'':'s')
+                  : '<span style="color:var(--danger)">none — this backup predates stage 32</span>'}</td></tr>
+        <tr><td><strong>Uploaded files listed</strong></td>
+            <td>${Array.isArray(data.storage_manifest)
+                  ? data.storage_manifest.length+' file'+(data.storage_manifest.length===1?'':'s')+
+                    ' <span style="color:var(--muted)">(listed only — the files themselves are in the separate .zip)</span>'
+                  : '<span style="color:var(--danger)">none — this backup predates stage 32</span>'}</td></tr>
+      </tbody></table>
+      ${missing.length?`<div class="ds-warn" style="margin:10px 0 0">
+        <div class="ds-warn-t">Work done since this backup would be lost.</div>
+        <div class="ds-warn-b">If you restored from this file today, you would lose everything added since — see the "added since" column below.</div>
+      </div>`:''}
+      <table class="as-tbl" style="margin-top:10px"><thead><tr>
+        <th>Table</th><th style="text-align:right">In this backup</th>
+        <th style="text-align:right">In the database now</th><th style="text-align:right">Added since</th>
+      </tr></thead><tbody>
+        ${drift.map(r=>{
+          const diff=r.now-r.then;
+          return `<tr>
+            <td>${escapeHtml(r.t)}</td>
+            <td style="text-align:right">${r.then.toLocaleString()}</td>
+            <td style="text-align:right">${r.now.toLocaleString()}</td>
+            <td style="text-align:right;color:${diff>0?'var(--warn)':diff<0?'var(--danger)':'var(--muted)'}">
+              ${diff>0?'+'+diff:diff<0?diff:'—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody></table>
+      <div class="row-sub" style="margin-top:8px;white-space:normal">
+        A negative number means the database now has <em>fewer</em> records than the backup — something was deleted. Check the audit trail.
+      </div>`;
+  };
 }
 
-// fmtBytes() already exists earlier in the file — reusing it.
+/* ---------------------------------------------------------------------
+   Readable backup — a self-contained page that opens anywhere.
+   No internet, no software, no Mindora account needed.
+--------------------------------------------------------------------- */
+function buildReadableBackup(data){
+  const esc=s=>String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+  const tables=Object.assign({}, data.tables||{});
+  // fold the two non-table sections in so the readable copy shows them too
+  if(Array.isArray(data.auth_accounts) && data.auth_accounts.length)
+    tables['LOGIN ACCOUNTS (no passwords)']=data.auth_accounts;
+  if(Array.isArray(data.storage_manifest) && data.storage_manifest.length)
+    tables['UPLOADED FILES (listed only — files are in the .zip)']=data.storage_manifest;
+  // most interesting first, then the rest alphabetically
+  const priority=['clients','assessments','assessment_reports','assessment_protocols',
+                  'standardized_scores','child_reports','professionals','institutions',
+                  'assignments','op_forms'];
+  const names=Object.keys(tables)
+    .filter(t=>(tables[t]||[]).length)
+    .sort((a,b)=>{
+      const ia=priority.indexOf(a), ib=priority.indexOf(b);
+      if(ia>=0&&ib>=0) return ia-ib;
+      if(ia>=0) return -1;
+      if(ib>=0) return 1;
+      return a.localeCompare(b);
+    });
+
+  const cell=v=>{
+    if(v===null||v===undefined||v==='') return '<span class="n">—</span>';
+    if(typeof v==='object'){
+      const s=JSON.stringify(v);
+      return esc(s.length>300?s.slice(0,300)+'…':s);
+    }
+    return esc(String(v));
+  };
+
+  const body=names.map(t=>{
+    const rows=tables[t]||[];
+    const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+    return `
+    <section id="t_${esc(t)}">
+      <h2>${esc(t)} <span class="cnt">${rows.length.toLocaleString()} record${rows.length===1?'':'s'}</span></h2>
+      <div class="scroll"><table>
+        <thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${cell(r[c])}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+    </section>`;
+  }).join('');
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mindora records — ${esc(String(data.exported_at).slice(0,10))}</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#2A2330;background:#F7F5F9;font-size:14px;line-height:1.5}
+.stripe{height:5px;background:linear-gradient(90deg,#000 0 33.3%,#FCDC04 33.3% 66.6%,#D90000 66.6% 100%)}
+header{background:#fff;padding:20px 18px;border-bottom:1px solid #E6D8EE}
+h1{margin:0 0 5px;font-size:20px;color:#6C3483}
+.meta{color:#6B6475;font-size:13px}
+.wrap{max-width:1200px;margin:0 auto;padding:16px 14px 60px}
+.tools{position:sticky;top:0;z-index:5;background:#F7F5F9;padding:12px 0;border-bottom:1px solid #E6D8EE;margin-bottom:14px}
+#q{width:100%;padding:11px 13px;border:1px solid #E6D8EE;border-radius:11px;font:inherit;font-size:15px}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.toc a{font-size:12px;text-decoration:none;background:#fff;border:1px solid #E6D8EE;color:#4A1E63;border-radius:99px;padding:4px 10px}
+section{background:#fff;border:1px solid #E6D8EE;border-radius:14px;margin-bottom:16px;overflow:hidden}
+h2{margin:0;padding:13px 15px;background:#F3ECF7;color:#4A1E63;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+.cnt{font-size:12px;font-weight:400;color:#6B6475}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;text-align:left;padding:8px 10px;background:#fff;border-bottom:2px solid #E6D8EE;color:#6B6475;font-size:11px;text-transform:uppercase;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid #F0EAF4;vertical-align:top;max-width:340px;word-break:break-word}
+tr:hover td{background:#FBF8FD}
+.n{color:#B9B2C2}
+.hide{display:none}
+footer{text-align:center;color:#6B6475;font-size:12px;padding:24px 14px;line-height:1.6}
+@media print{.tools{display:none}section{page-break-inside:auto}}
+</style></head><body>
+<div class="stripe"></div>
+<header>
+  <h1>Mindora Inclusive Child Development Services</h1>
+  <div class="meta">
+    Complete record copy · taken ${esc(String(data.exported_at).slice(0,10))} ·
+    <strong>${Number(data.total_rows||0).toLocaleString()}</strong> records across ${names.length} tables
+  </div>
+</header>
+<div class="wrap">
+  <div class="tools">
+    <input id="q" placeholder="Search everything — a child's name, a school, a date…" autocomplete="off">
+    <div class="toc">${names.map(t=>`<a href="#t_${esc(t)}">${esc(t)}</a>`).join('')}</div>
+  </div>
+  ${body}
+</div>
+<footer>
+  This is a <strong>readable copy</strong> for checking and printing.<br>
+  It cannot restore the database — the <code>.json</code> backup file does that.<br><br>
+  Confidential. Contains personal data about children.<br>
+  Home, Hope &amp; Harmony
+</footer>
+<script>
+var q=document.getElementById('q');
+q.addEventListener('input',function(){
+  var s=q.value.trim().toLowerCase();
+  document.querySelectorAll('section').forEach(function(sec){
+    var shown=0;
+    sec.querySelectorAll('tbody tr').forEach(function(tr){
+      var hit = !s || tr.textContent.toLowerCase().indexOf(s)>-1;
+      tr.className = hit ? '' : 'hide';
+      if(hit) shown++;
+    });
+    sec.className = (s && shown===0) ? 'hide' : '';
+  });
+});
+<\/script>
+</body></html>`;
+}
 
 /* ---------------------------------------------------------------------
    TAB: Audit trail
