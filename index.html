@@ -1255,7 +1255,7 @@ function openClientForm(c){
       <div><label>Parent phone</label><input id="f_pphone" value="${escapeHtml(c.parent_phone||'')}"/></div>
     </div>
     <div class="form-row"><label>Presenting needs / notes <span style="color:var(--muted);font-weight:400">(intake — what the family reported)</span></label><textarea id="f_needs">${escapeHtml(c.presenting_needs||'')}</textarea></div>
-    <div class="form-row"><label>Professional service-unit rate (UGX) <span style="color:var(--muted);font-weight:400">— what the assigned professional earns per unit; director &amp; assigned pro only</span></label><input id="f_unitrate" type="number" min="0" value="${c.prof_unit_rate??''}" placeholder="e.g. 25000"/></div>
+    <div class="form-row"><label>Monthly service-unit fee (UGX) <span style="color:var(--muted);font-weight:400">— ONE fee per month for this child's whole assigned bundle (sessions + parent coaching + teacher training + documentation). Split across the care team. Director &amp; assigned pro only.</span></label><input id="f_unitrate" type="number" min="0" value="${c.prof_unit_rate??''}" placeholder="e.g. 250000"/></div>
     <div style="border-top:1px solid var(--line);margin:6px 0 14px;padding-top:12px"><div class="row-name" style="color:var(--accent-deep)">Clinical summary <span style="color:var(--muted);font-weight:400;font-size:12px">— completed by the clinician; shown to the parent</span></div></div>
     <div class="form-row"><label>Diagnosis / clinical classification</label><input id="f_cdiag" value="${escapeHtml(c.clinical_diagnosis||'')}" placeholder="e.g. Expressive language delay; ASD (Level 1)"/></div>
     <div class="form-row"><label>Assessment findings</label><textarea id="f_cassess" placeholder="Key findings from assessment (standardised results, observations)">${escapeHtml(c.clinical_assessment||'')}</textarea></div>
@@ -1618,7 +1618,7 @@ async function renderProRequests(v){
     const title=isEvent?(a.event_title||'Event / task'):('Child assignment'+(childMap[a.client_id]?' — '+escapeHtml(childMap[a.client_id]):''));
     const feeLine = isEvent
       ? (a.event_fee?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);margin:4px 0"><div class="row-main"><div class="row-name">Fee for this event</div><div class="row-sub">UGX ${Number(a.event_fee).toLocaleString()}${a.event_date?' · '+fmtDate(a.event_date):''}</div></div></div>`:'')
-      : (a.unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);margin:4px 0"><div class="row-main"><div class="row-name">Service-unit rate</div><div class="row-sub">UGX ${Number(a.unit_rate).toLocaleString()} per verified unit</div></div></div>`:'');
+      : (a.unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);margin:4px 0"><div class="row-main"><div class="row-name">Monthly service unit</div><div class="row-sub">UGX ${Number(a.unit_rate).toLocaleString()} per month for the full assigned bundle · shared where more than one professional is on the case</div></div></div>`:'');
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:12px">
       <div><div class="row-name">${isEvent?'📋 ':'👶 '}${title}</div>
       <div class="row-sub">Sent ${fmtDate(a.assigned_at)}</div>
@@ -1837,7 +1837,7 @@ async function renderProChild(v,c){
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to my children</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
       <p>${c.dob?calcAge(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.status?escapeHtml(c.status.replace('_',' ')):''}</p></div>
-    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main"><div class="row-name">Your rate for this child</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per service unit · paid on verified units each month</div></div></div>`:''}
+    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main"><div class="row-name">Monthly service unit for this child</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per month for the full assigned bundle. Where more than one professional is on the case, this is shared. Your share is earned once your assigned tasks for the month are fulfilled.</div></div></div>`:''}
 
     <div class="clin" id="proClin"></div>
 
@@ -3583,23 +3583,9 @@ function invoiceForm(i){
   };
 }
 /* ===================== RATE CARDS (internal, director-fills) ===================== */
-const RATE_CATALOGUE=[
-  {program:'child_band',label:'Band 1 — monthly program fee',item_key:'band1',unit:'per month'},
-  {program:'child_band',label:'Band 2 — monthly program fee',item_key:'band2',unit:'per month'},
-  {program:'child_band',label:'Band 3 — monthly program fee',item_key:'band3',unit:'per month'},
-  {program:'child_band',label:'Band 4 — monthly program fee',item_key:'band4',unit:'per month'},
-  {program:'child_band',label:'Supported Rate (60% of Full Rate)',item_key:'supported',unit:'per month'},
-  {program:'model_a',label:'Model A — school partnership (per child)',item_key:'model_a_child',unit:'per month'},
-  {program:'model_b',label:'Model B — retainer (Small school)',item_key:'model_b_small',unit:'retainer / month'},
-  {program:'model_b',label:'Model B — retainer (Medium school)',item_key:'model_b_medium',unit:'retainer / month'},
-  {program:'model_b',label:'Model B — retainer (Large school)',item_key:'model_b_large',unit:'retainer / month'},
-  {program:'model_b',label:'Model B — setup / program design (one-off)',item_key:'model_b_setup',unit:'one-off'},
-  {program:'clinic',label:'Clinic / Centre — monthly retainer',item_key:'clinic_retainer',unit:'retainer / month'},
-  {program:'parent',label:'Parent Program — coaching block',item_key:'parent_block',unit:'per block'},
-  {program:'consultancy',label:'Consultancy — advisory session',item_key:'consult_session',unit:'per session'},
-  {program:'consultancy',label:'Consultancy — inclusion audit (school)',item_key:'consult_audit',unit:'per audit'},
-  {program:'consultancy',label:'Teacher training — per session',item_key:'teacher_training',unit:'per session'},
-];
+// RATE_CATALOGUE removed (stage 29): the Master Rate Card structure below is now the
+// single editable source for all client-facing pricing. Professional pay lives in
+// PROF_RATE_CATALOGUE (prof_comp) and remains director-only.
 // Professional NET compensation per Band, across the four rate contexts (C1–C4).
 // Editable — figures are only reference. C1 (Full) base figures are prefilled as a
 // starting point; confirm all under the current A/B/C context model before relying on them.
@@ -3632,7 +3618,7 @@ const PROF_RATE_CATALOGUE=(()=>{
   });
   return out;
 })();
-const RATE_PROGRAMS={child_band:'Child Program (Bands)',model_a:'Institution — Model A',model_b:'Institution — Model B',clinic:'Clinic / Centre',parent:'Parent Program',consultancy:'Consultancy & Advisory',prof_comp:'Professional Rate Card (MND-FRM-09-P) — before tax'};
+const RATE_PROGRAMS={prof_comp:'Professional Rate Card (MND-FRM-09-P) — before tax'};
 
 // MASTER RATE CARD (MND-FRM-09 v3.0) — internal, director-only reference.
 const MASTER_RATE_CARD={
@@ -3670,45 +3656,63 @@ const MASTER_RATE_CARD={
       ['Community placements','Cap 30%','Of the active caseload.']]},
   ]
 };
-function masterRateCardHtml(){
+// Master Rate Card (MND-FRM-09 v3.0) — now the EDITABLE source of truth for pricing.
+// Each figure cell becomes an input saved to rate_cards under program 'mrc' with a
+// stable item_key of the form  s<section>_r<row>_c<col>  so edits survive re-renders.
+// Non-numeric first columns (Band / Learners / Item / Lever) stay as fixed labels.
+function mrcKey(si,ri,ci){ return `s${si}_r${ri}_c${ci}`; }
+function masterRateCardHtml(byKey){
+  byKey=byKey||{};
+  const val=(si,ri,ci,fallback)=>{
+    const rec=byKey['mrc|'+mrcKey(si,ri,ci)];
+    if(rec) return (rec.amount_text!=null?rec.amount_text:(rec.amount!=null?String(rec.amount):''));
+    return fallback;
+  };
   return `<div class="rc-group" style="border:1px solid var(--accent);border-radius:14px;padding:12px 14px;background:#faf6fd;margin-top:8px">
     <div class="rc-group-h">Master Rate Card — MND-FRM-09 v3.0</div>
-    <div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Internal · director use only · the authoritative source for all pricing. Individual editable cards above should be kept in step with this.</div>
+    <div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Internal · director use only · the authoritative source for all pricing. Edit any figure below and save.</div>
     ${MASTER_RATE_CARD.meta.map(x=>`<div class="row-sub" style="white-space:normal">${escapeHtml(x)}</div>`).join('')}
-    ${MASTER_RATE_CARD.sections.map(sec=>`
+    ${MASTER_RATE_CARD.sections.map((sec,si)=>`
       <div style="margin-top:14px"><div class="row-name" style="color:var(--accent-deep)">${escapeHtml(sec.t)}</div>
       ${sec.note?`<div class="row-sub" style="white-space:normal;margin:2px 0 6px">${escapeHtml(sec.note)}</div>`:''}
       <div style="overflow-x:auto"><table class="mrc-table"><thead><tr>${sec.head.map(h=>`<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
-      <tbody>${sec.rows.map(r=>`<tr>${r.map((cell,i)=>`<td${i===0?' style="font-weight:600"':''}>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <tbody>${sec.rows.map((r,ri)=>`<tr>${r.map((cell,ci)=>{
+        if(ci===0) return `<td style="font-weight:600">${escapeHtml(cell)}</td>`;
+        return `<td><input type="text" class="mrc-input" style="width:100%;min-width:110px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px"
+          value="${escapeHtml(String(val(si,ri,ci,cell)))}"
+          data-prog="mrc" data-key="${mrcKey(si,ri,ci)}"
+          data-label="${escapeHtml(sec.t+' · '+r[0]+' · '+(sec.head[ci]||''))}"
+          data-unit="${escapeHtml(sec.head[ci]||'')}"/></td>`;
+      }).join('')}</tr>`).join('')}</tbody></table></div>
       </div>`).join('')}
   </div>`;
 }
+
 async function finRateCards(b){
   const {data:saved}=await sb.from('rate_cards').select('*');
   const byKey={}; (saved||[]).forEach(r=>byKey[r.program+'|'+r.item_key]=r);
-  const fullCatalogue=RATE_CATALOGUE.concat(PROF_RATE_CATALOGUE);
-  const merged=fullCatalogue.map(cat=>{
+  // Only the professional rate card remains as a standalone editable group.
+  // All client-facing pricing now lives in the (editable) Master Rate Card below.
+  const merged=PROF_RATE_CATALOGUE.map(cat=>{
     const rec=byKey[cat.program+'|'+cat.item_key];
     if(rec) return {...cat,...rec};
-    // no saved value yet — use the default (if any) as a starting placeholder
     return {...cat,_new:true,amount:(cat._default!=null?cat._default:null)};
   });
-  const groups={}; merged.forEach(m=>{ (groups[m.program]=groups[m.program]||[]).push(m); });
-  const order=['child_band','model_a','model_b','clinic','parent','consultancy','prof_comp'];
-  const orderedKeys=order.filter(k=>groups[k]).concat(Object.keys(groups).filter(k=>!order.includes(k)));
   b.innerHTML=`<div class="section-head"><h3>Internal rate cards</h3></div>
-    <p style="color:var(--muted);font-size:13px;margin:-4px 0 14px">Confidential — internal only. Fill in figures as you confirm them. These are your reference rates; they don't auto-apply to invoices.</p>
-    ${orderedKeys.map(pg=>`<div class="rc-group"${pg==='prof_comp'?' style="border:1px solid var(--coral);border-radius:14px;padding:10px 12px;background:#fff7f4"':''}><div class="rc-group-h">${RATE_PROGRAMS[pg]||pg}</div>
-      ${pg==='prof_comp'?'<div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Strictly confidential · director only · never shown to professionals or in external materials. These are the official figures from the signed MND-FRM-09-P. Ranges: upper figure = sole delivery; co-treated cases split it.</div>':''}
-      ${groups[pg].map(r=>`<div class="rc-row">
+    <p style="color:var(--muted);font-size:13px;margin:-4px 0 14px">Confidential — internal only. The Master Rate Card is the authoritative source for all pricing; edit figures there. These are reference rates and don't auto-apply to invoices.</p>
+    <div class="rc-group" style="border:1px solid var(--coral);border-radius:14px;padding:10px 12px;background:#fff7f4"><div class="rc-group-h">${RATE_PROGRAMS.prof_comp}</div>
+      <div style="font-size:12px;color:var(--coral);font-weight:600;margin:-2px 0 8px">Strictly confidential · director only · never shown to professionals or in external materials. These are the official figures from the signed MND-FRM-09-P. Ranges: upper figure = sole delivery; co-treated cases split it.</div>
+      ${merged.map(r=>`<div class="rc-row">
         <div class="rc-label"><div class="rc-name">${escapeHtml(r.label)}</div>${r.unit?`<div class="rc-unit">${escapeHtml(r.unit)}</div>`:''}</div>
         <div class="rc-amt">UGX <input type="text" class="rc-input" style="width:150px" value="${escapeHtml(String(r.amount_text??r.amount??r._default??''))}" placeholder="—" data-prog="${r.program}" data-key="${r.item_key}" data-label="${escapeHtml(r.label)}" data-unit="${escapeHtml(r.unit||'')}"/></div>
-      </div>`).join('')}</div>`).join('')}
-    <div style="margin-top:16px"><button class="btn btn-primary" id="rcSave" style="width:auto">Save rate cards</button></div>
-    ${masterRateCardHtml()}`;
+      </div>`).join('')}</div>
+    ${masterRateCardHtml(byKey)}
+    <div style="margin-top:16px"><button class="btn btn-primary" id="rcSave" style="width:auto">Save rate cards</button></div>`;
   $('#rcSave').onclick=async()=>{
     const btn=$('#rcSave');btn.disabled=true;btn.textContent='Saving…';
-    const rows=[...b.querySelectorAll('.rc-input')].map(inp=>{
+    // collect BOTH the professional card inputs and the master rate card inputs
+    const inputs=[...b.querySelectorAll('.rc-input'), ...b.querySelectorAll('.mrc-input')];
+    const rows=inputs.map(inp=>{
       const raw=inp.value.trim();
       const numeric=raw.replace(/[, ]/g,'');
       const isPlainNumber=/^\d+(\.\d+)?$/.test(numeric);
@@ -3725,6 +3729,7 @@ async function finRateCards(b){
     toast('Rate cards saved'); btn.disabled=false;btn.textContent='Save rate cards';
   };
 }
+
 async function finBills(b){
   const {data}=await sb.from('v_payables').select('*').order('bill_date',{ascending:false});
   b.innerHTML=`<div class="section-head"><h3>Bills</h3><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="genProfBills" style="width:auto">Generate professional pay</button><button class="btn btn-primary btn-sm" id="newBill">+ New bill</button></div></div><div class="rows" id="billRows"></div>`;
@@ -4064,7 +4069,14 @@ async function renderStaffChild(v,c){
       <p>${c.child_no?escapeHtml(c.child_no)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.delivery_channel||'direct'} channel${team.length?' · Team: '+escapeHtml(team.join(', ')):''}</p></div>
     </div>
 
-    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main"><div class="row-name">Professional service-unit rate</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per verified unit · paid to the assigned professional on finalizing each month</div></div><button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit</button></div>`:`<div class="row-card" style="cursor:pointer;border:1px dashed var(--line)" id="setRateCard"><div class="row-main"><div class="row-name" style="color:var(--muted)">No professional rate set for this child</div><div class="row-sub">Set the per-unit rate so pay is calculated on finalizing the month.</div></div><span style="color:var(--accent)">Set rate ›</span></div>`}
+    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="row-main"><div class="row-name">Monthly service-unit fee</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per month · one fee for the whole assigned bundle · split across the care team</div></div>
+        <button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit fee</button>
+        <button class="btn btn-ghost btn-sm" id="qaSplit" style="width:auto">Manage split</button>
+      </div>
+      <div id="shareSummary" class="row-sub" style="white-space:normal"></div>
+    </div>`:`<div class="row-card" style="cursor:pointer;border:1px dashed var(--line)" id="setRateCard"><div class="row-main"><div class="row-name" style="color:var(--muted)">No monthly service-unit fee set for this child</div><div class="row-sub">Set the monthly fee so pay can be split across the care team and released on finalizing the month.</div></div><span style="color:var(--accent)">Set fee ›</span></div>`}
 
     <div class="qa-row">
       <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
@@ -4109,7 +4121,9 @@ async function renderStaffChild(v,c){
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
-  { const er=$('#qaEditRate'); if(er) er.onclick=()=>openClientForm(c); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>openClientForm(c); }
+  { const er=$('#qaEditRate'); if(er) er.onclick=()=>openClientForm(c); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>openClientForm(c);
+    const sp=$('#qaSplit'); if(sp) sp.onclick=()=>editProfShares(c);
+    if(c.prof_unit_rate){ renderShareSummary(c); } }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
   // --- Care team: active + past professionals, with end / reactivate ---
@@ -4192,6 +4206,133 @@ function recentMonthOptions(selected){
 const canEditPlan=()=>['director','secretary'].includes(ME.role);
 
 /* ---------- CHILD SERVICE PLAN & LIVE PROGRESS ---------- */
+// ---- Professional pay shares (per-child monthly fee, split across the care team) ----
+// Ensures a child_prof_shares row exists for every accepted professional on the case
+// for the given month, defaulting to an EQUAL split (1/N). Never overwrites shares a
+// director has already set for that month; only fills gaps and prunes pros who left.
+async function ensureProfShares(c, periodISO){
+  const {data:asg}=await sb.from('assignments')
+    .select('professional_id').eq('client_id',c.id).eq('status','accepted');
+  const proIds=[...new Set((asg||[]).map(a=>a.professional_id).filter(Boolean))];
+  const {data:existing}=await sb.from('child_prof_shares')
+    .select('*').eq('client_id',c.id).eq('period_month',periodISO);
+  const have=existing||[];
+  const haveIds=new Set(have.map(s=>s.professional_id));
+  // remove share rows for pros no longer on the case (only if still pending)
+  const stale=have.filter(s=>!proIds.includes(s.professional_id) && s.status!=='finalized');
+  for(const s of stale){ await sb.from('child_prof_shares').delete().eq('id',s.id); }
+  if(!proIds.length) return;
+  const n=proIds.length;
+  // Equal split that sums to EXACTLY 1: give the rounding remainder to the first pro,
+  // so the child's monthly fee always reconciles (no stray shillings left unpaid).
+  const base=Math.floor((1/n)*10000)/10000;              // 4dp floor, e.g. 0.3333
+  const first=Math.round((1-base*(n-1))*10000)/10000;    // e.g. 0.3334
+  const fracFor=(i)=>(i===0?first:base);
+  // insert any missing pros at the equal default
+  const toAdd=[];
+  proIds.forEach((id,i)=>{
+    if(haveIds.has(id)) return;
+    toAdd.push({
+      client_id:c.id, professional_id:id, period_month:periodISO,
+      share_fraction:fracFor(i), fulfilled:false, status:'pending', updated_by:ME.id
+    });
+  });
+  if(toAdd.length){ await sb.from('child_prof_shares').insert(toAdd); }
+}
+
+// ---- Inline summary of this month's pay split, shown on the staff child page ----
+async function renderShareSummary(c){
+  const box=document.getElementById('shareSummary'); if(!box) return;
+  const period=thisMonthISO();
+  await ensureProfShares(c, period);
+  const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',period);
+  const team=shares||[];
+  if(!team.length){ box.innerHTML='No professionals are on this case yet — assign the care team, then the fee will split automatically.'; return; }
+  const ids=team.map(s=>s.professional_id);
+  const {data:pros}=await sb.from('professionals').select('id,full_name').in('id',ids);
+  const nm={}; (pros||[]).forEach(p=>nm[p.id]=p.full_name);
+  const fee=Number(c.prof_unit_rate||0);
+  const parts=team.map(s=>{
+    const amt=Math.round(fee*Number(s.share_fraction||0));
+    const pct=Math.round(Number(s.share_fraction||0)*100);
+    const tick=s.fulfilled?'<span style="color:var(--teal)">✓ fulfilled</span>':'<span style="color:var(--warn)">not yet fulfilled</span>';
+    return `${escapeHtml(nm[s.professional_id]||'Professional')} — ${pct}% · UGX ${amt.toLocaleString()} · ${tick}`;
+  });
+  box.innerHTML=`This month (${monthLabel(period)}): `+parts.join('<br>');
+}
+
+// ---- Director/secretary editor: split the child's monthly fee across the care team ----
+async function editProfShares(c){
+  const period=thisMonthISO();
+  await ensureProfShares(c, period);
+  const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',period).order('professional_id');
+  const team=shares||[];
+  const ids=team.map(s=>s.professional_id);
+  const {data:pros}=await sb.from('professionals').select('id,full_name,discipline').in('id',ids);
+  const nm={}; (pros||[]).forEach(p=>nm[p.id]={name:p.full_name,disc:p.discipline});
+  const fee=Number(c.prof_unit_rate||0);
+  const rowHtml=(s)=>{
+    const info=nm[s.professional_id]||{};
+    return `<div class="form-row" style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px" data-pro="${s.professional_id}">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px"><div class="row-name">${escapeHtml(info.name||'Professional')}</div><div class="row-sub">${escapeHtml(info.disc||'')}</div></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;color:var(--muted);font-weight:600;margin:0">Share %</label>
+          <input type="number" class="shPct" min="0" max="100" step="1" value="${Math.round(Number(s.share_fraction||0)*100)}" style="width:80px"/>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;margin:0">
+          <input type="checkbox" class="shDone" ${s.fulfilled?'checked':''} style="width:auto"/> bundle fulfilled
+        </label>
+      </div>
+      <div class="row-sub shAmt" style="margin-top:6px">= UGX ${Math.round(fee*Number(s.share_fraction||0)).toLocaleString()}</div>
+    </div>`;
+  };
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Service unit &amp; split</h3>
+    <div class="sub">${escapeHtml(c.full_name)} · ${monthLabel(period)}. The monthly fee of UGX ${fee.toLocaleString()} is one service unit for the whole assigned bundle. It splits across the care team below; a professional is only paid when their bundle is marked fulfilled for the month.</div>
+    ${team.length?team.map(rowHtml).join(''):'<div class="empty" style="padding:20px"><h4>No care team yet</h4><p>Assign professionals to this child, then split the fee here.</p></div>'}
+    ${team.length?'<div class="row-sub" id="shTotal" style="margin:4px 0 10px"></div>':''}
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="sh_cancel">Cancel</button>
+      ${team.length>1?'<button class="btn btn-ghost" id="sh_equal" style="width:auto">Reset to equal split</button>':''}
+      ${team.length?'<button class="btn btn-primary" id="sh_save">Save split</button>':''}
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#sh_cancel').onclick=close;
+  const rows=[...m.querySelectorAll('[data-pro]')];
+  const recompute=()=>{
+    let tot=0;
+    rows.forEach(r=>{
+      const pct=Number(r.querySelector('.shPct').value)||0;
+      tot+=pct;
+      r.querySelector('.shAmt').textContent='= UGX '+Math.round(fee*pct/100).toLocaleString();
+    });
+    const tb=m.querySelector('#shTotal');
+    if(tb){ tb.innerHTML=`Total allocated: <b>${tot}%</b>`+(tot!==100?` <span style="color:var(--warn)">(should sum to 100%)</span>`:' ✓'); }
+  };
+  rows.forEach(r=>{ r.querySelector('.shPct').addEventListener('input',recompute); });
+  recompute();
+  const eq=m.querySelector('#sh_equal');
+  // Equal split that always totals exactly 100% — remainder goes to the first professional.
+  if(eq) eq.onclick=()=>{ const n=rows.length; const each=Math.floor(100/n); rows.forEach((r,i)=>{ r.querySelector('.shPct').value = (i===0 ? (100-each*(n-1)) : each); }); recompute(); };
+  const sv=m.querySelector('#sh_save');
+  if(sv) sv.onclick=async()=>{
+    sv.disabled=true; sv.textContent='Saving…';
+    for(const r of rows){
+      const pid=r.dataset.pro;
+      const frac=(Number(r.querySelector('.shPct').value)||0)/100;
+      const done=r.querySelector('.shDone').checked;
+      const {error}=await sb.from('child_prof_shares')
+        .update({share_fraction:frac, fulfilled:done, amount:Math.round(fee*frac), updated_by:ME.id, updated_at:new Date().toISOString()})
+        .eq('client_id',c.id).eq('professional_id',pid).eq('period_month',period);
+      if(error){ toast(error.message,true); sv.disabled=false; sv.textContent='Save split'; return; }
+    }
+    toast('Split saved'); close(); renderShareSummary(c);
+  };
+}
+
 async function renderChildPlan(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
   if(ME.role==='parent'){ v.innerHTML='<div class="empty"><h4>Not available</h4><p>This area is for the care team.</p></div>'; return; }
@@ -4230,7 +4371,7 @@ async function renderChildPlan(v,c){
     <div class="rows" id="planSessions"></div>
     ${canEditPlan()&&c.assessed_band?`<div class="finalize-card" id="finalizeCard">
       <div style="flex:1"><div class="row-name">Finalize a month for billing &amp; pay</div>
-      <div class="row-sub" style="white-space:normal;margin-top:4px">Locks the chosen month's confirmed service units as the basis for the child's invoice and the professional's pay. You can finalize a past month even after a new one has started.</div>
+      <div class="row-sub" style="white-space:normal;margin-top:4px">Locks the chosen month as the basis for the child's invoice, and releases the monthly service-unit fee to the care team according to the saved split. Only professionals whose bundle is marked fulfilled are paid. You can finalize a past month even after a new one has started.</div>
       <div style="margin-top:10px"><label style="font-size:12px;color:var(--muted);font-weight:600">Month to finalize</label><br>
         <select id="finMonth" style="margin-top:4px;max-width:220px">${recentMonthOptions(period)}</select></div>
       </div>
@@ -4301,21 +4442,37 @@ async function renderChildPlan(v,c){
         kind:'svc_units', client_id:c.id, professional_id:profId, period_month:finPeriod,
         title:`Service units — ${finLabel}`, data:summary, created_by:ME.id, status:'finalized' });
       if(error){toast(error.message,true);fb.disabled=false;fb.textContent='Finalize month';return;}
-      // build professional payables — ONE per professional, from THEIR OWN logged units × the child rate
-      const rate = Number(c.prof_unit_rate||0);
-      if(rate>0){
-        // units done in the chosen month, grouped by professional
-        const byProf={}; (monthSess||[]).forEach(s=>{ if(s.professional_id){ byProf[s.professional_id]=(byProf[s.professional_id]||0)+1; } });
-        // clear prior pending payables for this child+month to avoid duplicates
+      // ---- PROFESSIONAL PAY: one monthly fee per child, split across the care team ----
+      // The service unit is ONE monthly fee for the whole assigned bundle, NOT per session.
+      // Each professional earns their share_fraction of that fee, but ONLY if their bundle
+      // was marked fulfilled for the month. Shares default to an equal split (1/N) and are
+      // director-editable via the "Service unit & split" editor.
+      const childFee = Number(c.prof_unit_rate||0);
+      let payMsg='';
+      if(childFee>0){
+        // ensure share rows exist for the accepted care team this month (equal default split)
+        await ensureProfShares(c, finPeriod);
+        const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',finPeriod);
+        const team=shares||[];
+        // clear prior pending payables for this child+month to avoid duplicates on re-finalize
         await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('status','pending');
-        const profRows=Object.keys(byProf).filter(pid=>byProf[pid]>0).map(pid=>({
-          professional_id:pid, period_month:finPeriod, source:'child_units', client_id:c.id,
-          description:`${c.full_name} — ${byProf[pid]} unit${byProf[pid]>1?'s':''} @ ${rate.toLocaleString()} (${finLabel})`,
-          units:byProf[pid], unit_rate:rate, amount:byProf[pid]*rate, status:'pending', created_by:ME.id
-        }));
-        if(profRows.length){ await sb.from('prof_payables').insert(profRows); }
+        const paid=[]; const skipped=[];
+        for(const sh of team){
+          const amt=Math.round(childFee*Number(sh.share_fraction||0));
+          // stamp the computed amount + finalized status on the share row
+          await sb.from('child_prof_shares').update({amount:amt,status:'finalized',updated_by:ME.id,updated_at:new Date().toISOString()}).eq('id',sh.id);
+          if(!sh.fulfilled){ skipped.push(sh); continue; }   // bundle not fulfilled → no pay this month
+          if(amt<=0){ continue; }
+          paid.push({
+            professional_id:sh.professional_id, period_month:finPeriod, source:'child_units', client_id:c.id,
+            description:`${c.full_name} — monthly service unit (${Math.round(Number(sh.share_fraction||0)*100)}% share) (${finLabel})`,
+            units:1, unit_rate:childFee, amount:amt, status:'pending', created_by:ME.id
+          });
+        }
+        if(paid.length){ await sb.from('prof_payables').insert(paid); }
+        payMsg = ` — ${paid.length} professional${paid.length===1?'':'s'} paid`+(skipped.length?`, ${skipped.length} not fulfilled (skipped)`:'');
       }
-      toast(`${finLabel} finalized${(rate>0)?' — professional pay queued per professional':''}`);
+      toast(`${finLabel} finalized${payMsg}`);
       fb.textContent='✓ Finalized';
     };
   }
