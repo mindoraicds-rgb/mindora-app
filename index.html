@@ -631,6 +631,56 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 .fee-chip{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:7px 11px;font-size:12px}
 .fee-chip b{display:block;font-size:14px;color:var(--ink);font-family:'Fraunces',serif;margin-top:2px}
 
+
+/* ===================== DOCUMENTS + CONSENT + EVALUATION (STAGE 34) ===================== */
+.doc-note{font-size:12.5px;color:var(--muted);line-height:1.5;margin:-4px 0 12px}
+.doc-card.expired{border-color:#F3C9CB;background:#FDEEEF}
+.doc-card.soon{border-color:#F0D9A8;background:#FDF6E7}
+.cons-box{border-radius:14px;padding:12px 14px;margin:12px 0;border:1px solid var(--line)}
+.cons-box.no{border-color:#F3C9CB;background:#FDEEEF}
+.cons-box.yes{border-color:#9FD8C6;background:#F1FAF7}
+.cons-h{display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:5px}
+.cons-dot{width:9px;height:9px;border-radius:99px;flex:none}
+.cons-box.no .cons-dot{background:var(--danger)}
+.cons-box.yes .cons-dot{background:var(--ok)}
+.cons-box.no .cons-h strong{color:#8E2226}
+.cons-box.yes .cons-h strong{color:#0B4D3C}
+.cons-b{font-size:12.5px;line-height:1.55;color:var(--ink)}
+.ev-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.ev-controls>div{flex:1;min-width:110px}
+.ev-controls label{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.ev-controls input,.ev-controls select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:13.5px;background:var(--card);color:var(--ink)}
+.ev-sec{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:14px 16px;margin-bottom:14px}
+.ev-sec>h3{margin:0 0 12px;font-family:'Fraunces',serif;font-size:17px;color:var(--accent-deep);display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.ev-sec>h3 span{font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;color:var(--muted);text-transform:none}
+.ev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px}
+.ev-stat{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg2)}
+.ev-stat.good{border-color:#9FD8C6;background:#F1FAF7}
+.ev-stat.bad{border-color:#F3C9CB;background:#FDEEEF}
+.ev-v{font-family:'Fraunces',serif;font-size:23px;font-weight:600;color:var(--ink);line-height:1.1}
+.ev-stat.bad .ev-v{color:#8E2226}
+.ev-stat.good .ev-v{color:#0B4D3C}
+.ev-l{font-size:12px;color:var(--muted);margin-top:2px;font-weight:600}
+.ev-s{font-size:11px;color:var(--muted);margin-top:1px}
+.ev-band{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ev-chip{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:4px 10px;color:var(--muted);background:var(--bg2)}
+.ev-chip b{color:var(--ink)}
+.ev-warn{margin-top:11px;border:1px solid #F3C9CB;background:#FDEEEF;color:#8E2226;border-radius:11px;padding:10px 12px;font-size:12.5px;line-height:1.5}
+.ev-good{margin-top:11px;border:1px solid #9FD8C6;background:#F1FAF7;color:#0B4D3C;border-radius:11px;padding:10px 12px;font-size:12.5px;line-height:1.5}
+.ev-caveat{margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.5;border-top:1px dashed var(--line);padding-top:9px}
+.ev-bar{margin-top:12px}
+.ev-bar-t{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.ev-bar-track{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--line)}
+.ev-bar-track>i{display:block;height:100%}
+.ev-bar-track>i.up{background:var(--ok)}
+.ev-bar-track>i.flat{background:#C9C2D2}
+.ev-bar-track>i.down{background:var(--danger)}
+.ev-bar-k{display:flex;flex-wrap:wrap;gap:12px;margin-top:7px;font-size:11.5px;color:var(--muted)}
+.ev-bar-k i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+.ev-bar-k i.up{background:var(--ok)}
+.ev-bar-k i.flat{background:#C9C2D2}
+.ev-bar-k i.down{background:var(--danger)}
+
 </style>
 </head>
 <body>
@@ -785,6 +835,7 @@ const NAV = {
     {k:'assignments',label:'Assignments',icon:'assign'},
     {k:'programs',label:'Programs',icon:'programs'},
     {k:'team',label:'Team profiles',icon:'team'},
+    {k:'program_eval',label:'Program evaluation',icon:'graph',directorOnly:true},
     {k:'finances',label:'Finances',icon:'fin',directorOnly:true},
     {k:'reports',label:'Reports',icon:'schedule',directorOnly:true},
     {k:'community',label:'Community',icon:'chat'},
@@ -1126,7 +1177,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',program_eval_doc:'Evaluation'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1199,7 +1250,9 @@ function go(view){
    assessment:(vv)=>renderAssessment(vv,SELECTED_ASSESSMENT),
    assess_protocol:(vv)=>renderAssessProtocol(vv,SELECTED_APROTO),
    assessment_report:(vv)=>renderAssessmentReport(vv,SELECTED_ASSESSMENT),
-   data_safety:renderDataSafety}[view]||(()=>{}))(v);
+   data_safety:renderDataSafety,
+   program_eval:renderProgramEval,
+   program_eval_doc:(vv)=>renderEvalDoc(vv,SELECTED_EVAL)}[view]||(()=>{}))(v);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -2788,15 +2841,18 @@ function proPostForm(){
     <div class="form-row"><label>Body / details</label><textarea id="pp_body" style="min-height:120px"></textarea></div>
     <div class="form-row"><label>Attachments</label><div id="pp_att"></div></div>
     <div class="form-row"><label>External link (optional)</label><input id="pp_link" placeholder="https://… e.g. a YouTube video or long article"/></div>
+    ${consentDeclHtml()}
     <div class="modal-actions"><button class="btn btn-ghost" id="pp_cancel">Cancel</button><button class="btn btn-primary" id="pp_save">Submit for review</button></div>
   </div></div>`);
   document.body.appendChild(m);
   attachmentUploader('pp_att','proPost','posts',[]);
+  wireConsentDecl(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#pp_cancel').onclick=close;
   m.querySelector('#pp_save').onclick=async()=>{
     const title=m.querySelector('#pp_title').value.trim();
     if(!title){toast('Add a title.',true);return;}
+    if(!consentDeclOk(m)) return;
     const btn=m.querySelector('#pp_save');btn.disabled=true;btn.textContent='Submitting…';
     const {error}=await sb.from('community_content').insert({
       kind:m.querySelector('#pp_kind').value, audience:m.querySelector('#pp_aud').value,
@@ -2874,11 +2930,13 @@ function communityForm(c){
     </div>
     <div class="form-row"><label>Attachments</label><div id="c_att"></div></div>
     <div class="form-row"><label style="display:flex;gap:9px;align-items:center;cursor:pointer"><input id="c_pub" type="checkbox" ${(!edit||c.published)?'checked':''} style="width:auto"/> Published (visible in portals)</label></div>
+    ${consentDeclHtml()}
     <div class="modal-actions"><button class="btn btn-ghost" id="c_cancel">Cancel</button><button class="btn btn-primary" id="c_save">${edit?'Save':'Post'}</button></div>
     ${edit?'<button class="btn" id="c_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete</button>':''}
   </div></div>`);
   document.body.appendChild(m);
   attachmentUploader('c_att','staffPost','posts', edit&&Array.isArray(c.attachments)?c.attachments:[]);
+  wireConsentDecl(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#c_cancel').onclick=close;
   if(edit){m.querySelector('#c_del').onclick=async()=>{if(!confirm('Delete this post?'))return;const {error}=await sb.from('community_content').delete().eq('id',c.id);if(error){toast(error.message,true);return;}toast('Deleted');close();renderCommunity($('#view'));};}
@@ -2889,6 +2947,7 @@ function communityForm(c){
     const payload={kind:m.querySelector('#c_kind').value,audience:m.querySelector('#c_aud').value,title:title,
       body:m.querySelector('#c_body').value.trim()||null,event_date:m.querySelector('#c_date').value||null,
       link:m.querySelector('#c_link').value.trim()||null,attachments:ATTACH_STATE['staffPost']||[],published:m.querySelector('#c_pub').checked};
+    if(!consentDeclOk(m)) return;
     let error;
     if(edit){({error}=await sb.from('community_content').update(payload).eq('id',c.id));}
     else{payload.created_by=ME.id;({error}=await sb.from('community_content').insert(payload));}
@@ -4284,6 +4343,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
       <div class="qa" id="qaAssess">${icon('plan')} Assessments</div>
       <div class="qa" id="qaSAR">${icon('profile')} Subject access pack</div>
+      <div class="qa" id="qaDocs">${icon('schedule')} Documents</div>
       <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
@@ -4321,6 +4381,16 @@ async function renderStaffChild(v,c){
   $('#qaReports').onclick=()=>{SELECTED_CHILD=c;go('child_reports');};
   { const _qa=$('#qaAssess'); if(_qa) _qa.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
   { const _sar=$('#qaSAR'); if(_sar) _sar.onclick=()=>subjectAccessPack(c); }
+  { const _dc=$('#qaDocs'); if(_dc) _dc.onclick=()=>docsModal('client',c.id,c.full_name); }
+  // consent panel — staff only
+  { const host=document.createElement('div');
+    host.innerHTML=consentPanelHtml(c);
+    const anchor=v.querySelector('.qa-row');
+    if(anchor && host.firstElementChild){
+      anchor.parentNode.insertBefore(host.firstElementChild, anchor);
+      const ce=$('#consEdit');
+      if(ce) ce.onclick=()=>consentForm(c,(fresh)=>renderStaffChild($('#view'),fresh||c));
+    } }
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
@@ -8766,6 +8836,707 @@ footer{color:#6B6475;font-size:12px;padding:24px 14px;line-height:1.7;text-align
   and only after checking who they are.
 </footer>
 </body></html>`;
+}
+
+
+
+/* =====================================================================
+   MINDORA — STAGE 34
+   (a) Private document vault
+   (b) Consent record + enforcement
+   (c) Program evaluation
+   ===================================================================== */
+
+const MND_DOC_TYPES = {
+  client: [
+    {k:'consent',     l:'Signed consent form (MND-AGR-01-B)'},
+    {k:'agreement',   l:'Program participation agreement (MND-AGR-01)'},
+    {k:'fee_addendum',l:'Fee addendum (MND-AGR-01-A)'},
+    {k:'referral',    l:'Referral letter'},
+    {k:'medical',     l:'Medical / clinical report from elsewhere'},
+    {k:'school',      l:'School report or IEP'},
+    {k:'id',          l:'Identification'},
+    {k:'safeguard',   l:'Safeguarding record'},
+    {k:'other',       l:'Other'},
+  ],
+  professional: [
+    {k:'agreement',   l:'Engagement agreement (MND-AGR-03)'},
+    {k:'conduct',     l:'Signed code of conduct (MND-AGR-03-B)'},
+    {k:'licence',     l:'Practising licence / registration'},
+    {k:'qualification',l:'Qualification certificate'},
+    {k:'cv',          l:'CV'},
+    {k:'id',          l:'Identification'},
+    {k:'insurance',   l:'Indemnity insurance'},
+    {k:'other',       l:'Other'},
+  ],
+  institution: [
+    {k:'mou',         l:'MOU'},
+    {k:'agreement',   l:'Partnership agreement'},
+    {k:'addendum',    l:'Addendum'},
+    {k:'other',       l:'Other'},
+  ],
+};
+const DOC_LABEL=(ot,k)=>{
+  const f=(MND_DOC_TYPES[ot]||[]).find(x=>x.k===k);
+  return f?f.l:(k||'Document');
+};
+const MAX_DOC_MB=25;
+
+/* ---------------------------------------------------------------------
+   VAULT — private bucket, links that expire
+--------------------------------------------------------------------- */
+async function openDoc(path){
+  // 5-minute signed link. The file is NOT public; this URL dies shortly.
+  const {data,error}=await sb.storage.from('documents').createSignedUrl(path,300);
+  if(error||!data){ toast('Could not open: '+(error?error.message:'unknown'),true); return; }
+  window.open(data.signedUrl,'_blank','noopener');
+}
+
+
+function docsModal(ownerType, ownerId, ownerName){
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
+    <h3>Documents</h3><div class="sub">${escapeHtml(ownerName||'')}</div>
+    <div id="docHost" style="max-height:64vh;overflow:auto;margin-top:10px"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="dm_close">Close</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#dm_close').onclick=close;
+  renderDocs(m.querySelector('#docHost'), ownerType, ownerId, ownerName);
+}
+
+async function renderDocs(container, ownerType, ownerId, ownerName){
+  container.innerHTML='<div class="loading"><div class="spin"></div> Loading documents…</div>';
+  const {data:docs,error}=await sb.from('person_documents').select('*')
+    .eq('owner_type',ownerType).eq('owner_id',ownerId)
+    .order('created_at',{ascending:false});
+
+  if(error){
+    container.innerHTML=`<div class="as-flag">Cannot read documents: ${escapeHtml(error.message)}<br>
+      If this says the table does not exist, <strong>stage34.sql has not been run yet</strong>.</div>`;
+    return;
+  }
+
+  const today=isoD(new Date());
+  container.innerHTML=`
+    <div class="section-head"><h3>Documents</h3>
+      <button class="btn btn-primary btn-sm" id="docAdd" style="width:auto">+ Upload</button></div>
+    <div class="doc-note">Private vault. These files are not public — opening one creates a link that expires in five minutes. Scanned consent forms, agreements and licences belong here, never in the photo gallery.</div>
+    <div class="rows" id="docRows"></div>`;
+
+  $('#docAdd').onclick=()=>docUploadForm(ownerType,ownerId,ownerName,
+    ()=>renderDocs(container,ownerType,ownerId,ownerName));
+
+  const rows=$('#docRows');
+  if(!docs||!docs.length){
+    rows.innerHTML='<div class="empty" style="padding:24px"><h4>No documents yet</h4><p>Scan the signed paperwork and upload it here.</p></div>';
+    return;
+  }
+
+  docs.forEach(d=>{
+    const expired = d.expires_on && d.expires_on < today;
+    const soon    = d.expires_on && !expired &&
+                    (new Date(d.expires_on)-new Date())/86400000 < 60;
+    const card=el(`<div class="row-card doc-card ${expired?'expired':soon?'soon':''}">
+      <div class="row-ava">${d.mime&&d.mime.startsWith('image')?'🖼️':d.mime==='application/pdf'?'📄':'📎'}</div>
+      <div class="row-main">
+        <div class="row-name">${escapeHtml(d.title||DOC_LABEL(ownerType,d.doc_type))}</div>
+        <div class="row-sub">${escapeHtml(DOC_LABEL(ownerType,d.doc_type))}
+          ${d.signed_on?' · signed '+fmtDate(d.signed_on):''}
+          ${d.size_bytes?' · '+fmtBytes(d.size_bytes):''}
+          ${d.expires_on?` · <strong style="color:${expired?'var(--danger)':soon?'var(--warn)':'var(--muted)'}">${expired?'EXPIRED':'expires'} ${fmtDate(d.expires_on)}</strong>`:''}
+        </div>
+        ${d.notes?`<div class="row-sub" style="white-space:normal">${escapeHtml(d.notes)}</div>`:''}
+      </div>
+      <button class="btn btn-ghost btn-sm docOpen" style="width:auto">Open</button>
+      ${isDirector()?'<button class="btn btn-ghost btn-sm docDel" style="width:auto;color:var(--danger)">Delete</button>':''}
+    </div>`);
+    card.querySelector('.docOpen').onclick=()=>openDoc(d.storage_path);
+    const del=card.querySelector('.docDel');
+    if(del) del.onclick=async()=>{
+      if(!confirm('Delete this document permanently? The original paper should still exist.')) return;
+      await sb.storage.from('documents').remove([d.storage_path]);
+      await sb.from('person_documents').delete().eq('id',d.id);
+      toast('Document deleted');
+      renderDocs(container,ownerType,ownerId,ownerName);
+    };
+    rows.appendChild(card);
+  });
+}
+
+function docUploadForm(ownerType, ownerId, ownerName, after){
+  const types=MND_DOC_TYPES[ownerType]||MND_DOC_TYPES.client;
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Upload document</h3><div class="sub">${escapeHtml(ownerName||'')}</div>
+    <div class="form-row"><label>Type</label><select id="d_type">
+      ${types.map(t=>`<option value="${t.k}">${escapeHtml(t.l)}</option>`).join('')}</select></div>
+    <div class="form-row"><label>Title <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="d_title" placeholder="Leave blank to use the type"/></div>
+    <div class="form-row two">
+      <div><label>Date signed <span style="color:var(--muted);font-weight:400">(on the paper)</span></label><input type="date" id="d_signed"/></div>
+      <div><label>Expires <span style="color:var(--muted);font-weight:400">(licences)</span></label><input type="date" id="d_exp"/></div>
+    </div>
+    <div class="form-row"><label>Notes</label><textarea id="d_notes"></textarea></div>
+    <div class="form-row"><label>File <span style="color:var(--muted);font-weight:400">— PDF or photo of the scan, up to ${MAX_DOC_MB}MB</span></label>
+      <input type="file" id="d_file" accept="application/pdf,image/*" style="font:inherit;font-size:13px;padding:9px;border:1px dashed var(--line);border-radius:11px;background:var(--bg2);width:100%"/></div>
+    <div id="d_status" class="row-sub" style="white-space:normal"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="d_cancel">Cancel</button><button class="btn btn-primary" id="d_save">Upload</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#d_cancel').onclick=close;
+
+  m.querySelector('#d_save').onclick=async()=>{
+    const f=m.querySelector('#d_file').files[0];
+    const st=m.querySelector('#d_status');
+    if(!f){ st.innerHTML='<span style="color:var(--danger)">Choose a file first.</span>'; return; }
+    if(f.size>MAX_DOC_MB*1024*1024){
+      st.innerHTML=`<span style="color:var(--danger)">Too large — the limit is ${MAX_DOC_MB}MB.</span>`; return;
+    }
+    const btn=m.querySelector('#d_save'); btn.disabled=true; btn.textContent='Uploading…';
+
+    const ext=(f.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'')||'bin';
+    const path=`${ownerType}/${ownerId}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+
+    const {error:upErr}=await sb.storage.from('documents').upload(path,f,{upsert:false});
+    if(upErr){
+      btn.disabled=false; btn.textContent='Upload';
+      st.innerHTML=`<span style="color:var(--danger)">Upload failed: ${escapeHtml(upErr.message)}<br>
+        If it mentions the bucket, stage34.sql has not been run.</span>`;
+      return;
+    }
+
+    const g=id=>m.querySelector('#'+id).value.trim();
+    const {error}=await sb.from('person_documents').insert({
+      owner_type:ownerType, owner_id:ownerId,
+      doc_type:m.querySelector('#d_type').value,
+      title:g('d_title')||null,
+      storage_path:path, file_name:f.name, mime:f.type||null, size_bytes:f.size,
+      signed_on:g('d_signed')||null, expires_on:g('d_exp')||null,
+      notes:g('d_notes')||null,
+      uploaded_by:ME.id, uploaded_name:ME.full_name||null
+    });
+    if(error){
+      await sb.storage.from('documents').remove([path]);   // don't orphan the file
+      btn.disabled=false; btn.textContent='Upload';
+      st.innerHTML=`<span style="color:var(--danger)">${escapeHtml(error.message)}</span>`;
+      return;
+    }
+    toast('Document uploaded'); close(); after&&after();
+  };
+}
+
+
+/* ---------------------------------------------------------------------
+   COMMUNITY CONSENT GATE
+
+   Honest about its limits: the app cannot look at a photo and know whose
+   child it is. community_content has no child link. So the control is a
+   DECLARATION the poster makes, which the app then enforces against the
+   consent record. The declaration is the control; the enforcement is real.
+--------------------------------------------------------------------- */
+function consentDeclHtml(){
+  return `<div class="form-row">
+    <label>Does this post show a child, or anything that could identify one?
+      <span style="color:var(--muted);font-weight:400">— photo, name, school, story</span></label>
+    <select id="cc_child_decl"><option value="">No — no child is identifiable</option>
+      <option value="yes">Yes — a child is identifiable</option></select>
+  </div>
+  <div class="form-row" id="cc_child_wrap" style="display:none">
+    <label>Which child?</label>
+    <select id="cc_child_id"><option value="">— select —</option></select>
+    <div id="cc_child_msg" class="row-sub" style="white-space:normal;margin-top:6px"></div>
+  </div>`;
+}
+async function wireConsentDecl(m){
+  const decl=m.querySelector('#cc_child_decl');
+  const wrap=m.querySelector('#cc_child_wrap');
+  const sel =m.querySelector('#cc_child_id');
+  const msg =m.querySelector('#cc_child_msg');
+  if(!decl) return;
+
+  let q=sb.from('clients').select('id,full_name,consent_public_sharing').order('full_name');
+  const {data:kids}=await q;
+  (kids||[]).forEach(k=>{
+    const o=document.createElement('option');
+    o.value=k.id; o.textContent=k.full_name;
+    o.dataset.ok=k.consent_public_sharing?'1':'0';
+    sel.appendChild(o);
+  });
+
+  decl.onchange=()=>{
+    wrap.style.display = decl.value==='yes' ? 'block' : 'none';
+    if(decl.value!=='yes'){ sel.value=''; msg.innerHTML=''; }
+  };
+  sel.onchange=()=>{
+    const opt=sel.selectedOptions[0];
+    if(!opt||!sel.value){ msg.innerHTML=''; return; }
+    if(opt.dataset.ok==='1'){
+      msg.innerHTML='<span style="color:var(--ok)">Consent on record — this child may appear publicly.</span>';
+    } else {
+      msg.innerHTML='<span style="color:var(--danger)"><strong>No consent on record.</strong> This child must not appear in the community feed. The post will be blocked. If the parent has since consented, record it on the child\'s page first.</span>';
+    }
+  };
+}
+/* Returns true if it is safe to post. Shows the reason if not. */
+function consentDeclOk(m){
+  const decl=m.querySelector('#cc_child_decl');
+  if(!decl || decl.value!=='yes') return true;      // nothing declared
+  const sel=m.querySelector('#cc_child_id');
+  if(!sel.value){ toast('Say which child, so consent can be checked.',true); return false; }
+  const opt=sel.selectedOptions[0];
+  if(opt && opt.dataset.ok==='1') return true;
+  toast('Blocked — no public-sharing consent on record for this child.',true);
+  return false;
+}
+function consentDeclClientId(m){
+  const decl=m.querySelector('#cc_child_decl');
+  if(!decl || decl.value!=='yes') return null;
+  const sel=m.querySelector('#cc_child_id');
+  return sel && sel.value ? sel.value : null;
+}
+
+/* ---------------------------------------------------------------------
+   CONSENT
+   The parent signs paper. This records what the paper says, so the app
+   can act on it.
+
+   Consent gates PUBLIC visibility ONLY.
+   It never gates communication with the child's own parent — home programs,
+   session summaries and direct feedback always go to them.
+--------------------------------------------------------------------- */
+function consentPanelHtml(c){
+  if(!isStaff()) return '';
+  const on = !!c.consent_public_sharing;
+  const filed = !!c.consent_form_on_file;
+  return `<div class="cons-box ${on?'yes':'no'}">
+    <div class="cons-h">
+      <span class="cons-dot"></span>
+      <strong>${on?'Public sharing allowed':'No public sharing'}</strong>
+      <button class="btn btn-ghost btn-sm" id="consEdit" style="width:auto;margin-left:auto">Edit</button>
+    </div>
+    <div class="cons-b">
+      ${on
+        ? 'The signed form permits this child\u2019s photo and information to be used where others can see them.'
+        : 'This child\u2019s photo and information must <strong>never</strong> appear in the community feed or anywhere public. The app will block it.'}
+      <br>Home programs, session summaries and feedback to this child\u2019s own parent are sent as normal either way.
+      <br><span style="color:var(--muted)">Signed form on file: ${filed?'yes':'<strong style="color:var(--warn)">not uploaded</strong>'}${c.consent_signed_on?' · signed '+fmtDate(c.consent_signed_on):''}</span>
+      ${c.consent_notes?'<br><span style="color:var(--muted)">'+escapeHtml(c.consent_notes)+'</span>':''}
+    </div>
+  </div>`;
+}
+
+function consentForm(c, after){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Consent record</h3>
+    <div class="sub">${escapeHtml(c.full_name)} — what the signed paper says</div>
+
+    <div class="as-flag" style="background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)">
+      Record only what is actually written and initialled on the signed form.
+      If in doubt, or if the form is not to hand, leave public sharing OFF.
+      The safe default is the one that protects the child.
+    </div>
+
+    <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="cs_filed" ${c.consent_form_on_file?'checked':''} style="width:auto;margin:3px 0 0"/>
+      <span><strong>The signed consent form is on file</strong><br>
+      <span style="font-weight:400;color:var(--muted)">Scan it and upload it under Documents.</span></span>
+    </label></div>
+
+    <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="cs_public" ${c.consent_public_sharing?'checked':''} style="width:auto;margin:3px 0 0"/>
+      <span><strong>Parent consented to public sharing</strong><br>
+      <span style="font-weight:400;color:var(--muted)">Photos and information may appear in the community feed and other places where people outside the care team can see them. If this is not explicitly initialled on the form, leave it unticked.</span></span>
+    </label></div>
+
+    <div class="form-row"><label>Date the form was signed</label>
+      <input type="date" id="cs_date" value="${c.consent_signed_on||''}"/></div>
+
+    <div class="form-row"><label>Notes <span style="color:var(--muted);font-weight:400">— any special consent obtained separately, or anything withheld</span></label>
+      <textarea id="cs_notes" placeholder="e.g. Photos permitted for school report only, not for the community feed.">${escapeHtml(c.consent_notes||'')}</textarea></div>
+
+    <div class="modal-actions"><button class="btn btn-ghost" id="cs_cancel">Cancel</button><button class="btn btn-primary" id="cs_save">Save</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#cs_cancel').onclick=close;
+  m.querySelector('#cs_save').onclick=async()=>{
+    const {error}=await sb.from('clients').update({
+      consent_form_on_file:m.querySelector('#cs_filed').checked,
+      consent_public_sharing:m.querySelector('#cs_public').checked,
+      consent_signed_on:m.querySelector('#cs_date').value||null,
+      consent_notes:m.querySelector('#cs_notes').value.trim()||null,
+      consent_recorded_by:ME.id,
+      consent_recorded_at:new Date().toISOString()
+    }).eq('id',c.id);
+    if(error){ toast(error.message,true); return; }
+    const {data:fresh}=await sb.from('clients').select('*').eq('id',c.id).single();
+    if(fresh) SELECTED_CHILD=fresh;
+    toast('Consent recorded'); close(); after&&after(fresh||c);
+  };
+}
+
+/* The gate. Call before anything goes anywhere public. */
+async function canSharePublicly(clientId){
+  if(!clientId) return {ok:true};
+  const {data}=await sb.from('clients')
+    .select('full_name,consent_public_sharing').eq('id',clientId).maybeSingle();
+  if(!data) return {ok:true};
+  if(data.consent_public_sharing) return {ok:true};
+  return {ok:false, name:data.full_name};
+}
+
+
+/* =====================================================================
+   PROGRAM EVALUATION  (director only)
+
+   The question is "is the program working?", not "how busy were we".
+   Activity is not evidence. So every number below is paired with what it
+   does and does not prove, and the app says so on the page rather than
+   letting a big confident figure do the lying.
+   ===================================================================== */
+
+let SELECTED_EVAL = null;
+let EVAL_RANGE = null;   // {from, to, band}
+
+function defaultEvalRange(){
+  const now=new Date();
+  const from=new Date(now.getFullYear(), now.getMonth()-3, 1);
+  return { from: isoD(from), to: isoD(now), band: '' };
+}
+
+async function renderProgramEval(v){
+  if(!isDirector()){
+    v.innerHTML='<div class="empty" style="padding:26px"><h4>Director only</h4><p>Program evaluation contains judgements about the business.</p></div>';
+    return;
+  }
+  if(!EVAL_RANGE) EVAL_RANGE=defaultEvalRange();
+
+  v.innerHTML=`
+    <div class="welcome"><h1>Program evaluation</h1>
+      <p>Reach, delivery, outcome and equity — and an honest reading of each.</p></div>
+
+    <div class="ev-controls">
+      <div><label>From</label><input type="date" id="ev_from" value="${EVAL_RANGE.from}"/></div>
+      <div><label>To</label><input type="date" id="ev_to" value="${EVAL_RANGE.to}"/></div>
+      <div><label>Band</label><select id="ev_band">
+        <option value="">All bands</option>
+        ${[1,2,3,4].map(b=>`<option value="${b}" ${EVAL_RANGE.band==b?'selected':''}>Band ${b}</option>`).join('')}
+      </select></div>
+      <button class="btn btn-primary btn-sm" id="ev_run" style="width:auto">Run</button>
+    </div>
+
+    <div id="evBody"><div class="loading"><div class="spin"></div> Measuring…</div></div>
+
+    <div class="section-head" style="margin-top:26px"><h3>Saved evaluations</h3></div>
+    <div class="rows" id="evSaved"></div>`;
+
+  $('#ev_run').onclick=()=>{
+    EVAL_RANGE={ from:$('#ev_from').value, to:$('#ev_to').value, band:$('#ev_band').value };
+    runEval();
+  };
+  runEval();
+  loadSavedEvals();
+}
+
+async function loadSavedEvals(){
+  const wrap=$('#evSaved'); if(!wrap) return;
+  const {data:list}=await sb.from('program_evaluations').select('*')
+    .order('period_to',{ascending:false}).limit(12);
+  if(!list||!list.length){
+    wrap.innerHTML='<div class="empty" style="padding:22px"><h4>None saved yet</h4><p>Run a period, write your findings, and save it. That becomes the record you hand to a school or a funder.</p></div>';
+    return;
+  }
+  wrap.innerHTML='';
+  list.forEach(e=>{
+    const card=el(`<div class="row-card">
+      <div class="row-ava">${icon('graph')}</div>
+      <div class="row-main">
+        <div class="row-name">${escapeHtml(e.title||'Evaluation')}</div>
+        <div class="row-sub">${fmtDate(e.period_from)} – ${fmtDate(e.period_to)}${e.band?' · Band '+e.band:' · all bands'} · ${e.status==='final'?'Final':'Draft'}</div>
+      </div><span style="color:var(--accent)">Open ›</span></div>`);
+    card.onclick=()=>{ SELECTED_EVAL=e; go('program_eval_doc'); };
+    wrap.appendChild(card);
+  });
+}
+
+async function runEval(){
+  const body=$('#evBody'); if(!body) return;
+  body.innerHTML='<div class="loading"><div class="spin"></div> Measuring…</div>';
+
+  const {data:mx,error}=await sb.rpc('mnd_program_metrics',{
+    p_from:EVAL_RANGE.from, p_to:EVAL_RANGE.to,
+    p_band:EVAL_RANGE.band?Number(EVAL_RANGE.band):null
+  });
+  if(error){
+    body.innerHTML=`<div class="as-flag">Could not measure: ${escapeHtml(error.message)}<br>
+      If this says the function does not exist, <strong>stage34.sql has not been run yet</strong>.</div>`;
+    return;
+  }
+  body.innerHTML = evalMetricsHtml(mx) + `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+      <button class="btn btn-primary" id="ev_save" style="width:auto">Write up this evaluation</button>
+    </div>`;
+  $('#ev_save').onclick=()=>createEval(mx);
+}
+
+/* --------------------------------------------------------------------
+   The honest reading. Each block states what the number does NOT prove.
+-------------------------------------------------------------------- */
+function evalMetricsHtml(mx){
+  const R=mx.reach, D=mx.delivery, O=mx.outcome, E=mx.equity;
+  const pct=v=>v==null?'—':v+'%';
+
+  // outcome traffic light
+  const measured=O.measured_goals||0;
+  const impRate = measured ? Math.round(O.improved*100/measured) : null;
+  const cover   = O.goals_total ? Math.round(measured*100/O.goals_total) : 0;
+
+  const stat=(lab,val,sub,tone)=>`<div class="ev-stat ${tone||''}">
+    <div class="ev-v">${val}</div><div class="ev-l">${lab}</div>
+    ${sub?`<div class="ev-s">${sub}</div>`:''}</div>`;
+
+  return `
+  <div class="ev-sec">
+    <h3>Reach <span>who did we actually serve</span></h3>
+    <div class="ev-grid">
+      ${stat('Active children', R.active_children)}
+      ${stat('New intakes', R.new_intakes, 'in this period')}
+      ${stat('Exits', R.exits, 'in this period')}
+      ${stat('Assessments', D.assessments_completed, 'completed')}
+    </div>
+    <div class="ev-band">${Object.entries(R.by_band||{}).map(([k,n])=>
+      `<span class="ev-chip">${k==='unassigned'?'No band':'Band '+k}: <b>${n}</b></span>`).join('')}</div>
+    ${R.by_band && R.by_band.unassigned ? `<div class="ev-warn">${R.by_band.unassigned} active ${R.by_band.unassigned===1?'child has':'children have'} no band. They cannot be costed, planned or evaluated until they do.</div>`:''}
+  </div>
+
+  <div class="ev-sec">
+    <h3>Delivery <span>did we do what we promised</span></h3>
+    <div class="ev-grid">
+      ${stat('Sessions logged', D.sessions_logged)}
+      ${stat('Children seen', D.children_seen, 'at least once')}
+      ${stat('Sessions per child', D.sessions_per_child)}
+      ${stat('Not seen at all', D.children_not_seen,
+             'active, zero sessions', D.children_not_seen>0?'bad':'good')}
+    </div>
+    ${D.children_not_seen>0
+      ? `<div class="ev-warn"><strong>${D.children_not_seen} active ${D.children_not_seen===1?'child was':'children were'} not seen once in this period.</strong> They are on the books and being billed. Find out why before anything else on this page matters.</div>`
+      : `<div class="ev-good">Every active child was seen at least once.</div>`}
+    <div class="ev-caveat">This counts sessions that were <em>logged</em>. A session nobody logged looks identical to a session that never happened.</div>
+  </div>
+
+  <div class="ev-sec">
+    <h3>Outcome <span>did the children get better</span></h3>
+    <div class="ev-grid">
+      ${stat('Goals achieved', O.goals_achieved, 'of '+O.goals_total, O.goals_achieved>0?'good':'')}
+      ${stat('Achievement rate', pct(O.achievement_rate), 'all goals, all time')}
+      ${stat('Improved', O.improved, 'goals with measured gain', O.improved>0?'good':'')}
+      ${stat('Declined', O.declined, 'goals that went backwards', O.declined>0?'bad':'')}
+    </div>
+
+    ${measured>0 ? `
+      <div class="ev-bar">
+        <div class="ev-bar-t">Of ${measured} goals scored at least twice in this period:</div>
+        <div class="ev-bar-track">
+          <i class="up"   style="width:${Math.round(O.improved*100/measured)}%"></i>
+          <i class="flat" style="width:${Math.round(O.no_change*100/measured)}%"></i>
+          <i class="down" style="width:${Math.round(O.declined*100/measured)}%"></i>
+        </div>
+        <div class="ev-bar-k">
+          <span><i class="up"></i> Improved ${O.improved} (${impRate}%)</span>
+          <span><i class="flat"></i> No change ${O.no_change}</span>
+          <span><i class="down"></i> Declined ${O.declined}</span>
+        </div>
+        <div class="ev-bar-t" style="margin-top:8px">Mean movement: <strong>${O.mean_gain_points>0?'+':''}${O.mean_gain_points ?? '—'} points</strong> on the 0–100 scale.</div>
+      </div>` : ''}
+
+    ${measured===0
+      ? `<div class="ev-warn"><strong>No outcome can be shown.</strong> A goal needs at least two progress scores in the period before movement can be measured. Right now ${O.goals_total||0} goals exist and none have been scored twice. Until professionals record progress scores, this program cannot demonstrate that it works — to a school, a funder, or to you.</div>`
+      : cover<40
+        ? `<div class="ev-warn">Only <strong>${cover}%</strong> of goals have enough scores to measure. The figures above describe that minority, not the whole caseload. Treat them as indicative, not as proof.</div>`
+        : `<div class="ev-good">${cover}% of goals have enough data to measure movement. That is a defensible basis for the numbers above.</div>`}
+
+    <div class="ev-caveat">These are criterion-referenced progress scores recorded by the treating professional. They are not blinded, not standardized, and not independent. They show what the clinicians observed — which is worth a great deal, and is not the same thing as proof.</div>
+  </div>
+
+  <div class="ev-sec">
+    <h3>Equity <span>did we hold the line</span></h3>
+    <div class="ev-grid">
+      ${stat('Community placements', E.community_placements, 'of '+E.active_caseload+' active')}
+      ${stat('Share of caseload', E.community_pct+'%', 'cap is '+E.cap_pct+'%',
+             E.within_cap?'good':'bad')}
+    </div>
+    ${E.within_cap
+      ? `<div class="ev-good">Within the ${E.cap_pct}% cap. There is room for ${Math.max(0,Math.floor(E.active_caseload*E.cap_pct/100)-E.community_placements)} more supported ${(Math.floor(E.active_caseload*E.cap_pct/100)-E.community_placements)===1?'placement':'placements'} at the current caseload.</div>`
+      : `<div class="ev-warn">Community placements are at <strong>${E.community_pct}%</strong>, above your ${E.cap_pct}% cap. Your own rate card says below this the margin does not hold. Either grow the full-fee caseload or stop accepting supported placements until it rebalances.</div>`}
+  </div>`;
+}
+
+/* --------------------------------------------------------------------
+   Write-up — metrics are frozen, judgement is yours
+-------------------------------------------------------------------- */
+function evalSections(mx){
+  const O=mx.outcome, D=mx.delivery, E=mx.equity;
+  const flags=[];
+  if(D.children_not_seen>0) flags.push(D.children_not_seen+' active children were not seen at all in this period.');
+  if((O.measured_goals||0)===0) flags.push('No goal was scored twice, so no outcome can be demonstrated.');
+  if(O.declined>0) flags.push(O.declined+' goals went backwards.');
+  if(!E.within_cap) flags.push('Community placements are above the 30% cap, at '+E.community_pct+'%.');
+
+  return [
+    {k:'summary', t:'Summary', v:''},
+    {k:'reach',   t:'Reach — who we served',
+     v:`${mx.reach.active_children} active children; ${mx.reach.new_intakes} new; ${mx.reach.exits} exits.\n\n[What does this tell you? Are we reaching the children we set out to reach?]`},
+    {k:'delivery',t:'Delivery — did we do what we promised',
+     v:`${D.sessions_logged} sessions across ${D.children_seen} children (${D.sessions_per_child} each).\n`+
+       (D.children_not_seen>0?`${D.children_not_seen} active children were not seen at all.\n`:'')+
+       `\n[Why? What will change?]`},
+    {k:'outcome', t:'Outcome — did the children get better',
+     v:(O.measured_goals>0
+        ? `Of ${O.measured_goals} goals scored more than once: ${O.improved} improved, ${O.no_change} unchanged, ${O.declined} declined. Mean movement ${O.mean_gain_points>0?'+':''}${O.mean_gain_points} points.\n`
+        : `No goal was scored twice in this period, so no movement can be shown.\n`)+
+       `\n[State plainly what the evidence supports — and what it does not. Do not overclaim. A school that later discovers you overstated will not come back.]`},
+    {k:'equity',  t:'Equity — supported placements',
+     v:`${E.community_placements} of ${E.active_caseload} active children (${E.community_pct}%), against a ${E.cap_pct}% cap.\n\n[Are we serving the families who cannot pay, without sinking the business that lets us serve them?]`},
+    {k:'flags',   t:'What needs attention',
+     v:(flags.length?flags.map(f=>'· '+f).join('\n'):'· Nothing flagged by the numbers.')+
+       `\n\n[Add what the numbers cannot see.]`},
+    {k:'actions', t:'Decisions and actions',
+     v:'[What changes as a result of this evaluation? Who does it, and by when? An evaluation that changes nothing was a waste of the afternoon.]'},
+  ];
+}
+
+async function createEval(mx){
+  const title=prompt('Name this evaluation',
+    'Program evaluation — '+fmtDate(EVAL_RANGE.from)+' to '+fmtDate(EVAL_RANGE.to));
+  if(title===null) return;
+  const {data,error}=await sb.from('program_evaluations').insert({
+    title:title||'Program evaluation',
+    period_from:EVAL_RANGE.from, period_to:EVAL_RANGE.to,
+    band:EVAL_RANGE.band?Number(EVAL_RANGE.band):null,
+    metrics:mx, sections:evalSections(mx),
+    created_by:ME.id, created_name:ME.full_name||null
+  }).select().single();
+  if(error){ toast(error.message,true); return; }
+  SELECTED_EVAL=data; go('program_eval_doc');
+}
+
+async function renderEvalDoc(v,e){
+  if(!e){ go('program_eval'); return; }
+  const {data:fresh}=await sb.from('program_evaluations').select('*').eq('id',e.id).single();
+  e=fresh||e; SELECTED_EVAL=e;
+  let secs=Array.isArray(e.sections)?e.sections:evalSections(e.metrics||{});
+
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(e.title||'Evaluation')}</h1>
+      <p>${fmtDate(e.period_from)} – ${fmtDate(e.period_to)}${e.band?' · Band '+e.band:' · all bands'} · ${e.status==='final'?'Final':'Draft'}</p></div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-ghost btn-sm" id="evPrint" style="width:auto">Print / PDF</button>
+      <button class="btn btn-ghost btn-sm" id="evFinal" style="width:auto">${e.status==='final'?'Reopen as draft':'Mark final'}</button>
+      <button class="btn btn-ghost btn-sm" id="evDel" style="width:auto;color:var(--danger)">Delete</button>
+    </div>
+
+    <div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)">
+      <div class="row-sub" style="white-space:normal">The figures below were frozen when this evaluation was generated. They will not move if the data changes later — which is the point. This is what was true on ${fmtDate(e.created_at)}.</div>
+    </div>
+
+    <div id="evFrozen" style="margin-top:14px"></div>
+
+    <div class="section-head" style="margin-top:22px"><h3>Findings</h3></div>
+    <div id="evSecs"></div>
+    <div class="as-save" id="evTag">Saved</div>
+    <div style="height:30px"></div>`;
+
+  $('#backBtn').onclick=()=>go('program_eval');
+  $('#evFrozen').innerHTML = e.metrics ? evalMetricsHtml(e.metrics) : '<div class="row-sub">No metrics stored.</div>';
+
+  const wrap=$('#evSecs');
+  secs.forEach((s,i)=>{
+    const sec=el(`<div class="as-rep-sec"><h4>${escapeHtml(s.t)}</h4>
+      <textarea data-i="${i}">${escapeHtml(s.v||'')}</textarea></div>`);
+    const ta=sec.querySelector('textarea');
+    ta.oninput=()=>{ secs[i].v=ta.value; queueSave(); };
+    wrap.appendChild(sec);
+  });
+  growAllTextareas(wrap);
+
+  let t=null;
+  function queueSave(){
+    clearTimeout(t);
+    t=setTimeout(async()=>{
+      const tag=$('#evTag'); if(tag){ tag.textContent='Saving…'; tag.classList.add('show'); }
+      const {error}=await sb.from('program_evaluations').update({sections:secs}).eq('id',e.id);
+      if(tag){ tag.textContent=error?'Not saved':'Saved'; setTimeout(()=>tag.classList.remove('show'),1400); }
+    },700);
+  }
+
+  $('#evFinal').onclick=async()=>{
+    const next=e.status==='final'?'draft':'final';
+    await sb.from('program_evaluations').update({status:next}).eq('id',e.id);
+    toast(next==='final'?'Marked final':'Reopened'); renderEvalDoc($('#view'),e);
+  };
+  $('#evDel').onclick=async()=>{
+    if(!confirm('Delete this evaluation?')) return;
+    await sb.from('program_evaluations').delete().eq('id',e.id);
+    toast('Deleted'); go('program_eval');
+  };
+  $('#evPrint').onclick=()=>evalPrint(e,secs);
+}
+
+function evalPrint(e,secs){
+  const w=window.open('','_blank');
+  if(!w){ toast('Allow pop-ups to print',true); return; }
+  const mx=e.metrics||{};
+  const R=mx.reach||{},D=mx.delivery||{},O=mx.outcome||{},E=mx.equity||{};
+  const tbl=(t,rows)=>`<h2>${escapeHtml(t)}</h2><table>${rows.map(([k,v])=>
+    `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v??'—'))}</td></tr>`).join('')}</table>`;
+
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8">
+  <title>${escapeHtml(e.title||'Program evaluation')}</title><style>
+  @page{margin:18mm 16mm}
+  body{font-family:'Plus Jakarta Sans',-apple-system,sans-serif;color:#2A2330;font-size:11.5pt;line-height:1.55;margin:0}
+  .stripe{height:5px;background:linear-gradient(90deg,#000 0 33.3%,#FCDC04 33.3% 66.6%,#D90000 66.6% 100%)}
+  header{padding:16px 0 10px;border-bottom:2px solid #6C3483;margin-bottom:16px}
+  h1{font-family:Georgia,serif;color:#6C3483;margin:0 0 4px;font-size:19pt}
+  .meta{color:#6B6475;font-size:10pt}
+  h2{font-family:Georgia,serif;color:#4A1E63;font-size:12.5pt;margin:18px 0 6px;border-bottom:1px solid #E6D8EE;padding-bottom:3px;page-break-after:avoid}
+  table{border-collapse:collapse;width:100%;margin-bottom:6px}
+  th{text-align:left;width:52%;padding:5px 8px;color:#6B6475;font-weight:600;border-bottom:1px solid #F0EAF4;font-size:10.5pt}
+  td{padding:5px 8px;border-bottom:1px solid #F0EAF4;font-weight:600}
+  section{page-break-inside:avoid}
+  .body{white-space:pre-wrap}
+  footer{margin-top:26px;padding-top:10px;border-top:1px solid #E6D8EE;color:#6B6475;font-size:9pt;line-height:1.6}
+  </style></head><body>
+  <div class="stripe"></div>
+  <header><h1>Mindora Inclusive Child Development Services</h1>
+    <div class="meta">${escapeHtml(e.title||'Program evaluation')} · ${fmtDate(e.period_from)} – ${fmtDate(e.period_to)}${e.band?' · Band '+e.band:' · all bands'} · ${e.status==='final'?'Final':'Draft'}</div>
+  </header>
+
+  ${tbl('Reach',[['Active children',R.active_children],['New intakes',R.new_intakes],
+                 ['Exits',R.exits],['Assessments completed',D.assessments_completed]])}
+  ${tbl('Delivery',[['Sessions logged',D.sessions_logged],['Children seen',D.children_seen],
+                 ['Sessions per child',D.sessions_per_child],['Active children not seen at all',D.children_not_seen]])}
+  ${tbl('Outcome',[['Goals total',O.goals_total],['Goals achieved',O.goals_achieved],
+                 ['Goals with 2+ scores in period',O.measured_goals],
+                 ['Improved',O.improved],['No change',O.no_change],['Declined',O.declined],
+                 ['Mean movement (0–100 scale)',O.mean_gain_points!=null?((O.mean_gain_points>0?'+':'')+O.mean_gain_points):'—']])}
+  ${tbl('Equity',[['Active caseload',E.active_caseload],['Community placements',E.community_placements],
+                 ['Share of caseload',(E.community_pct??'—')+'%'],['Cap',(E.cap_pct??30)+'%'],
+                 ['Within cap',E.within_cap?'Yes':'No']])}
+
+  ${secs.map(s=>`<section><h2>${escapeHtml(s.t)}</h2><div class="body">${escapeHtml(s.v||'—')}</div></section>`).join('')}
+
+  <footer>
+    Outcome figures are criterion-referenced progress scores recorded by the treating professional.
+    They are not blinded, standardized or independent. They record what the clinicians observed.
+    A goal must be scored at least twice within the period before any movement can be reported.<br><br>
+    Prepared by ${escapeHtml(e.created_name||'—')} · generated ${fmtDate(e.created_at)}<br>
+    Home, Hope &amp; Harmony · mindoraicds@gmail.com · 0741 397 167 · Confidential.
+  </footer>
+  <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 
