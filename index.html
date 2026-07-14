@@ -610,6 +610,27 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 .au-fields{padding:0 13px 10px;font-size:11.5px;color:var(--muted)}
 .au-detail{padding:0 13px 13px;border-top:1px dashed var(--line)}
 
+
+/* ===================== RATE-CARD FEE BOX (STAGE 33) ===================== */
+.fee-box{border:1px solid var(--line);background:var(--bg2);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.fee-empty{font-size:13px;color:var(--muted);line-height:1.5}
+.fee-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-deep);display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.fee-h span{font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted);font-size:12px}
+.fee-row{padding:9px 0;border-bottom:1px dashed var(--line)}
+.fee-row:last-of-type{border-bottom:none}
+.fee-lab{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35}
+.fee-card{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:2px}
+.fee-in{display:flex;align-items:center;gap:7px;margin-top:6px}
+.fee-in>span{font-size:12px;color:var(--muted);font-weight:600}
+.fee-in input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:var(--card);color:var(--ink)}
+.fee-reset{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:9px;width:34px;height:34px;font-size:14px;cursor:pointer;flex:none}
+.fee-reset:hover{border-color:var(--accent);color:var(--accent)}
+.fee-over{font-size:11.5px;color:var(--warn);font-weight:600;margin-top:4px}
+.fee-note{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.fee-strip{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+.fee-chip{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:7px 11px;font-size:12px}
+.fee-chip b{display:block;font-size:14px;color:var(--ink);font-family:'Fraunces',serif;margin-top:2px}
+
 </style>
 </head>
 <body>
@@ -1307,7 +1328,8 @@ function paintClients(q){
   });
 }
 
-function openClientForm(c){
+async function openClientForm(c){
+  if(!RATE_BY_KEY) await loadRateCard();
   const edit=!!c; c=c||{};
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit child':'Add a child'}</h3>
@@ -1327,16 +1349,26 @@ function openClientForm(c){
       </select></div>
     </div>
     <div class="form-row two">
-      <div><label>Assessed band</label><select id="f_band"><option value="">—</option>${[1,2,3,4].map(b=>`<option value="${b}" ${c.assessed_band==b?'selected':''}>Band ${b}</option>`).join('')}</select></div>
-      <div><label>Pricing context</label><select id="f_pc"><option value="">—</option>${['C1','C2','C3','C4'].map(p=>`<option ${c.pricing_context===p?'selected':''}>${p}</option>`).join('')}</select></div>
+      <div><label>Assessed band <span style="color:var(--muted);font-weight:400">— clinical, never moved to win a deal</span></label><select id="f_band"><option value="">—</option>${[1,2,3,4].map(b=>`<option value="${b}" ${c.assessed_band==b?'selected':''}>Band ${b}</option>`).join('')}</select></div>
+      <div><label>Pricing context <span style="color:var(--muted);font-weight:400">— ability to pay</span></label><select id="f_pc"><option value="">—</option>${RATE_TIERS.map(t=>`<option value="${t.k}" ${c.pricing_context===t.k?'selected':''}>${t.label}</option>`).join('')}${isLegacyContext(c.pricing_context)?`<option value="${escapeHtml(c.pricing_context)}" selected>${escapeHtml(c.pricing_context)} — legacy, reselect</option>`:''}</select></div>
     </div>
+    ${isLegacyContext(c.pricing_context)?`<div class="as-flag" style="margin:0 0 12px">This child still holds the old pricing context "${escapeHtml(c.pricing_context)}". The rate card now uses A / B / C. Nothing has been converted automatically — choose the correct one so the fees are right.</div>`:''}
+    <div class="form-row two">
+      <div><label>Billing cycle</label><select id="f_cycle">
+        <option value="monthly" ${(c.billing_cycle||'monthly')==='monthly'?'selected':''}>Monthly</option>
+        <option value="termly" ${c.billing_cycle==='termly'?'selected':''}>Termly</option></select></div>
+      <div><label>Fee basis</label><select id="f_basis">
+        <option value="direct" ${(c.fee_basis||'direct')==='direct'?'selected':''}>Direct — full term price</option>
+        <option value="model_b" ${c.fee_basis==='model_b'?'selected':''}>Model B child — 10% term discount</option></select></div>
+    </div>
+
+    <div id="feeBox" class="fee-box"></div>
     <div class="form-row"><label>Parent / guardian name</label><input id="f_pname" value="${escapeHtml(c.parent_name||'')}"/></div>
     <div class="form-row two">
       <div><label>Parent email</label><input id="f_pemail" type="email" value="${escapeHtml(c.parent_email||'')}"/></div>
       <div><label>Parent phone</label><input id="f_pphone" value="${escapeHtml(c.parent_phone||'')}"/></div>
     </div>
     <div class="form-row"><label>Presenting needs / notes <span style="color:var(--muted);font-weight:400">(intake — what the family reported)</span></label><textarea id="f_needs">${escapeHtml(c.presenting_needs||'')}</textarea></div>
-    <div class="form-row"><label>Monthly service-unit fee (UGX) <span style="color:var(--muted);font-weight:400">— ONE fee per month for this child's whole assigned bundle (sessions + parent coaching + teacher training + documentation). Split across the care team. Director &amp; assigned pro only.</span></label><input id="f_unitrate" type="number" min="0" value="${c.prof_unit_rate??''}" placeholder="e.g. 250000"/></div>
     <details class="clin-fold">
       <summary>Clinical summary <span class="fold-note">— completed by the clinician; shown to the parent</span></summary>
       <div class="fold-body">
@@ -1369,6 +1401,75 @@ function openClientForm(c){
     </div>
   </div></div>`);
   document.body.appendChild(m);
+  // --- rate card wiring -------------------------------------------------
+  const feeBox=m.querySelector('#feeBox');
+  const readSel=()=>({
+    assessed_band:  m.querySelector('#f_band').value||null,
+    pricing_context:m.querySelector('#f_pc').value||null,
+    billing_cycle:  m.querySelector('#f_cycle').value,
+    fee_basis:      m.querySelector('#f_basis').value,
+  });
+  let FEE={
+    monthly_fee:   c.monthly_fee   ?? null,
+    term_fee:      c.term_fee      ?? null,
+    prof_unit_rate:c.prof_unit_rate?? null,
+  };
+  function paintFees(refill){
+    const sel=readSel();
+    const r=childRates(sel);
+    if(!r){
+      feeBox.innerHTML='<div class="fee-empty">Choose an <strong>assessed band</strong> and a <strong>pricing context</strong> and the fees will fill in from the Master Rate Card.</div>';
+      return;
+    }
+    if(refill){
+      FEE.monthly_fee   = r.monthly.value;
+      FEE.term_fee      = r.term.value;
+      FEE.prof_unit_rate= r.prof.value;
+    }
+    const termly = sel.billing_cycle==='termly';
+    const row=(id,label,card,val,note)=>{
+      const over = val!=null && card.value!=null && Number(val)!==Number(card.value);
+      return `<div class="fee-row">
+        <div class="fee-lab">${label}
+          <span class="fee-card">Rate card: ${card.text?escapeHtml(card.text):'—'}${note?' · '+note:''}</span></div>
+        <div class="fee-in">
+          <span>UGX</span>
+          <input type="number" min="0" id="${id}" value="${val??''}" placeholder="—"/>
+          <button type="button" class="fee-reset" data-for="${id}" title="Restore the rate card figure">↺</button>
+        </div>
+        ${over?`<div class="fee-over">Overridden — the card says ${escapeHtml(card.text)}</div>`:''}
+      </div>`;
+    };
+    feeBox.innerHTML=`
+      <div class="fee-h">Fees — Master Rate Card v3 <span>Band ${sel.assessed_band} · ${escapeHtml(sel.pricing_context)}</span></div>
+      ${row('f_monthly','What the family pays — monthly',r.monthly,FEE.monthly_fee,'')}
+      ${termly?row('f_term','What the family pays — per term',r.term,FEE.term_fee,
+                   r.termSec==='term_modelb'?'Model B, −10%':'direct, full'):''}
+      ${row('f_unitrate','Monthly service-unit fee (professional bundle)',r.prof,FEE.prof_unit_rate,
+            'range → upper = sole delivery')}
+      <div class="fee-note">One fee per month for this child's whole assigned bundle — sessions, parent coaching, teacher training, documentation. Where two professionals share the case, Mindora splits this between them. Every figure above is editable; ↺ restores the card.</div>`;
+
+    feeBox.querySelectorAll('input').forEach(inp=>{
+      inp.oninput=()=>{
+        const v=inp.value===''?null:Number(inp.value);
+        if(inp.id==='f_monthly')  FEE.monthly_fee=v;
+        if(inp.id==='f_term')     FEE.term_fee=v;
+        if(inp.id==='f_unitrate') FEE.prof_unit_rate=v;
+      };
+    });
+    feeBox.querySelectorAll('.fee-reset').forEach(b=>b.onclick=()=>{
+      const id=b.dataset.for;
+      if(id==='f_monthly')  FEE.monthly_fee   = r.monthly.value;
+      if(id==='f_term')     FEE.term_fee      = r.term.value;
+      if(id==='f_unitrate') FEE.prof_unit_rate= r.prof.value;
+      paintFees(false);
+    });
+  }
+  ['#f_band','#f_pc','#f_cycle','#f_basis'].forEach(sel=>{
+    m.querySelector(sel).onchange=()=>paintFees(true);   // dropdown changed -> refill from card
+  });
+  paintFees(!c.id && !FEE.monthly_fee);   // new child: fill from card. existing: keep what's stored.
+
   photoUploader('f_photo_up','f_photo',c.photo_url,'children');
   // fill the institution selector so a child can be linked to a school
   (async()=>{
@@ -1395,7 +1496,11 @@ function openClientForm(c){
       parent_email:m.querySelector('#f_pemail').value.trim()||null,
       parent_phone:m.querySelector('#f_pphone').value.trim()||null,
       presenting_needs:m.querySelector('#f_needs').value.trim()||null,
-      prof_unit_rate:(function(){const v=m.querySelector('#f_unitrate').value;return v===''?null:Number(v);})(),
+      billing_cycle:m.querySelector('#f_cycle').value,
+      fee_basis:m.querySelector('#f_basis').value,
+      monthly_fee:FEE.monthly_fee,
+      term_fee:(m.querySelector('#f_cycle').value==='termly')?FEE.term_fee:null,
+      prof_unit_rate:FEE.prof_unit_rate,
       clinical_diagnosis:m.querySelector('#f_cdiag').value.trim()||null,
       clinical_assessment:m.querySelector('#f_cassess').value.trim()||null,
       clinical_impressions:m.querySelector('#f_cimp').value.trim()||null,
@@ -4159,7 +4264,8 @@ async function renderStaffChild(v,c){
     <div class="welcome" style="display:flex;align-items:center;gap:18px">
       <div class="child-photo">${c.photo_url?`<img src="${escapeHtml(c.photo_url)}" alt=""/>`:`<span>${escapeHtml(initials(c.full_name))}</span>`}</div>
       <div><h1>${escapeHtml(c.full_name)}</h1>
-      <p>${c.child_no?escapeHtml(c.child_no)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.delivery_channel||'direct'} channel${team.length?' · Team: '+escapeHtml(team.join(', ')):''}</p></div>
+      <p>${c.child_no?escapeHtml(c.child_no)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.delivery_channel||'direct'} channel${team.length?' · Team: '+escapeHtml(team.join(', ')):''}</p>
+      ${childFeeStripHtml(c)}</div>
     </div>
 
     ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);flex-direction:column;align-items:stretch;gap:8px">
@@ -4177,6 +4283,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
       <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
       <div class="qa" id="qaAssess">${icon('plan')} Assessments</div>
+      <div class="qa" id="qaSAR">${icon('profile')} Subject access pack</div>
       <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
@@ -4213,6 +4320,7 @@ async function renderStaffChild(v,c){
   $('#qaChat').onclick=()=>{SELECTED_CHILD=c;go('child_chat');};
   $('#qaReports').onclick=()=>{SELECTED_CHILD=c;go('child_reports');};
   { const _qa=$('#qaAssess'); if(_qa) _qa.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
+  { const _sar=$('#qaSAR'); if(_sar) _sar.onclick=()=>subjectAccessPack(c); }
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
@@ -8352,6 +8460,312 @@ function auditVal(v){
   }
   const s=String(v);
   return s.length>200?s.slice(0,200)+'…':s;
+}
+
+
+
+/* =====================================================================
+   MINDORA — STAGE 33
+   (a) Rate card lookup for the child record
+   (b) Subject Access Pack
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   RATE CARD LOOKUP
+   The Master Rate Card lives in MASTER_RATE_CARD, and any edited figure
+   is saved in rate_cards under program 'mrc' with key s<sec>_r<row>_c<col>.
+   These helpers read the edited value where it exists and fall back to
+   the card's built-in figure.
+
+   Section indices in MASTER_RATE_CARD.sections:
+     0 = Client fees — monthly
+     1 = Client fees — term, direct
+     2 = Client fees — term, Model B child (-10%)
+     3 = Professional fees — monthly  (the service-unit bundle)
+   Columns: 1 = A Premium, 2 = B Mid, 3 = C Community
+--------------------------------------------------------------------- */
+const MRC_SEC = { monthly:0, term_direct:1, term_modelb:2, prof:3 };
+const RATE_TIERS = [
+  {k:'A', label:'A · Premium'},
+  {k:'B', label:'B · Mid'},
+  {k:'C', label:'C · Community'},
+];
+const TIER_COL = { A:1, B:2, C:3 };
+
+let RATE_BY_KEY = null;   // cached rate_cards rows
+
+async function loadRateCard(){
+  const {data}=await sb.from('rate_cards').select('*');
+  RATE_BY_KEY={};
+  (data||[]).forEach(r=>{ RATE_BY_KEY[r.program+'|'+r.item_key]=r; });
+  return RATE_BY_KEY;
+}
+
+/* Returns { text, value } for a cell.
+   text  — exactly as it appears on the rate card (may be a range)
+   value — a single number to pre-fill with.
+           For a RANGE, we take the UPPER figure: that is the sole-delivery
+           amount, i.e. the cost of the whole bundle for this child. When
+           two professionals are on the case the app splits it between them
+           (stage 29). So the child-level figure is always the whole. */
+function rateCell(sectionKey, band, tier){
+  const si = MRC_SEC[sectionKey];
+  const ri = Number(band) - 1;
+  const ci = TIER_COL[tier];
+  if(si==null || !(ri>=0 && ri<=3) || !ci) return {text:'', value:null};
+
+  const sec = MASTER_RATE_CARD.sections[si];
+  if(!sec || !sec.rows[ri]) return {text:'', value:null};
+
+  const rec = (RATE_BY_KEY||{})['mrc|'+mrcKey(si,ri,ci)];
+  const fallback = sec.rows[ri][ci];
+  const text = (rec && (rec.amount_text ?? rec.amount)) != null
+             ? String(rec.amount_text ?? rec.amount)
+             : String(fallback ?? '');
+
+  return { text, value: parseRateNumber(text) };
+}
+
+/* "1,000,000"            -> 1000000
+   "200,000 – 400,000"    -> 400000   (upper = whole bundle)
+   ""                     -> null                                   */
+function parseRateNumber(text){
+  if(text==null) return null;
+  const nums=String(text).match(/[\d][\d,\s]*/g);
+  if(!nums||!nums.length) return null;
+  const vals=nums.map(n=>Number(n.replace(/[,\s]/g,''))).filter(n=>!isNaN(n)&&n>0);
+  if(!vals.length) return null;
+  return Math.max(...vals);
+}
+
+function isLegacyContext(pc){ return !!pc && !['A','B','C'].includes(pc); }
+
+/* Fee strip for the staff child header.
+   Renders NOTHING for anyone who is not staff — parents and professionals
+   must never see the professional bundle cost or the pricing tier. */
+function childFeeStripHtml(c){
+  if(!isStaff()) return '';
+  const money=v=>v==null?'—':'UGX '+Number(v).toLocaleString();
+  const bits=[];
+  if(c.pricing_context) bits.push(`<div class="fee-chip">Context<b>${escapeHtml(c.pricing_context)}</b></div>`);
+  if(c.monthly_fee!=null) bits.push(`<div class="fee-chip">Family — monthly<b>${money(c.monthly_fee)}</b></div>`);
+  if(c.billing_cycle==='termly' && c.term_fee!=null)
+    bits.push(`<div class="fee-chip">Family — per term<b>${money(c.term_fee)}</b></div>`);
+  if(c.prof_unit_rate!=null)
+    bits.push(`<div class="fee-chip">Service unit / month<b>${money(c.prof_unit_rate)}</b></div>`);
+  if(isLegacyContext(c.pricing_context))
+    bits.push(`<div class="fee-chip" style="border-color:#F3C9CB;background:#FDEEEF"><b style="color:#8E2226">Legacy context — reselect</b></div>`);
+  if(!bits.length) return '';
+  return `<div class="fee-strip">${bits.join('')}</div>`;
+}
+
+/* The three figures for a child, straight off the card. */
+function childRates(c){
+  const band=c.assessed_band, tier=c.pricing_context;
+  if(!band || !TIER_COL[tier]) return null;
+  const termSec = (c.fee_basis==='model_b') ? 'term_modelb' : 'term_direct';
+  return {
+    monthly: rateCell('monthly', band, tier),
+    term:    rateCell(termSec,   band, tier),
+    prof:    rateCell('prof',    band, tier),
+    termSec
+  };
+}
+
+/* ---------------------------------------------------------------------
+   SUBJECT ACCESS PACK
+--------------------------------------------------------------------- */
+async function subjectAccessPack(c){
+  if(!c){ toast('No child selected',true); return; }
+  toast('Building the pack…');
+
+  const {data,error}=await sb.rpc('mnd_subject_access',{p_client:c.id});
+  if(error){
+    toast('Could not build the pack: '+error.message,true);
+    return;
+  }
+
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:560px">
+    <h3>Subject access pack</h3>
+    <div class="sub">${escapeHtml(c.full_name)}</div>
+
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;margin:10px 0">
+      <div class="row-name">${Number(data.total_rows||0).toLocaleString()} records held about this child</div>
+      <div class="row-sub" style="white-space:normal">
+        ${Object.entries(data.row_counts||{}).map(([k,v])=>escapeHtml(k)+': '+v).join(' · ')||'—'}
+      </div>
+    </div>
+
+    <div class="as-flag" style="background:#FDF6E7;border-color:#F0D9A8;color:#7A5410">
+      This pack contains the child's full record, including clinical detail.
+      Hand it to the parent or guardian who has parental responsibility, and to nobody else.
+      Check the identity of whoever asks before you release it.
+    </div>
+
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div class="row-sub" style="white-space:normal">
+        <strong>Not included, deliberately:</strong> how the fee is split between professionals,
+        what a professional is paid, and the rate card. Those are Mindora's commercial information,
+        not personal data about the child. What the family was charged and paid <em>is</em> included.
+      </div>
+    </div>
+
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-ghost" id="sarClose">Close</button>
+      <button class="btn btn-ghost" id="sarJson">Download data (.json)</button>
+      <button class="btn btn-primary" id="sarHtml">Download pack (.html)</button>
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{ if(e.target===m) close(); });
+  m.querySelector('#sarClose').onclick=close;
+
+  const stamp=isoD(new Date());
+  const safe=(c.full_name||'child').replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+
+  m.querySelector('#sarJson').onclick=()=>{
+    dlBlob(JSON.stringify(data,null,2),'application/json',
+           `subject-access-${safe}-${stamp}.json`);
+    toast('Data file downloaded');
+  };
+  m.querySelector('#sarHtml').onclick=()=>{
+    dlBlob(buildSARHtml(c,data),'text/html',
+           `subject-access-${safe}-${stamp}.html`);
+    toast('Pack downloaded');
+    close();
+  };
+}
+
+function dlBlob(text, mime, name){
+  const url=URL.createObjectURL(new Blob([text],{type:mime}));
+  const a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  a.remove(); setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+
+/* Readable, printable, hand-over-able. Opens on any device. */
+function buildSARHtml(c, data){
+  const esc=s=>String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+  const PRETTY={
+    clients:'Child record', assessments:'Assessments',
+    assessment_protocols:'Assessment protocols (what was administered)',
+    assessment_reports:'Assessment reports', standardized_scores:'Standardized test results',
+    child_reports:'Progress reports', report_sections:'Report sections',
+    op_forms:'Operational forms (intake, eligibility, reviews, exit)',
+    assignments:'Professionals assigned', goals:'Goals', goal_progress:'Goal progress',
+    session_logs:'Sessions delivered', child_schedules:'Schedule',
+    home_programs:'Home programs', bills:'Bills', invoices:'Invoices',
+    audit_log_for_this_child:'Change history of this record'
+  };
+
+  const cell=v=>{
+    if(v===null||v===undefined||v==='') return '<span class="n">—</span>';
+    if(typeof v==='boolean') return v?'Yes':'No';
+    if(typeof v==='object'){
+      const s=JSON.stringify(v,null,1);
+      return '<pre>'+esc(s.length>4000?s.slice(0,4000)+'\n…':s)+'</pre>';
+    }
+    return esc(String(v)).replace(/\n/g,'<br>');
+  };
+
+  const child=data.child||{};
+  const bioKeys=['full_name','child_no','dob','sex','status','assessed_band',
+                 'delivery_channel','school_name','parent_name','parent_email',
+                 'parent_phone','billing_cycle','monthly_fee','term_fee'];
+  const bio=bioKeys.filter(k=>child[k]!=null&&child[k]!=='')
+    .map(k=>`<tr><th>${esc(k.replace(/_/g,' '))}</th><td>${cell(child[k])}</td></tr>`).join('');
+
+  const rest=Object.keys(child).filter(k=>!bioKeys.includes(k)&&child[k]!=null&&child[k]!=='')
+    .map(k=>`<tr><th>${esc(k.replace(/_/g,' '))}</th><td>${cell(child[k])}</td></tr>`).join('');
+
+  const recs=data.records||{};
+  const sections=Object.keys(recs).map(t=>{
+    const rows=recs[t]||[];
+    if(!rows.length) return '';
+    const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+    return `<section>
+      <h2>${esc(PRETTY[t]||t)} <span class="cnt">${rows.length} record${rows.length===1?'':'s'}</span></h2>
+      <div class="scroll"><table class="grid">
+        <thead><tr>${cols.map(k=>`<th>${esc(k.replace(/_/g,' '))}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r=>`<tr>${cols.map(k=>`<td>${cell(r[k])}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div></section>`;
+  }).join('');
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subject access pack — ${esc(child.full_name||'')}</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;color:#2A2330;background:#F7F5F9;font-size:14px;line-height:1.55}
+.stripe{height:5px;background:linear-gradient(90deg,#000 0 33.3%,#FCDC04 33.3% 66.6%,#D90000 66.6% 100%)}
+header{background:#fff;padding:22px 18px;border-bottom:1px solid #E6D8EE}
+h1{margin:0 0 4px;font-size:20px;color:#6C3483}
+.meta{color:#6B6475;font-size:13px}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 14px 60px}
+.notice{background:#FDF6E7;border:1px solid #F0D9A8;color:#7A5410;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px}
+.notice strong{display:block;margin-bottom:4px}
+section{background:#fff;border:1px solid #E6D8EE;border-radius:14px;margin-bottom:16px;overflow:hidden}
+h2{margin:0;padding:13px 15px;background:#F3ECF7;color:#4A1E63;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+.cnt{font-size:12px;font-weight:400;color:#6B6475}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+table.kv th{width:190px;text-align:left;color:#6B6475;font-weight:600;vertical-align:top}
+table.kv th,table.kv td{padding:9px 15px;border-bottom:1px solid #F0EAF4}
+table.grid th{text-align:left;padding:8px 10px;background:#fff;border-bottom:2px solid #E6D8EE;color:#6B6475;font-size:11px;text-transform:uppercase;white-space:nowrap}
+table.grid td{padding:8px 10px;border-bottom:1px solid #F0EAF4;vertical-align:top;max-width:360px;word-break:break-word}
+pre{margin:0;font-size:12px;white-space:pre-wrap;word-break:break-word;color:#4A4152}
+.n{color:#B9B2C2}
+footer{color:#6B6475;font-size:12px;padding:24px 14px;line-height:1.7;text-align:center}
+@media print{body{background:#fff}section{page-break-inside:avoid}}
+</style></head><body>
+<div class="stripe"></div>
+<header>
+  <h1>Subject access pack</h1>
+  <div class="meta">
+    <strong>${esc(child.full_name||'')}</strong>${child.child_no?' · '+esc(child.child_no):''} ·
+    prepared ${esc(String(data.generated_at).slice(0,10))} ·
+    ${Number(data.total_rows||0).toLocaleString()} records
+  </div>
+</header>
+<div class="wrap">
+
+  <div class="notice">
+    <strong>What this is</strong>
+    This is everything Mindora Inclusive Child Development Services holds about
+    ${esc(child.full_name||'this child')}, provided in response to a request for access to
+    personal data under the Data Protection and Privacy Act, 2019.
+  </div>
+
+  <div class="notice">
+    <strong>What is not included, and why</strong>
+    ${esc(data.exclusion_note||'')}
+  </div>
+
+  <div class="notice">
+    <strong>If something here is wrong</strong>
+    You may ask us to correct it. You may also withdraw a consent you previously gave.
+    Write to mindoraicds@gmail.com or call 0741 397 167 and we will respond.
+  </div>
+
+  <section>
+    <h2>Child record</h2>
+    <table class="kv"><tbody>${bio}${rest}</tbody></table>
+  </section>
+
+  ${sections}
+</div>
+<footer>
+  Mindora Inclusive Child Development Services Co. Limited<br>
+  Home, Hope &amp; Harmony · mindoraicds@gmail.com · 0741 397 167<br><br>
+  <strong>Confidential.</strong> This document contains the complete personal and clinical
+  record of a child. Release it only to a parent or guardian with parental responsibility,
+  and only after checking who they are.
+</footer>
+</body></html>`;
 }
 
 
