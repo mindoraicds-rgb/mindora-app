@@ -9307,6 +9307,7 @@ function evalMetricsHtml(mx){
     <div class="ev-band">${Object.entries(R.by_band||{}).map(([k,n])=>
       `<span class="ev-chip">${k==='unassigned'?'No band':'Band '+k}: <b>${n}</b></span>`).join('')}</div>
     ${R.by_band && R.by_band.unassigned ? `<div class="ev-warn">${R.by_band.unassigned} active ${R.by_band.unassigned===1?'child has':'children have'} no band. They cannot be costed, planned or evaluated until they do.</div>`:''}
+    ${R.exits_undated ? `<div class="ev-warn"><strong>${R.exits_undated} exited ${R.exits_undated===1?'child has':'children have'} no exit date on record.</strong> They left before Mindora started recording when children leave, so they cannot be counted in any period. The exit figure above is therefore a floor, not a total. Set the date by hand on their record if you know it.</div>`:''}
   </div>
 
   <div class="ev-sec">
