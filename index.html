@@ -1064,7 +1064,7 @@ const NAV = {
 };
 
 /* ===================== STATE ===================== */
-let ME={id:null,name:'',email:'',role:null};
+let ME={id:null,name:'',email:'',role:null,routineOnly:false};
 let SELECTED_PERSON=null;
 const ATTACH_STATE={};
 let SELECTED_REPORT=null;
@@ -1114,11 +1114,11 @@ async function boot(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){ document.body.classList.remove('role-director','role-secretary','role-professional','role-parent','role-institution'); $('#login').classList.remove('hidden'); $('#app').style.display='none'; return; }
   // load profile
-  const {data:prof,error}=await sb.from('profiles').select('full_name,display_name,role').eq('id',session.user.id).single();
+  const {data:prof,error}=await sb.from('profiles').select('full_name,display_name,role,routine_only').eq('id',session.user.id).single();
   if(error||!prof){ toast('Could not load your profile.',true); return; }
   ME={id:session.user.id,
       name:prof.display_name||prof.full_name||deriveName(session.user.email),
-      email:session.user.email, role:prof.role};
+      email:session.user.email, role:prof.role, routineOnly:!!prof.routine_only};
   // If not staff, try to link a professional record created for this email
   if(!['director','secretary'].includes(ME.role)){
     await sb.rpc('claim_professional_profile');
@@ -1154,6 +1154,10 @@ async function boot(){
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
+// Whether this login may see financial figures. Director always can. A normal
+// secretary can. A secretary flagged 'routine only' cannot — money is hidden
+// everywhere for them (Finances tab, fee-strip, per-child rates, assignment rates).
+const canSeeMoney=()=>isDirector() || (ME.role==='secretary' && !ME.routineOnly);
 const looksLikeEmail=(s)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||'').trim());
 // Turn an email into a friendly name: 'clintonkelvin64@gmail.com' -> 'Clinton'
 function deriveName(email){
@@ -1593,10 +1597,10 @@ async function openClientForm(c){
     </div>
     <div class="form-row two">
       <div><label>Assessed band <span style="color:var(--muted);font-weight:400">— clinical, never moved to win a deal</span></label><select id="f_band"><option value="">—</option>${[1,2,3,4].map(b=>`<option value="${b}" ${c.assessed_band==b?'selected':''}>Band ${b}</option>`).join('')}</select></div>
-      <div><label>Pricing context <span style="color:var(--muted);font-weight:400">— ability to pay</span></label><select id="f_pc"><option value="">—</option>${RATE_TIERS.map(t=>`<option value="${t.k}" ${c.pricing_context===t.k?'selected':''}>${t.label}</option>`).join('')}${isLegacyContext(c.pricing_context)?`<option value="${escapeHtml(c.pricing_context)}" selected>${escapeHtml(c.pricing_context)} — legacy, reselect</option>`:''}</select></div>
+      ${canSeeMoney()?`<div><label>Pricing context <span style="color:var(--muted);font-weight:400">— ability to pay</span></label><select id="f_pc"><option value="">—</option>${RATE_TIERS.map(t=>`<option value="${t.k}" ${c.pricing_context===t.k?'selected':''}>${t.label}</option>`).join('')}${isLegacyContext(c.pricing_context)?`<option value="${escapeHtml(c.pricing_context)}" selected>${escapeHtml(c.pricing_context)} — legacy, reselect</option>`:''}</select></div>`:`<div></div>`}
     </div>
-    ${isLegacyContext(c.pricing_context)?`<div class="as-flag" style="margin:0 0 12px">This child still holds the old pricing context "${escapeHtml(c.pricing_context)}". The rate card now uses A / B / C. Nothing has been converted automatically — choose the correct one so the fees are right.</div>`:''}
-    <div class="form-row two">
+    ${(canSeeMoney()&&isLegacyContext(c.pricing_context))?`<div class="as-flag" style="margin:0 0 12px">This child still holds the old pricing context "${escapeHtml(c.pricing_context)}". The rate card now uses A / B / C. Nothing has been converted automatically — choose the correct one so the fees are right.</div>`:''}
+    ${canSeeMoney()?`<div class="form-row two">
       <div><label>Billing cycle</label><select id="f_cycle">
         <option value="monthly" ${(c.billing_cycle||'monthly')==='monthly'?'selected':''}>Monthly</option>
         <option value="termly" ${c.billing_cycle==='termly'?'selected':''}>Termly</option></select></div>
@@ -1605,7 +1609,7 @@ async function openClientForm(c){
         <option value="model_b" ${c.fee_basis==='model_b'?'selected':''}>Model B child — 10% term discount</option></select></div>
     </div>
 
-    <div id="feeBox" class="fee-box"></div>
+    <div id="feeBox" class="fee-box"></div>`:''}
     <div class="form-row"><label>Parent / guardian name</label><input id="f_pname" value="${escapeHtml(c.parent_name||'')}"/></div>
     <div class="form-row two">
       <div><label>Parent email</label><input id="f_pemail" type="email" value="${escapeHtml(c.parent_email||'')}"/></div>
@@ -1646,11 +1650,12 @@ async function openClientForm(c){
   document.body.appendChild(m);
   // --- rate card wiring -------------------------------------------------
   const feeBox=m.querySelector('#feeBox');
+  const val=(id)=>{ const e=m.querySelector(id); return e?e.value:''; };
   const readSel=()=>({
-    assessed_band:  m.querySelector('#f_band').value||null,
-    pricing_context:m.querySelector('#f_pc').value||null,
-    billing_cycle:  m.querySelector('#f_cycle').value,
-    fee_basis:      m.querySelector('#f_basis').value,
+    assessed_band:  val('#f_band')||null,
+    pricing_context:val('#f_pc')||null,
+    billing_cycle:  val('#f_cycle')||'monthly',
+    fee_basis:      val('#f_basis')||'direct',
   });
   let FEE={
     monthly_fee:   c.monthly_fee   ?? null,
@@ -1658,6 +1663,7 @@ async function openClientForm(c){
     prof_unit_rate:c.prof_unit_rate?? null,
   };
   function paintFees(refill){
+    if(!feeBox) return;   // routine-only secretary: no fee box rendered
     const sel=readSel();
     const r=childRates(sel);
     if(!r){
@@ -1709,7 +1715,7 @@ async function openClientForm(c){
     });
   }
   ['#f_band','#f_pc','#f_cycle','#f_basis'].forEach(sel=>{
-    m.querySelector(sel).onchange=()=>paintFees(true);   // dropdown changed -> refill from card
+    const e=m.querySelector(sel); if(e) e.onchange=()=>paintFees(true);   // dropdown changed -> refill from card
   });
   paintFees(!c.id && !FEE.monthly_fee);   // new child: fill from card. existing: keep what's stored.
 
@@ -1734,16 +1740,10 @@ async function openClientForm(c){
       delivery_channel:m.querySelector('#f_chan').value,
       status:m.querySelector('#f_status').value,
       assessed_band:m.querySelector('#f_band').value||null,
-      pricing_context:m.querySelector('#f_pc').value||null,
       parent_name:m.querySelector('#f_pname').value.trim()||null,
       parent_email:m.querySelector('#f_pemail').value.trim()||null,
       parent_phone:m.querySelector('#f_pphone').value.trim()||null,
       presenting_needs:m.querySelector('#f_needs').value.trim()||null,
-      billing_cycle:m.querySelector('#f_cycle').value,
-      fee_basis:m.querySelector('#f_basis').value,
-      monthly_fee:FEE.monthly_fee,
-      term_fee:(m.querySelector('#f_cycle').value==='termly')?FEE.term_fee:null,
-      prof_unit_rate:FEE.prof_unit_rate,
       clinical_diagnosis:m.querySelector('#f_cdiag').value.trim()||null,
       clinical_assessment:m.querySelector('#f_cassess').value.trim()||null,
       clinical_impressions:m.querySelector('#f_cimp').value.trim()||null,
@@ -1759,6 +1759,16 @@ async function openClientForm(c){
       teacher_phone:m.querySelector('#f_tphone').value.trim()||null,
       teacher_email:m.querySelector('#f_temail').value.trim()||null,
     };
+    // Money fields only when this login can see money. For a routine-only
+    // secretary we deliberately OMIT them so an edit never wipes existing fees.
+    if(canSeeMoney()){
+      payload.pricing_context=m.querySelector('#f_pc').value||null;
+      payload.billing_cycle=m.querySelector('#f_cycle').value;
+      payload.fee_basis=m.querySelector('#f_basis').value;
+      payload.monthly_fee=FEE.monthly_fee;
+      payload.term_fee=(m.querySelector('#f_cycle').value==='termly')?FEE.term_fee:null;
+      payload.prof_unit_rate=FEE.prof_unit_rate;
+    }
     let res;
     if(edit){ res=await sb.from('clients').update(payload).eq('id',c.id); }
     else { payload.created_by=ME.id; payload.child_no='MND-C-'+Date.now().toString().slice(-6); res=await sb.from('clients').insert(payload); }
@@ -1982,14 +1992,14 @@ async function openAssignForm(){
     </select></div>
     <div id="childFields">
       <div class="form-row"><label>Child</label><select id="f_child">${kids.map(k=>`<option value="${k.id}">${escapeHtml(k.full_name)}${k.child_no?' ('+escapeHtml(k.child_no)+')':''}</option>`).join('')}</select></div>
-      <div class="form-row"><label>Service-unit rate for this child (UGX) <span style="color:var(--muted);font-weight:400">— optional; shown to the professional</span></label><input id="f_unitrate" type="number" min="0" placeholder="e.g. 25000"/></div>
+      ${canSeeMoney()?`<div class="form-row"><label>Service-unit rate for this child (UGX) <span style="color:var(--muted);font-weight:400">— optional; shown to the professional</span></label><input id="f_unitrate" type="number" min="0" placeholder="e.g. 25000"/></div>`:''}
     </div>
     <div id="eventFields" style="display:none">
       <div class="form-row"><label>Event / task title</label><input id="f_evtitle" placeholder="e.g. Teacher training — inclusive classrooms"/></div>
       <div class="form-row"><label>Details</label><textarea id="f_evdetails" placeholder="What the professional will do, where, expectations"></textarea></div>
       <div class="form-row two">
         <div><label>Date</label><input id="f_evdate" type="date"/></div>
-        <div><label>Fee to professional (UGX)</label><input id="f_evfee" type="number" min="0" placeholder="e.g. 150000"/></div>
+        ${canSeeMoney()?`<div><label>Fee to professional (UGX)</label><input id="f_evfee" type="number" min="0" placeholder="e.g. 150000"/></div>`:`<div></div>`}
       </div>
     </div>
     <div class="form-row"><label>Professional</label><select id="f_prof">${profs.map(p=>`<option value="${p.id}">${escapeHtml(p.full_name)}${p.discipline?' — '+escapeHtml(p.discipline):''}</option>`).join('')}</select></div>
@@ -2015,7 +2025,7 @@ async function openAssignForm(){
         kind:'event', event_title:title,
         event_details:m.querySelector('#f_evdetails').value.trim()||null,
         event_date:m.querySelector('#f_evdate').value||null,
-        event_fee:(function(){const v=m.querySelector('#f_evfee').value;return v===''?null:Number(v);})()
+        event_fee:(function(){const e=m.querySelector('#f_evfee');const v=e?e.value:'';return v===''?null:Number(v);})()
       };
     } else {
       payload={
@@ -2023,7 +2033,7 @@ async function openAssignForm(){
         professional_id:m.querySelector('#f_prof').value,
         note:m.querySelector('#f_note').value.trim()||null, assigned_by:ME.id, status:'pending',
         kind:'child',
-        unit_rate:(function(){const v=m.querySelector('#f_unitrate').value;return v===''?null:Number(v);})()
+        unit_rate:(function(){const e=m.querySelector('#f_unitrate');const v=e?e.value:'';return v===''?null:Number(v);})()
       };
     }
     const {error}=await sb.from('assignments').insert(payload);
@@ -2447,26 +2457,40 @@ function homeProgramForm(c){
 const ROLE_OPTS=['director','secretary','professional','parent','institution'];
 async function renderAccess(v){
   if(!isDirector()){v.innerHTML=`<div class="coming"><h3>People & access</h3><p>Director only.</p></div>`;return;}
-  const {data,error}=await sb.from('profiles').select('id,full_name,email,role').order('email');
+  const {data,error}=await sb.from('profiles').select('id,full_name,email,role,routine_only').order('email');
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load people</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
   v.innerHTML=`<div class="welcome"><h1>People &amp; access</h1><p>Everyone with a login. Set each person's role here — no need to touch the database. To add someone new, create their login in Supabase (Authentication → Add user), then set their role here.</p></div>
     <div class="rows" id="accRows"></div>`;
   const rows=$('#accRows');
   (data||[]).forEach(p=>{
-    const card=el(`<div class="row-card" style="cursor:default">
-      <div class="row-ava">${initials(p.full_name||p.email)}</div>
-      <div class="row-main"><div class="row-name">${escapeHtml(p.full_name||'—')}</div><div class="row-sub">${escapeHtml(p.email||'')}</div></div>
-      <select class="roleSel" style="padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff">
-        <option value="">— no access —</option>
-        ${ROLE_OPTS.map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${r}</option>`).join('')}
-      </select>
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="row-ava">${initials(p.full_name||p.email)}</div>
+        <div class="row-main"><div class="row-name">${escapeHtml(p.full_name||'—')}</div><div class="row-sub">${escapeHtml(p.email||'')}</div></div>
+        <select class="roleSel" style="padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff">
+          <option value="">— no access —</option>
+          ${ROLE_OPTS.map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+      </div>
+      <label class="ro-flag" style="display:${p.role==='secretary'?'flex':'none'};align-items:center;gap:9px;cursor:pointer;font-size:13.5px;color:var(--ink);padding-left:2px">
+        <input type="checkbox" class="roChk" ${p.routine_only?'checked':''} style="width:auto;margin:0"/>
+        <span>Routine work only — hide all finances from this secretary <span style="color:var(--muted)">(no fees, rates, invoices or pay anywhere)</span></span>
+      </label>
     </div>`);
     const sel=card.querySelector('.roleSel');
+    const flagWrap=card.querySelector('.ro-flag');
+    const chk=card.querySelector('.roChk');
     sel.addEventListener('change',async()=>{
       const newRole=sel.value||null;
       const {error}=await sb.from('profiles').update({role:newRole}).eq('id',p.id);
       if(error){toast(error.message,true);return;}
+      flagWrap.style.display = newRole==='secretary' ? 'flex' : 'none';
       toast('Access updated');
+    });
+    chk.addEventListener('change',async()=>{
+      const {error}=await sb.from('profiles').update({routine_only:chk.checked}).eq('id',p.id);
+      if(error){ chk.checked=!chk.checked; toast(error.message,true); return; }
+      toast(chk.checked?'Finances hidden for this secretary':'Full access restored');
     });
     rows.appendChild(card);
   });
@@ -4517,14 +4541,14 @@ async function renderStaffChild(v,c){
       ${childFeeStripHtml(c)}</div>
     </div>
 
-    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);flex-direction:column;align-items:stretch;gap:8px">
+    ${!canSeeMoney()?'':(c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
         <div class="row-main"><div class="row-name">Monthly service-unit fee</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per month · one fee for the whole assigned bundle · split across the care team</div></div>
         <button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit fee</button>
         <button class="btn btn-ghost btn-sm" id="qaSplit" style="width:auto">Manage split</button>
       </div>
       <div id="shareSummary" class="row-sub" style="white-space:normal"></div>
-    </div>`:`<div class="row-card" style="cursor:pointer;border:1px dashed var(--line)" id="setRateCard"><div class="row-main"><div class="row-name" style="color:var(--muted)">No monthly service-unit fee set for this child</div><div class="row-sub">Set the monthly fee so pay can be split across the care team and released on finalizing the month.</div></div><span style="color:var(--accent)">Set fee ›</span></div>`}
+    </div>`:`<div class="row-card" style="cursor:pointer;border:1px dashed var(--line)" id="setRateCard"><div class="row-main"><div class="row-name" style="color:var(--muted)">No monthly service-unit fee set for this child</div><div class="row-sub">Set the monthly fee so pay can be split across the care team and released on finalizing the month.</div></div><span style="color:var(--accent)">Set fee ›</span></div>`)}
 
     <div class="qa-row">
       <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
@@ -4586,7 +4610,7 @@ async function renderStaffChild(v,c){
   $('#qaEdit').onclick=()=>openClientForm(c);
   { const er=$('#qaEditRate'); if(er) er.onclick=()=>openClientForm(c); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>openClientForm(c);
     const sp=$('#qaSplit'); if(sp) sp.onclick=()=>editProfShares(c);
-    if(c.prof_unit_rate){ renderShareSummary(c); } }
+    if(c.prof_unit_rate && canSeeMoney()){ renderShareSummary(c); } }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
   // --- Care team: active + past professionals, with end / reactivate ---
@@ -8813,7 +8837,7 @@ function isLegacyContext(pc){ return !!pc && !['A','B','C'].includes(pc); }
    Renders NOTHING for anyone who is not staff — parents and professionals
    must never see the professional bundle cost or the pricing tier. */
 function childFeeStripHtml(c){
-  if(!isStaff()) return '';
+  if(!canSeeMoney()) return '';
   const money=v=>v==null?'—':'UGX '+Number(v).toLocaleString();
   const bits=[];
   if(c.pricing_context) bits.push(`<div class="fee-chip">Context<b>${escapeHtml(c.pricing_context)}</b></div>`);
