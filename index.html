@@ -6835,7 +6835,7 @@ async function renderMyProfile(v){
 
 /* The consent wording version currently in force. Must match a row in
    consent_texts, so what a person agreed to can always be looked up. */
-const MND_CONSENT_VERSION = { professional:'PROF-v1' };
+const MND_CONSENT_VERSION = { professional:'PROF-v1', family:'FAM-v1' };
 
 /* =====================================================================
    MY ENGAGEMENT RECORD  (Stage 42)
@@ -10649,8 +10649,10 @@ function consentForm(c, after){
       <div class="row-name" style="color:var(--accent-deep)">Use of anonymized information</div>
       <p style="font-size:12.5px;color:var(--muted);margin:4px 0 12px;line-height:1.5">
         Each of these is a separate question and the parent may agree to one and refuse
-        another. Tick only what is actually initialled on the form. Refusing any of them
-        changes nothing about the child's care &mdash; and the parent must have been told that.
+        another. Tick only what is actually initialled on the signed form (MND-AGR-01-C).
+        Refusing any of them changes nothing about the child's care &mdash; and the parent
+        must have been told that.
+        <a href="#" id="cs_explain" style="color:var(--accent-deep);font-weight:600">See the wording the parent was given</a>.
       </p>
     </div>
 
@@ -10698,6 +10700,8 @@ function consentForm(c, after){
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#cs_cancel').onclick=close;
+  { const ce=m.querySelector('#cs_explain');
+    if(ce) ce.onclick=(ev)=>{ ev.preventDefault(); mndConsentExplainer('family'); }; }
   m.querySelector('#cs_save').onclick=async()=>{
     const {error}=await sb.from('clients').update({
       consent_form_on_file:m.querySelector('#cs_filed').checked,
@@ -10706,7 +10710,7 @@ function consentForm(c, after){
       consent_internal_reports:m.querySelector('#cs_rep').checked,
       consent_research:m.querySelector('#cs_res').checked,
       consent_identified_share:m.querySelector('#cs_idsh').checked,
-      consent_version:m.querySelector('#cs_ver').value.trim()||null,
+      consent_version:m.querySelector('#cs_ver').value.trim()||MND_CONSENT_VERSION.family,
       consent_research_on:m.querySelector('#cs_resdate').value||null,
       consent_given_by:m.querySelector('#cs_by').value.trim()||null,
       consent_signed_on:m.querySelector('#cs_date').value||null,
