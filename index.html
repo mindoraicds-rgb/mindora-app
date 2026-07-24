@@ -2113,6 +2113,65 @@ async function openProfessionalForm(p){
       <div><label>Status</label><select id="f_status">${['pending','active','inactive'].map(s=>`<option ${(p.status||'pending')===s?'selected':''}>${s}</option>`).join('')}</select></div>
     </div>
     <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="f_docs" type="checkbox" ${p.documents_complete?'checked':''} style="width:auto"/> Registration documents complete</label></div>
+    <details class="clin-fold">
+      <summary>Profile &amp; practice <span class="fold-note">— used to match this professional to the right children and plan training</span></summary>
+      <div class="fold-body">
+        <div class="form-row two">
+          <div><label>Discipline group</label><select id="f_disccode">${mndSelOpts(MND_DISCIPLINES, p.discipline_code)}</select></div>
+          <div><label>Highest qualification</label><select id="f_qlevel">${mndSelOpts(MND_QUAL_LEVEL, p.qualification_level)}</select></div>
+        </div>
+        <div class="form-row two" style="margin-top:-6px">
+          <div><label>Where they trained</label><input id="f_tinst" value="${escapeHtml(p.trained_institution||'')}" placeholder="e.g. Makerere University"/></div>
+          <div><label>Country of training</label><input id="f_tcountry" value="${escapeHtml(p.trained_country||'')}" placeholder="e.g. Uganda"/></div>
+        </div>
+        <div class="form-row two" style="margin-top:-6px">
+          <div><label>Year qualified</label><input id="f_yq" type="number" min="1950" max="2100" value="${p.year_qualified??''}" placeholder="e.g. 2019"/></div>
+          <div><label>Years working with children</label><input id="f_ypaed" type="number" min="0" max="70" value="${p.years_paediatric??''}" placeholder="e.g. 4"/></div>
+        </div>
+        <div class="form-row two">
+          <div><label>Registration body</label><input id="f_regbody" value="${escapeHtml(p.registration_body||'')}" placeholder="e.g. Allied Health Professionals Council"/></div>
+          <div><label>Registration current</label><select id="f_regcur">
+            <option value="" ${p.registration_current===null||p.registration_current===undefined?'selected':''}>— not recorded —</option>
+            <option value="yes" ${p.registration_current===true?'selected':''}>Yes</option>
+            <option value="no" ${p.registration_current===false?'selected':''}>No</option>
+          </select></div>
+        </div>
+        <div class="form-row"><label>Languages they can work in <span style="color:var(--muted);font-weight:400">— matters for matching to a child's home language</span></label>
+          <input id="f_dlang" value="${escapeHtml(p.delivery_languages||'')}" placeholder="e.g. English, Luganda" list="mnd_langs_prof"/>
+          <datalist id="mnd_langs_prof">${MND_LANGUAGES.map(l=>`<option value="${l}"></option>`).join('')}</datalist></div>
+        <div class="form-row"><label>Age groups they work with</label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 0">
+            ${MND_AGE_GROUPS.map(a=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+              <input type="checkbox" class="ag-chk" value="${a[0]}" ${(p.age_groups||[]).indexOf(a[0])>=0?'checked':''} style="width:auto"/> ${escapeHtml(a[1])}</label>`).join('')}
+          </div></div>
+        <div class="form-row two">
+          <div><label>Days a week available</label><input id="f_days" type="number" step="0.5" min="0" max="7" value="${p.days_available??''}" placeholder="e.g. 2.5"/></div>
+          <div><label>Areas they can cover</label><input id="f_areas" value="${escapeHtml(p.areas_covered||'')}" placeholder="e.g. Kampala, Wakiso"/></div>
+        </div>
+        <div class="form-row"><label>Other work commitments <span style="color:var(--muted);font-weight:400">— so assignments stay realistic</span></label>
+          <input id="f_othemp" value="${escapeHtml(p.other_employment||'')}" placeholder="e.g. part-time at a hospital"/></div>
+
+        <div style="border-top:1px solid var(--line);margin:14px 0 12px;padding-top:12px">
+          <div class="row-name" style="color:var(--accent-deep)">Use of anonymized professional information</div>
+          <p style="font-size:12.5px;color:var(--muted);margin:4px 0 10px;line-height:1.5">
+            Separate from anything to do with the children. Ask once, record what they agreed.
+            Refusing changes nothing about their engagement, pay or the work they are given &mdash;
+            and they must have been told that plainly.
+          </p>
+        </div>
+        <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+          <input type="checkbox" id="f_cwork" ${p.consent_workforce_data?'checked':''} style="width:auto;margin:3px 0 0"/>
+          <span><strong>Anonymized professional details may be used in aggregate</strong><br>
+          <span style="font-weight:400;color:var(--muted)">Discipline, training and experience, counted alongside others with no name attached.</span></span>
+        </label></div>
+        <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+          <input type="checkbox" id="f_cprac" ${p.consent_practice_data?'checked':''} style="width:auto;margin:3px 0 0"/>
+          <span><strong>Anonymized practice patterns may be used in aggregate</strong><br>
+          <span style="font-weight:400;color:var(--muted)">Which approaches are used across the team. Reported as group figures only &mdash; never as a comparison between named professionals.</span></span>
+        </label></div>
+        <div class="form-row"><label>Date agreed</label><input type="date" id="f_consdate" value="${p.consent_recorded_on||''}"/></div>
+      </div>
+    </details>
     ${payBlock}
     <div class="form-row"><label>Notes</label><textarea id="f_notes">${escapeHtml(p.notes||'')}</textarea></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="f_cancel">Cancel</button><button class="btn btn-primary" id="f_save">${edit?'Save changes':'Add professional'}</button></div>
@@ -2134,6 +2193,31 @@ async function openProfessionalForm(p){
       status:m.querySelector('#f_status').value,
       documents_complete:m.querySelector('#f_docs').checked,
       notes:m.querySelector('#f_notes').value.trim()||null};
+
+    /* Profile & practice (Stage 41). Read defensively; blanks save as null
+       so "not recorded" stays distinct from a real value. */
+    const pv=(sel)=>{ const e=m.querySelector(sel); return e?e.value.trim():''; };
+    const pn=(sel)=>{ const v=pv(sel); if(v==='') return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+    const pi=(sel)=>{ const v=pv(sel); if(v==='') return null; const n=parseInt(v,10); return isNaN(n)?null:n; };
+    payload.discipline_code      = pv('#f_disccode')||null;
+    payload.qualification_level  = pv('#f_qlevel')||null;
+    payload.trained_institution  = pv('#f_tinst')||null;
+    payload.trained_country      = pv('#f_tcountry')||null;
+    payload.year_qualified       = pi('#f_yq');
+    payload.years_paediatric     = pi('#f_ypaed');
+    payload.registration_body    = pv('#f_regbody')||null;
+    const rc=pv('#f_regcur');
+    payload.registration_current = rc===''?null:(rc==='yes');
+    payload.delivery_languages   = pv('#f_dlang')||null;
+    const ags=[...m.querySelectorAll('.ag-chk:checked')].map(x=>x.value);
+    payload.age_groups           = ags.length?ags:null;
+    payload.days_available       = pn('#f_days');
+    payload.areas_covered        = pv('#f_areas')||null;
+    payload.other_employment     = pv('#f_othemp')||null;
+    const cw=m.querySelector('#f_cwork'), cp=m.querySelector('#f_cprac');
+    if(cw) payload.consent_workforce_data = cw.checked;
+    if(cp) payload.consent_practice_data  = cp.checked;
+    payload.consent_recorded_on  = pv('#f_consdate')||null;
     let profId=p.id,res;
     if(edit){ res=await sb.from('professionals').update(payload).eq('id',p.id); }
     else { payload.created_by=ME.id; payload.prof_no='MND-P-'+Date.now().toString().slice(-6); res=await sb.from('professionals').insert(payload).select().single(); if(res.data)profId=res.data.id; }
@@ -2617,6 +2701,248 @@ async function renderProChild(v,c){
     hr.appendChild(card);
   });
 }
+/* =====================================================================
+   WHAT WAS DONE — intervention vocabularies
+   ---------------------------------------------------------------------
+   Standard evidence-based practice terminology, grouped by discipline.
+   A professional selecting "focused stimulation, parent present,
+   targeting two-word combinations" is documenting BETTER than one
+   writing "worked on language": it makes handover cleaner, supervision
+   possible, and continuity real when a professional changes.
+
+   Sessions blend techniques, so this is multi-select.
+
+   These lists are deliberately not exhaustive. If a professional cannot
+   find what they did, they should say so rather than pick the nearest
+   wrong option — a wrong selection is worse than a blank, because it
+   quietly makes the record say something untrue. Hence "Other".
+   ===================================================================== */
+
+const MND_APPROACHES = {
+  slt: { label:'Speech & language', items:[
+    ['modelling_expansion','Modelling and expansion'],
+    ['focused_stimulation','Focused stimulation'],
+    ['milieu_teaching','Milieu / naturalistic teaching'],
+    ['parent_implemented','Parent-implemented language teaching'],
+    ['aac_intro','AAC introduction or training'],
+    ['pecs','Picture exchange / symbol system'],
+    ['artic_motor','Articulation — motor / placement work'],
+    ['phonological_process','Phonological process therapy'],
+    ['minimal_pairs','Minimal pairs contrast'],
+    ['phon_awareness','Phonological awareness'],
+    ['core_vocabulary','Core vocabulary approach'],
+    ['narrative_intervention','Narrative / discourse intervention'],
+    ['social_communication','Social communication intervention'],
+    ['fluency_shaping','Fluency shaping or stuttering modification'],
+    ['voice_therapy','Voice therapy'],
+    ['feeding_swallow','Feeding / swallowing intervention'],
+    ['visual_supports','Visual supports and schedules'],
+    ['total_communication','Total communication / multimodal'],
+  ]},
+  ot: { label:'Occupational therapy', items:[
+    ['sensory_integration','Sensory integration / processing'],
+    ['sensory_diet','Sensory diet or regulation plan'],
+    ['fine_motor','Fine motor skill training'],
+    ['handwriting','Handwriting / graphomotor'],
+    ['adl_training','Daily living skills training'],
+    ['self_regulation','Self-regulation strategies'],
+    ['environmental_adapt','Environmental adaptation'],
+    ['assistive_equipment','Assistive equipment or seating'],
+    ['play_based_ot','Play-based skill development'],
+    ['motor_planning','Motor planning / praxis work'],
+  ]},
+  pt: { label:'Physiotherapy', items:[
+    ['gross_motor','Gross motor skill training'],
+    ['strength_endurance','Strengthening and endurance'],
+    ['gait_training','Gait and mobility training'],
+    ['positioning_handling','Positioning and handling'],
+    ['stretching_rom','Stretching / range of motion'],
+    ['balance_coordination','Balance and coordination'],
+    ['mobility_equipment','Mobility equipment training'],
+    ['ndt','Neurodevelopmental treatment'],
+  ]},
+  psychology: { label:'Psychology', items:[
+    ['behaviour_support','Positive behaviour support'],
+    ['aba_based','Applied behaviour analysis techniques'],
+    ['fba','Functional behaviour assessment'],
+    ['parent_behaviour_training','Parent behaviour management training'],
+    ['cbt_adapted','Adapted cognitive behavioural strategies'],
+    ['emotional_regulation','Emotional regulation work'],
+    ['social_skills','Social skills training'],
+    ['play_therapy','Play therapy'],
+    ['counselling_family','Family counselling'],
+  ]},
+  sne: { label:'Special needs education', items:[
+    ['individualised_instruction','Individualised instruction'],
+    ['task_analysis','Task analysis and chaining'],
+    ['errorless_learning','Errorless learning'],
+    ['prompting_fading','Prompting and prompt fading'],
+    ['curriculum_adapt','Curriculum adaptation'],
+    ['classroom_accommodation','Classroom accommodations'],
+    ['teacher_coaching','Teacher coaching'],
+    ['peer_mediated','Peer-mediated support'],
+    ['structured_teaching','Structured teaching / TEACCH-style'],
+  ]},
+  learning_support: { label:'Learning support', items:[
+    ['phonics_structured','Structured phonics / synthetic'],
+    ['reading_fluency','Reading fluency practice'],
+    ['reading_comprehension','Reading comprehension strategies'],
+    ['numeracy_concrete','Concrete-to-abstract numeracy'],
+    ['multisensory_literacy','Multisensory literacy'],
+    ['study_skills','Study and organisation skills'],
+    ['precision_teaching','Precision teaching / repeated practice'],
+    ['scaffolded_writing','Scaffolded writing'],
+  ]},
+  shared: { label:'Across disciplines', items:[
+    ['caregiver_coaching','Caregiver coaching'],
+    ['home_program','Home program set or reviewed'],
+    ['goal_review','Goal review with family'],
+    ['joint_session','Joint session with another discipline'],
+    ['assessment_activity','Assessment or re-assessment'],
+    ['other','Other — described in the summary'],
+  ]}
+};
+
+const MND_DELIVERY_FORMAT = [
+  ['individual','One to one'],
+  ['group','Group'],
+  ['parent_present','With the parent present'],
+  ['teacher_present','With the teacher present'],
+  ['in_classroom','Inside the classroom'],
+  ['home_visit','Home visit'],
+  ['teletherapy','Online / phone']
+];
+
+const MND_DELIVERED_BY = [
+  ['professional','The professional'],
+  ['parent_coached','The parent, coached by the professional'],
+  ['teacher_coached','The teacher, coached by the professional'],
+  ['assistant','An assistant, supervised'],
+  ['joint','Jointly']
+];
+
+const MND_SETTING = [
+  ['clinic','Clinic'],
+  ['school','School'],
+  ['home','Home'],
+  ['community','Community'],
+  ['online','Online']
+];
+
+const MND_NONATT_REASON = [
+  ['child_illness','Child was unwell'],
+  ['caregiver_unavailable','Caregiver unavailable'],
+  ['transport','Transport problem'],
+  ['cost','Could not afford to come'],
+  ['school_event','School event or exams'],
+  ['professional_unavailable','Professional unavailable'],
+  ['weather','Weather'],
+  ['no_reason_given','No reason given'],
+  ['other','Other']
+];
+
+/* Flat lookup so a stored code can always be shown as words, whichever
+   discipline group it came from. */
+const MND_APPROACH_LABEL = (function(){
+  const out={};
+  Object.keys(MND_APPROACHES).forEach(function(k){
+    MND_APPROACHES[k].items.forEach(function(p){ out[p[0]]=p[1]; });
+  });
+  return out;
+})();
+
+function mndApproachNames(codes){
+  if(!codes||!codes.length) return '';
+  return codes.map(function(c){ return MND_APPROACH_LABEL[c]||c; }).join(', ');
+}
+
+/* Which discipline groups to show first. The professional's own
+   discipline leads; everything else stays available because real cases
+   cross boundaries and a co-treating professional may legitimately use
+   another discipline's technique. Nothing is hidden. */
+function mndApproachGroupOrder(discCode){
+  const keys=Object.keys(MND_APPROACHES).filter(function(k){ return k!=='shared'; });
+  const lead=keys.filter(function(k){ return k===discCode; });
+  const rest=keys.filter(function(k){ return k!==discCode; });
+  return lead.concat(rest).concat(['shared']);
+}
+
+/* =====================================================================
+   PROFESSIONAL PROFILE — vocabularies
+   ---------------------------------------------------------------------
+   Presented as a professional profile, not a form: it decides who is
+   matched to which child, verifies credentials, and shows the
+   professional their own training and competency record. That is the
+   real primary use, not a cover story.
+
+   Confidence ratings are for planning training and assignment fit. They
+   are revisable at any time and must never touch pay, renewal or
+   assignment penalties — a professional who suspects otherwise will rate
+   themselves uniformly confident, and worse, will start documenting
+   defensively, which corrupts the child records too.
+   ===================================================================== */
+
+const MND_DISCIPLINES = [
+  ['slt','Speech and language therapy'],
+  ['ot','Occupational therapy'],
+  ['pt','Physiotherapy'],
+  ['psychology','Psychology'],
+  ['sne','Special needs education'],
+  ['learning_support','Learning support']
+];
+
+const MND_QUAL_LEVEL = [
+  ['certificate','Certificate'],
+  ['diploma','Diploma'],
+  ['bachelors','Bachelor\u2019s degree'],
+  ['masters','Master\u2019s degree'],
+  ['doctorate','Doctorate']
+];
+
+const MND_AGE_GROUPS = [
+  ['0_3','0\u20133 years'],
+  ['3_6','3\u20136 years'],
+  ['6_12','6\u201312 years'],
+  ['12_18','12\u201318 years']
+];
+
+const MND_TRAINING_KIND = [
+  ['mindora_training','Mindora training'],
+  ['mindora_supervision','Mindora supervision'],
+  ['external_course','External course'],
+  ['conference','Conference or workshop'],
+  ['self_study','Self-study'],
+  ['other','Other']
+];
+
+/* The clinical domains a professional rates themselves on. Deliberately
+   the same domain language used in the assessment protocols, so a
+   training gap and an assessment domain can be talked about together. */
+const MND_CONF_DOMAINS = [
+  ['language','Language and communication'],
+  ['speech','Speech sound production'],
+  ['voice','Voice'],
+  ['fluency','Fluency / stuttering'],
+  ['feeding','Feeding and swallowing'],
+  ['cognition','Cognition, attention and play'],
+  ['behavior','Behaviour support'],
+  ['sensory','Sensory processing'],
+  ['motor','Motor skills'],
+  ['literacy','Literacy and numeracy'],
+  ['aac','AAC and assistive communication'],
+  ['autism','Autism-specific practice'],
+  ['caregiver_coaching','Coaching caregivers'],
+  ['school_collab','Working with schools and teachers']
+];
+
+const MND_CONF_SCALE = [
+  [1,'Not confident'],
+  [2,'A little'],
+  [3,'Somewhat'],
+  [4,'Confident'],
+  [5,'Very confident']
+];
+
 function sessionForm(c){
   const today=new Date().toISOString().slice(0,10);
   const m=el(`<div class="modal-bg show"><div class="modal">
@@ -2634,6 +2960,17 @@ function sessionForm(c){
       <option value="documentation">Documentation</option>
     </select></div>
     <div class="form-row"><label>Session type</label><input id="s_type" placeholder="e.g. Speech therapy — individual"/></div>
+    <div class="form-row"><label>What you did <span style="color:var(--muted);font-weight:400">— tick everything that applied; sessions usually blend</span></label>
+      <div id="s_appBox" class="goal-pick" style="max-height:230px;overflow:auto"></div>
+      <div id="s_appNone" style="font-size:12.5px;color:var(--muted);margin-top:6px"></div></div>
+    <div class="form-row two">
+      <div><label>Format</label><select id="s_fmt">${mndSelOpts(MND_DELIVERY_FORMAT,'individual')}</select></div>
+      <div><label>Carried out by</label><select id="s_by">${mndSelOpts(MND_DELIVERED_BY,'professional')}</select></div>
+    </div>
+    <div class="form-row two" style="margin-top:-6px">
+      <div><label>Where</label><select id="s_set">${mndSelOpts(MND_SETTING,'')}</select></div>
+      <div><label>Contact time <span style="color:var(--muted);font-weight:400">— minutes</span></label><input id="s_mins" type="number" min="0" max="600" placeholder="e.g. 45"/></div>
+    </div>
     <div class="form-row"><label>Goals worked on <span style="color:var(--muted);font-weight:400">(tick, and optionally set today's progress %)</span></label>
       <div id="s_goalList" class="goal-pick"><div class="row-sub">Loading goals…</div></div></div>
     <div class="form-row"><label>Other goals / notes</label><textarea id="s_goals" placeholder="Anything not covered by the goals above"></textarea></div>
@@ -2643,6 +2980,42 @@ function sessionForm(c){
     <div class="modal-actions"><button class="btn btn-ghost" id="s_cancel">Cancel</button><button class="btn btn-primary" id="s_save">Save session</button></div>
   </div></div>`);
   document.body.appendChild(m);
+
+  /* Approach picker. Grouped by discipline with the logged-for
+     professional's own discipline first, but nothing hidden — real cases
+     cross discipline boundaries and a co-treating professional may
+     legitimately use another discipline's technique. */
+  (async function paintApproaches(){
+    const box=m.querySelector('#s_appBox'); if(!box) return;
+    let discCode=null;
+    try{
+      if(!isStaff() && MY_PROF_ID){
+        const {data:me}=await sb.from('professionals').select('discipline_code').eq('id',MY_PROF_ID).maybeSingle();
+        discCode=me?me.discipline_code:null;
+      }
+    }catch(e){ discCode=null; }
+    const order=mndApproachGroupOrder(discCode);
+    box.innerHTML=order.map(function(k){
+      const g=MND_APPROACHES[k]; if(!g) return '';
+      return '<div style="font-size:11.5px;font-weight:700;color:var(--accent-deep);letter-spacing:.04em;margin:8px 0 5px">'+
+             escapeHtml(g.label.toUpperCase())+'</div>'+
+             g.items.map(function(p){
+               return '<label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0">'+
+                 '<input type="checkbox" class="ap-chk" value="'+p[0]+'" style="width:auto;margin-top:3px"/>'+
+                 '<span style="font-size:13.5px">'+escapeHtml(p[1])+'</span></label>';
+             }).join('');
+    }).join('');
+    const note=m.querySelector('#s_appNone');
+    const paint=function(){
+      const n=m.querySelectorAll('.ap-chk:checked').length;
+      if(!note) return;
+      note.textContent = n ? (n+' selected') :
+        'Nothing selected yet. If what you did is not listed, tick Other and describe it in the summary rather than choosing something close.';
+    };
+    box.querySelectorAll('.ap-chk').forEach(function(x){ x.onchange=paint; });
+    paint();
+  })();
+
   // staff log on behalf of a professional — populate with the child's accepted team
   if(isStaff()){
     (async()=>{
@@ -2671,6 +3044,9 @@ function sessionForm(c){
     const chosenProf = isStaff() ? (m.querySelector('#s_prof')?m.querySelector('#s_prof').value||null:null) : MY_PROF_ID;
     if(isStaff() && !chosenProf){ toast('Select which professional this session is for.',true); return; }
     const btn=m.querySelector('#s_save');btn.disabled=true;btn.textContent='Saving…';
+    const sv=(sel)=>{ const e=m.querySelector(sel); return e?e.value.trim():''; };
+    const sn=(sel)=>{ const v=sv(sel); if(v==='') return null; const n=parseInt(v,10); return isNaN(n)?null:n; };
+    const picked=[...m.querySelectorAll('.ap-chk:checked')].map(x=>x.value);
     const {data:newSess,error}=await sb.from('session_logs').insert({
       client_id:c.id, professional_id:chosenProf,
       session_date:m.querySelector('#s_date').value||today,
@@ -2678,6 +3054,11 @@ function sessionForm(c){
       period_month:(m.querySelector('#s_date').value||today).slice(0,8)+'01',
       service_units:m.querySelector('#s_units').value||0,
       session_type:m.querySelector('#s_type').value.trim()||null,
+      approaches: picked.length?picked:null,
+      delivery_format: sv('#s_fmt')||null,
+      delivered_by: sv('#s_by')||null,
+      setting: sv('#s_set')||null,
+      duration_minutes: sn('#s_mins'),
       goals_worked:m.querySelector('#s_goals').value.trim()||null,
       summary:m.querySelector('#s_sum').value.trim()||null,
       progress_notes:m.querySelector('#s_prog').value.trim()||null,
