@@ -1043,6 +1043,7 @@ const NAV = {
     {k:'pro_program',label:'Program & CPD',icon:'programs'},
     {k:'pro_community',label:'Community',icon:'chat'},
     {k:'team',label:'Team',icon:'team'},
+    {k:'my_engagement',label:'My details',icon:'profile'},
     {k:'my_profile',label:'My profile',icon:'profile'},
     {k:'support',label:'Support / contact team',icon:'chat'},
   ],
@@ -1371,7 +1372,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',program_eval_doc:'Evaluation'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',my_engagement:'My details',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',program_eval_doc:'Evaluation'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1427,7 +1428,7 @@ function go(view){
   updateBadges();
   const v=$('#view'); v.innerHTML=`<div class="loading"><div class="spin"></div> Loading…</div>`;
   ({dashboard:renderDashboard,clients:renderClients,professionals:renderProfessionals,institutions:renderInstitutions,assignments:renderAssignments,finances:renderFinances,reports:renderReports,community:renderCommunity,access:renderAccess,settings:renderSettings,portal:renderPortal,pro_requests:renderProRequests,pro_children:renderProChildren,pro_child:(vv)=>renderProChild(vv,SELECTED_CHILD),parent_home:renderParentHome,parent_child:(vv)=>renderParentChild(vv,SELECTED_CHILD),parent_activities:(vv)=>renderParentActivities(vv,SELECTED_CHILD),parent_community:renderParentCommunity,parent_billing:renderParentBilling,inst_home:renderInstHome,inst_community:renderInstCommunity,pro_community:renderProCommunity,institution_detail:(vv)=>renderInstitutionDetail(vv,SELECTED_INST),
-   programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile,
+   programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile, my_engagement:renderMyEngagement,
    person_profile:(vv)=>renderPersonProfile(vv,SELECTED_PERSON),
    child_plan:(vv)=>renderChildPlan(vv,SELECTED_CHILD),
    child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
@@ -2116,6 +2117,15 @@ async function openProfessionalForm(p){
     <details class="clin-fold">
       <summary>Profile &amp; practice <span class="fold-note">— used to match this professional to the right children and plan training</span></summary>
       <div class="fold-body">
+        ${p.profile_submitted_at?`<div class="cons-box yes" style="margin-bottom:14px">
+          <div class="cons-h"><span class="cons-dot"></span><strong>Submitted by the professional ${fmtDate(p.profile_submitted_at)}</strong></div>
+          <div class="cons-b">They filled this in and recorded their own consent${p.consent_version?' against '+escapeHtml(p.consent_version):''}.
+          You can correct it below &mdash; every change is written to the audit log.
+          ${p.profile_unlocked_at?'<br><span style="color:var(--muted)">Previously reopened '+fmtDate(p.profile_unlocked_at)+(p.profile_unlock_reason?' — '+escapeHtml(p.profile_unlock_reason):'')+'</span>':''}</div>
+        </div>`:(edit?`<div class="as-flag" style="background:#FDF6E7;border-color:#F0D9A8;color:#7A5410;margin-bottom:14px">
+          Not yet submitted by the professional. They see a prompt on their home page.
+          Anything you enter here is a stand-in until they complete it themselves.
+        </div>`:'')}
         <div class="form-row two">
           <div><label>Discipline group</label><select id="f_disccode">${mndSelOpts(MND_DISCIPLINES, p.discipline_code)}</select></div>
           <div><label>Highest qualification</label><select id="f_qlevel">${mndSelOpts(MND_QUAL_LEVEL, p.qualification_level)}</select></div>
@@ -2170,6 +2180,12 @@ async function openProfessionalForm(p){
           <span style="font-weight:400;color:var(--muted)">Which approaches are used across the team. Reported as group figures only &mdash; never as a comparison between named professionals.</span></span>
         </label></div>
         <div class="form-row"><label>Date agreed</label><input type="date" id="f_consdate" value="${p.consent_recorded_on||''}"/></div>
+        ${(p.profile_submitted_at&&isDirector())?`<div style="border-top:1px solid var(--line);margin:14px 0 0;padding-top:12px">
+          <button class="btn btn-ghost btn-sm" id="f_reopen" style="width:auto;color:var(--warn)">Reopen for the professional to edit</button>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.5">
+            Use this if they told you something is wrong and should correct it themselves.
+            You will be asked why, and the reason is kept.</p>
+        </div>`:''}
       </div>
     </details>
     ${payBlock}
@@ -2180,6 +2196,24 @@ async function openProfessionalForm(p){
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#f_cancel').onclick=close;
+  {
+    const ro=m.querySelector('#f_reopen');
+    if(ro) ro.onclick=async()=>{
+      const why=prompt('Why are you reopening this profile?\n\nThe reason is kept on the record.');
+      if(why===null) return;
+      if(!why.trim()){ toast('Please give a reason.',true); return; }
+      ro.disabled=true; ro.textContent='Reopening\u2026';
+      const {error}=await sb.from('professionals').update({
+        profile_submitted_at:null,
+        profile_unlocked_at:new Date().toISOString(),
+        profile_unlocked_by:ME.id,
+        profile_unlock_reason:why.trim()
+      }).eq('id',p.id);
+      if(error){ toast(error.message,true); ro.disabled=false; ro.textContent='Reopen for the professional to edit'; return; }
+      toast('Reopened. They can edit their details again.');
+      close(); renderProfessionals($('#view'));
+    };
+  }
   m.querySelector('#f_save').onclick=async()=>{
     const name=m.querySelector('#f_name').value.trim();
     if(!name){toast('Please enter the name.',true);return;}
@@ -2218,6 +2252,11 @@ async function openProfessionalForm(p){
     if(cw) payload.consent_workforce_data = cw.checked;
     if(cp) payload.consent_practice_data  = cp.checked;
     payload.consent_recorded_on  = pv('#f_consdate')||null;
+    // Stamp which wording was in force, so a Director-recorded consent is as
+    // reconstructable as one the professional recorded themselves.
+    if((cw&&cw.checked)||(cp&&cp.checked)){
+      if(!p.consent_version) payload.consent_version = MND_CONSENT_VERSION.professional;
+    }
     let profId=p.id,res;
     if(edit){ res=await sb.from('professionals').update(payload).eq('id',p.id); }
     else { payload.created_by=ME.id; payload.prof_no='MND-P-'+Date.now().toString().slice(-6); res=await sb.from('professionals').insert(payload).select().single(); if(res.data)profId=res.data.id; }
@@ -3460,7 +3499,32 @@ async function renderRoleHome(v){
   const greet=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   v.innerHTML=`
     <div class="welcome"><h1>${greet}, ${escapeHtml(firstName())}</h1><p>Welcome to your Mindora space. Choose where you would like to go.</p></div>
+    <div id="engBanner"></div>
     <div class="dash-grid" id="dashGrid"></div>`;
+
+  /* Professionals who have not yet submitted their details get a banner
+     rather than a small icon. An icon is easy to miss; a banner says what
+     is needed and disappears the moment it is done. It does not block
+     anything — the portal works either way, because the two consent
+     questions inside must stay genuinely refusable. */
+  if(ME.role==='professional' && MY_PROF_ID){
+    try{
+      const {data:mp}=await sb.from('professionals').select('profile_submitted_at').eq('id',MY_PROF_ID).maybeSingle();
+      if(mp && !mp.profile_submitted_at){
+        const b=$('#engBanner');
+        if(b){
+          b.innerHTML=`<div class="cons-box no" style="margin-bottom:16px">
+            <div class="cons-h"><span class="cons-dot"></span><strong>Your details are not complete</strong></div>
+            <div class="cons-b">We need your qualifications and registration on record so children can be
+            matched to the right person. It takes a few minutes.
+            <div style="margin-top:10px"><button class="btn btn-primary btn-sm" id="engGo" style="width:auto">Complete my details</button></div></div>
+          </div>`;
+          const g=$('#engGo'); if(g) g.onclick=()=>go('my_engagement');
+        }
+      }
+    }catch(e){ /* a banner is not worth breaking the home page over */ }
+  }
+
   const grid=$('#dashGrid');
   items.forEach(n=>{
     const tile=el(`<div class="dash-tile"><div class="dash-ic">${icon(n.icon)}</div><div class="dash-lbl">${escapeHtml(n.label)}</div></div>`);
@@ -6709,6 +6773,244 @@ async function renderMyProfile(v){
     if(payload.display_name){ ME.name=payload.display_name; $('#whoName').textContent=displayName(); $('#avatar').textContent=initials(displayName()); }
     toast('Profile saved'); btn.disabled=false;btn.textContent='Save profile';
   };
+}
+
+/* The consent wording version currently in force. Must match a row in
+   consent_texts, so what a person agreed to can always be looked up. */
+const MND_CONSENT_VERSION = { professional:'PROF-v1' };
+
+/* =====================================================================
+   MY ENGAGEMENT RECORD  (Stage 42)
+   ---------------------------------------------------------------------
+   The professional fills in their own details and records their own
+   consent. Two things this is NOT:
+
+   - Not a lock on everything. Credentials and consent freeze on submit;
+     languages, availability and areas stay editable, because those
+     change legitimately and a frozen record decays until matching works
+     from stale facts.
+
+   - Not a condition of access. The profile is required because it is
+     operational. The two consent ticks are not. Someone who refuses
+     both keeps a complete profile and full use of the portal. If
+     refusing cost them work it would not be consent.
+
+   Separate from "My profile", which is the public team-page entry. This
+   is the engagement record and it feeds the Director's view only.
+   ===================================================================== */
+
+async function renderMyEngagement(v){
+  if(!MY_PROF_ID){
+    v.innerHTML='<div class="welcome"><h1>My details</h1></div>'+
+      '<div class="form-card"><div class="as-flag">Your login is not yet linked to a professional record. '+
+      'The Program Director needs to link it before you can fill this in.</div></div>';
+    return;
+  }
+  const {data:p,error}=await sb.from('professionals').select('*').eq('id',MY_PROF_ID).maybeSingle();
+  if(error||!p){
+    v.innerHTML='<div class="welcome"><h1>My details</h1></div>'+
+      '<div class="form-card"><div class="as-flag">Could not load your record: '+
+      escapeHtml(error?error.message:'not found')+'</div></div>';
+    return;
+  }
+  const locked = !!p.profile_submitted_at;
+  const dis = locked ? ' disabled' : '';
+
+  v.innerHTML = `
+    <div class="welcome"><h1>My details</h1>
+      <p>${locked
+        ? 'Submitted. Your qualifications and consent are now on record. You can still keep the practical details up to date.'
+        : 'Please complete this so children are matched to the right person and your registration can be verified.'}</p></div>
+
+    ${locked?`<div class="cons-box yes" style="margin-bottom:16px">
+      <div class="cons-h"><span class="cons-dot"></span><strong>Submitted ${fmtDate(p.profile_submitted_at)}</strong></div>
+      <div class="cons-b">Your qualifications and your consent decisions are locked. If any of them is wrong,
+      ask the Program Director to correct it &mdash; that keeps an honest record of what changed and when.</div>
+    </div>`:''}
+
+    <div class="form-card">
+      <div class="row-name" style="color:var(--accent-deep);margin-bottom:10px">Qualifications and registration</div>
+      ${locked?'':'<p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5">These lock once you submit, so please check them before you do.</p>'}
+      <div class="form-row two">
+        <div><label>Discipline</label><select id="e_disc"${dis}>${mndSelOpts(MND_DISCIPLINES,p.discipline_code)}</select></div>
+        <div><label>Highest qualification</label><select id="e_qlevel"${dis}>${mndSelOpts(MND_QUAL_LEVEL,p.qualification_level)}</select></div>
+      </div>
+      <div class="form-row two" style="margin-top:-6px">
+        <div><label>Where you trained</label><input id="e_tinst" value="${escapeHtml(p.trained_institution||'')}" placeholder="e.g. Makerere University"${dis}/></div>
+        <div><label>Country</label><input id="e_tcountry" value="${escapeHtml(p.trained_country||'')}" placeholder="e.g. Uganda"${dis}/></div>
+      </div>
+      <div class="form-row two" style="margin-top:-6px">
+        <div><label>Year you qualified</label><input id="e_yq" type="number" min="1950" max="2100" value="${p.year_qualified??''}" placeholder="e.g. 2019"${dis}/></div>
+        <div><label>Registration body <span style="color:var(--muted);font-weight:400">— if registered</span></label><input id="e_regbody" value="${escapeHtml(p.registration_body||'')}" placeholder="e.g. Allied Health Professionals Council"${dis}/></div>
+      </div>
+
+      <div style="border-top:1px solid var(--line);margin:16px 0 12px;padding-top:14px">
+        <div class="row-name" style="color:var(--accent-deep)">Your practice</div>
+        <p style="font-size:12.5px;color:var(--muted);margin:4px 0 12px;line-height:1.5">
+          Keep this current &mdash; it stays editable. It decides which children you are offered.
+        </p>
+      </div>
+      <div class="form-row two">
+        <div><label>Years working with children</label><input id="e_ypaed" type="number" min="0" max="70" value="${p.years_paediatric??''}" placeholder="e.g. 4"/></div>
+        <div><label>Days a week available</label><input id="e_days" type="number" step="0.5" min="0" max="7" value="${p.days_available??''}" placeholder="e.g. 2.5"/></div>
+      </div>
+      <div class="form-row"><label>Languages you can work in <span style="color:var(--muted);font-weight:400">— therapy, not just conversation</span></label>
+        <input id="e_dlang" value="${escapeHtml(p.delivery_languages||'')}" placeholder="e.g. English, Luganda" list="mnd_langs_eng"/>
+        <datalist id="mnd_langs_eng">${MND_LANGUAGES.map(l=>`<option value="${l}"></option>`).join('')}</datalist></div>
+      <div class="form-row"><label>Age groups you work with</label>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 0">
+          ${MND_AGE_GROUPS.map(a=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+            <input type="checkbox" class="eag-chk" value="${a[0]}" ${(p.age_groups||[]).indexOf(a[0])>=0?'checked':''} style="width:auto"/> ${escapeHtml(a[1])}</label>`).join('')}
+        </div></div>
+      <div class="form-row two">
+        <div><label>Areas you can cover</label><input id="e_areas" value="${escapeHtml(p.areas_covered||'')}" placeholder="e.g. Kampala, Wakiso"/></div>
+        <div><label>Other work commitments</label><input id="e_othemp" value="${escapeHtml(p.other_employment||'')}" placeholder="e.g. part-time at a hospital"/></div>
+      </div>
+
+      <div style="border-top:1px solid var(--line);margin:16px 0 12px;padding-top:14px">
+        <div class="row-name" style="color:var(--accent-deep)">Use of your information</div>
+        <p style="font-size:12.5px;color:var(--muted);margin:4px 0 12px;line-height:1.5">
+          Two separate questions, and <strong>you may say no to either or both</strong>. Saying no does not
+          affect your engagement, your pay, or the work you are given.
+          <a href="#" id="e_explain" style="color:var(--accent-deep);font-weight:600">Read what this means</a>
+          before you decide. You will also be asked to sign these on paper.
+        </p>
+      </div>
+      <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:${locked?'default':'pointer'}">
+        <input type="checkbox" id="e_cwork" ${p.consent_workforce_data?'checked':''} style="width:auto;margin:3px 0 0"${dis}/>
+        <span><strong>My professional details may be used in group figures</strong><br>
+        <span style="font-weight:400;color:var(--muted)">Discipline, training and experience, counted together with others. No name attached.</span></span>
+      </label></div>
+      <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:${locked?'default':'pointer'}">
+        <input type="checkbox" id="e_cprac" ${p.consent_practice_data?'checked':''} style="width:auto;margin:3px 0 0"${dis}/>
+        <span><strong>My practice patterns may be used in group figures</strong><br>
+        <span style="font-weight:400;color:var(--muted)">Which approaches are used across the team. Never a comparison between named professionals.</span></span>
+      </label></div>
+      ${locked?`<p style="font-size:12.5px;color:var(--muted);margin:2px 0 0">
+        Recorded ${p.consent_recorded_on?fmtDate(p.consent_recorded_on):'—'}${p.consent_version?' · '+escapeHtml(p.consent_version):''}.
+        To change your mind, speak to the Program Director.</p>`:''}
+
+      <div class="modal-actions" style="margin-top:18px">
+        ${locked
+          ? '<button class="btn btn-primary" id="e_saveOpen">Save practice details</button>'
+          : '<button class="btn btn-ghost" id="e_saveDraft">Save for now</button><button class="btn btn-primary" id="e_submit">Submit</button>'}
+      </div>
+      ${locked?'':`<p style="font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.5">
+        <strong>Save for now</strong> keeps what you have typed and changes nothing else.
+        <strong>Submit</strong> puts your qualifications and consent on record and locks them.</p>`}
+    </div>`;
+
+  const gv=(s)=>{ const e=$('#'+s); return e?e.value.trim():''; };
+  const gi=(s)=>{ const v=gv(s); if(v==='') return null; const n=parseInt(v,10); return isNaN(n)?null:n; };
+  const gf=(s)=>{ const v=gv(s); if(v==='') return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+
+  // Practice details — always allowed, submitted or not.
+  const openFields=()=>{
+    const ags=[...document.querySelectorAll('.eag-chk:checked')].map(x=>x.value);
+    return {
+      years_paediatric:gi('e_ypaed'),
+      days_available:gf('e_days'),
+      delivery_languages:gv('e_dlang')||null,
+      age_groups:ags.length?ags:null,
+      areas_covered:gv('e_areas')||null,
+      other_employment:gv('e_othemp')||null
+    };
+  };
+  // Credentials and consent — only before submission.
+  const lockedFields=()=>({
+    discipline_code:gv('e_disc')||null,
+    qualification_level:gv('e_qlevel')||null,
+    trained_institution:gv('e_tinst')||null,
+    trained_country:gv('e_tcountry')||null,
+    year_qualified:gi('e_yq'),
+    registration_body:gv('e_regbody')||null,
+    consent_workforce_data:$('#e_cwork')?$('#e_cwork').checked:false,
+    consent_practice_data:$('#e_cprac')?$('#e_cprac').checked:false
+  });
+
+  const ex=$('#e_explain');
+  if(ex) ex.onclick=(ev)=>{ ev.preventDefault(); mndConsentExplainer('professional'); };
+
+  const so=$('#e_saveOpen');
+  if(so) so.onclick=async()=>{
+    so.disabled=true; so.textContent='Saving…';
+    const {error}=await sb.from('professionals').update(openFields()).eq('id',MY_PROF_ID);
+    so.disabled=false; so.textContent='Save practice details';
+    if(error){ toast(error.message,true); return; }
+    toast('Saved');
+  };
+
+  const sd=$('#e_saveDraft');
+  if(sd) sd.onclick=async()=>{
+    sd.disabled=true; sd.textContent='Saving…';
+    const {error}=await sb.from('professionals')
+      .update(Object.assign({},openFields(),lockedFields())).eq('id',MY_PROF_ID);
+    sd.disabled=false; sd.textContent='Save for now';
+    if(error){ toast(error.message,true); return; }
+    toast('Saved. Nothing is locked yet.');
+  };
+
+  const sub=$('#e_submit');
+  if(sub) sub.onclick=async()=>{
+    // Required for matching and verification. The consent ticks are NOT
+    // required — someone may submit with both refused.
+    if(!gv('e_disc')){ toast('Please choose your discipline.',true); return; }
+    if(!gv('e_qlevel')){ toast('Please choose your highest qualification.',true); return; }
+    const yq=gi('e_yq');
+    if(yq===null){ toast('Please give the year you qualified.',true); return; }
+    const thisYear=new Date().getFullYear();
+    if(yq<1950||yq>thisYear){ toast('Check the year you qualified — it should be between 1950 and '+thisYear+'.',true); return; }
+    const yp=gi('e_ypaed');
+    if(yp!==null && yq!==null && yp>(thisYear-yq)){
+      // Not an error: plenty of people worked with children as assistants or
+      // teachers before qualifying. Query it, but let them proceed.
+      if(!confirm('You have entered more years with children ('+yp+') than years since you qualified ('+(thisYear-yq)+').\n\nThat is fine if you worked with children before qualifying. Is it correct?')) return;
+    }
+    const noConsent = !($('#e_cwork')&&$('#e_cwork').checked) && !($('#e_cprac')&&$('#e_cprac').checked);
+    const msg = noConsent
+      ? 'Submit your details?\n\nYou have not agreed to either use of your information. That is completely fine and changes nothing about your work here.\n\nYour qualifications will be locked after this.'
+      : 'Submit your details?\n\nYour qualifications and your consent decisions will be locked. The Program Director can correct them later if needed.';
+    if(!confirm(msg)) return;
+    sub.disabled=true; sub.textContent='Submitting…';
+    const payload=Object.assign({},openFields(),lockedFields(),{
+      consent_recorded_on:new Date().toISOString().slice(0,10),
+      consent_version:MND_CONSENT_VERSION.professional,
+      profile_submitted_at:new Date().toISOString(),
+      profile_submitted_by:ME.id
+    });
+    const {error}=await sb.from('professionals').update(payload).eq('id',MY_PROF_ID);
+    if(error){ toast(error.message,true); sub.disabled=false; sub.textContent='Submit'; return; }
+    toast('Thank you — your details are recorded.');
+    renderMyEngagement($('#view'));
+  };
+}
+
+/* The explainer, read from consent_texts so the wording shown is the
+   wording on record. Falls back to a plain message rather than inventing
+   text if the row is missing. */
+async function mndConsentExplainer(audience){
+  const m=el('<div class="modal-bg show"><div class="modal" style="max-width:640px">'+
+    '<h3>How your information is used</h3>'+
+    '<div id="ce_body" style="max-height:60vh;overflow:auto;white-space:pre-wrap;font-size:13.5px;line-height:1.6;color:var(--ink)">Loading…</div>'+
+    '<div class="modal-actions"><button class="btn btn-primary" id="ce_close">Close</button></div>'+
+    '</div></div>');
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.addEventListener('click',e=>{ if(e.target===m) close(); });
+  m.querySelector('#ce_close').onclick=close;
+  try{
+    const {data}=await sb.from('consent_texts').select('title,body,version')
+      .eq('audience',audience).eq('is_current',true).order('effective_from',{ascending:false}).limit(1).maybeSingle();
+    const box=m.querySelector('#ce_body');
+    if(data&&data.body){
+      box.textContent=data.body;
+      m.querySelector('h3').textContent=data.title||'How your information is used';
+    } else {
+      box.textContent='The explainer text is not available in the app right now. Please ask the Program Director for the printed version before you decide.';
+    }
+  }catch(e){
+    m.querySelector('#ce_body').textContent='Could not load the explainer. Please ask the Program Director for the printed version before you decide.';
+  }
 }
 
 /* ---------- PROGRAMS OVERVIEW ---------- */
