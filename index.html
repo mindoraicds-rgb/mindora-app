@@ -2155,6 +2155,11 @@ async function openProfessionalForm(p){
             ${MND_AGE_GROUPS.map(a=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
               <input type="checkbox" class="ag-chk" value="${a[0]}" ${(p.age_groups||[]).indexOf(a[0])>=0?'checked':''} style="width:auto"/> ${escapeHtml(a[1])}</label>`).join('')}
           </div></div>
+        <div class="form-row"><label>Settings they prefer to work in <span style="color:var(--muted);font-weight:400">— helps match children to them; leave blank if no preference</span></label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 0">
+            ${MND_PREF_SETTINGS.map(s=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+              <input type="checkbox" class="ps-chk" value="${s[0]}" ${(p.preferred_settings||[]).indexOf(s[0])>=0?'checked':''} style="width:auto"/> ${escapeHtml(s[1])}</label>`).join('')}
+          </div></div>
         <div class="form-row two">
           <div><label>Days a week available</label><input id="f_days" type="number" step="0.5" min="0" max="7" value="${p.days_available??''}" placeholder="e.g. 2.5"/></div>
           <div><label>Areas they can cover</label><input id="f_areas" value="${escapeHtml(p.areas_covered||'')}" placeholder="e.g. Kampala, Wakiso"/></div>
@@ -2246,6 +2251,8 @@ async function openProfessionalForm(p){
     payload.delivery_languages   = pv('#f_dlang')||null;
     const ags=[...m.querySelectorAll('.ag-chk:checked')].map(x=>x.value);
     payload.age_groups           = ags.length?ags:null;
+    const pss=[...m.querySelectorAll('.ps-chk:checked')].map(x=>x.value);
+    payload.preferred_settings   = pss.length?pss:null;
     payload.days_available       = pn('#f_days');
     payload.areas_covered        = pv('#f_areas')||null;
     payload.other_employment     = pv('#f_othemp')||null;
@@ -2378,13 +2385,132 @@ function paintAssigns(){
     rows.appendChild(card);
   });
 }
+/* =====================================================================
+   PROFESSIONAL MATCHING  — a shortlist, never a decision
+   ---------------------------------------------------------------------
+   Ranks professionals for a specific child on what the system actually
+   holds as structured data: discipline vs need, area vs district,
+   language, age-group fit, and spare capacity. Every professional is
+   shown with the REASONS for their score — what fits and what does not —
+   so the Director decides on the reasoning, not on a number. A weak
+   match is flagged, never hidden: sometimes the right clinical choice is
+   the person who is not the obvious fit.
+
+   Honest limit: the system stores district and area as text, not
+   coordinates, so it cannot know true distance. "Closer" therefore means
+   "same area listed" or "same district", not kilometres. A fake distance
+   number would mislead exactly the decision this is meant to help.
+   ===================================================================== */
+
+/* Map a child's age in months to the age-group buckets professionals
+   select, so the two can be compared. */
+function mndChildAgeGroups(ageMonths){
+  if(ageMonths==null||isNaN(ageMonths)) return [];
+  const out=[];
+  if(ageMonths < 36) out.push('0_3');
+  else if(ageMonths < 72) out.push('3_6');
+  else if(ageMonths < 144) out.push('6_12');
+  else out.push('12_18');
+  return out;
+}
+
+/* Loose text overlap: does the child's district appear in the areas the
+   professional covers, or vice versa. Case-insensitive, comma-tolerant.
+   Not geography — just name matching, which is all the data supports. */
+function mndAreaHit(childDistrict, profAreas){
+  if(!childDistrict||!profAreas) return false;
+  const d=childDistrict.trim().toLowerCase();
+  if(!d) return false;
+  return profAreas.toLowerCase().split(/[,;/]+/).map(s=>s.trim()).some(a=>a && (a.includes(d)||d.includes(a)));
+}
+
+function mndLangHit(childLangs, profLangs){
+  if(!childLangs||!profLangs) return false;
+  const cl=childLangs.toLowerCase().split(/[,;/]+/).map(s=>s.trim()).filter(Boolean);
+  const pl=profLangs.toLowerCase().split(/[,;/]+/).map(s=>s.trim()).filter(Boolean);
+  return cl.some(c=>pl.some(p=>p===c||p.includes(c)||c.includes(p)));
+}
+
+/* Score one professional for one child. Returns points and, more
+   importantly, the human-readable reasons behind them. Discipline is the
+   heaviest signal; the rest refine. Nothing here is a hard filter —
+   a zero-scoring professional still appears, flagged. */
+function mndScoreProfessional(child, prof, opts){
+  opts=opts||{};
+  const fits=[], gaps=[];
+  let score=0;
+
+  // Discipline vs the discipline the case needs (if the Director set one)
+  if(opts.needDiscipline){
+    if(prof.discipline_code===opts.needDiscipline){ score+=40; fits.push(mndLabelFor(MND_DISCIPLINES,prof.discipline_code)+' — matches the need'); }
+    else if(prof.discipline_code){ gaps.push('discipline is '+mndLabelFor(MND_DISCIPLINES,prof.discipline_code)+', not '+mndLabelFor(MND_DISCIPLINES,opts.needDiscipline)); }
+    else { gaps.push('no discipline recorded'); }
+  } else if(prof.discipline_code){
+    fits.push(mndLabelFor(MND_DISCIPLINES,prof.discipline_code));
+  }
+
+  // Area — text match only, shown honestly as "same area" not distance
+  if(child.district){
+    if(mndAreaHit(child.district, prof.areas_covered)){ score+=25; fits.push('covers '+child.district); }
+    else if(prof.areas_covered){ gaps.push('does not list '+child.district+' (covers: '+prof.areas_covered+')'); }
+    else { gaps.push('no areas recorded'); }
+  }
+
+  // Language — home language the child actually hears
+  if(child.home_languages){
+    if(mndLangHit(child.home_languages, prof.delivery_languages)){ score+=20; fits.push('speaks '+child.home_languages.split(/[,;/]/)[0].trim()); }
+    else if(prof.delivery_languages){ gaps.push('no shared language ('+prof.delivery_languages+')'); }
+    else { gaps.push('no languages recorded'); }
+  }
+
+  // Age-group fit
+  const kidGroups=mndChildAgeGroups(child.age_months_at_intake);
+  if(kidGroups.length && Array.isArray(prof.age_groups) && prof.age_groups.length){
+    if(kidGroups.some(g=>prof.age_groups.indexOf(g)>=0)){ score+=10; fits.push('works with this age'); }
+    else { gaps.push('does not list this age group'); }
+  }
+
+  // Preferred setting vs how the child receives services. No stated
+  // preference means "fits anywhere" — never a penalty for a blank.
+  if(child.delivery_channel){
+    const prefs=Array.isArray(prof.preferred_settings)?prof.preferred_settings:[];
+    if(prefs.length){
+      if(prefs.indexOf(child.delivery_channel)>=0){ score+=15; fits.push('prefers '+mndSettingLabel(child.delivery_channel).toLowerCase()); }
+      else { gaps.push('prefers '+prefs.map(mndSettingLabel).join('/').toLowerCase()+', not '+mndSettingLabel(child.delivery_channel).toLowerCase()); }
+    }
+    // no prefs recorded -> silent, treated as flexible
+  }
+
+  // Capacity — availability minus current live caseload
+  if(opts.caseload!=null && prof.days_available!=null){
+    const load=opts.caseload;
+    if(load===0){ score+=5; fits.push('no current cases'); }
+    else if(prof.days_available>0){ fits.push(load+' current case'+(load===1?'':'s')); }
+  } else if(opts.caseload!=null){
+    fits.push(opts.caseload+' current case'+(opts.caseload===1?'':'s')+(prof.days_available==null?' · availability not set':''));
+  }
+
+  // Only active professionals should be recommended near the top
+  if(prof.status && prof.status!=='active'){ gaps.push('status: '+prof.status); score-=5; }
+
+  return {score, fits, gaps};
+}
+
 async function openAssignForm(){
   const [{data:kids},{data:profs}]=await Promise.all([
-    sb.from('clients').select('id,full_name,child_no').order('full_name'),
-    sb.from('professionals').select('id,full_name,discipline').order('full_name')
+    sb.from('clients').select('id,full_name,child_no,district,home_languages,age_months_at_intake,assessed_band,delivery_channel,presenting_needs').order('full_name'),
+    sb.from('professionals').select('id,full_name,discipline,discipline_code,delivery_languages,age_groups,areas_covered,days_available,status,preferred_settings').order('full_name')
   ]);
   if(!kids||!kids.length){toast('Add a child first.',true);return;}
   if(!profs||!profs.length){toast('Add a professional first.',true);return;}
+
+  // Live caseload per professional, so capacity can be part of the match.
+  let loadBy={};
+  try{
+    const {data:live}=await sb.from('assignments')
+      .select('professional_id').eq('kind','child').eq('status','accepted');
+    (live||[]).forEach(a=>{ if(a.professional_id) loadBy[a.professional_id]=(loadBy[a.professional_id]||0)+1; });
+  }catch(e){ loadBy={}; }
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Send an assignment</h3>
     <div class="sub">The professional sees your note and any fee before they accept.</div>
@@ -2394,6 +2520,9 @@ async function openAssignForm(){
     </select></div>
     <div id="childFields">
       <div class="form-row"><label>Child</label><select id="f_child">${kids.map(k=>`<option value="${k.id}">${escapeHtml(k.full_name)}${k.child_no?' ('+escapeHtml(k.child_no)+')':''}</option>`).join('')}</select></div>
+      <div class="form-row"><label>Discipline this case needs <span style="color:var(--muted);font-weight:400">— optional; sharpens the suggestions</span></label>
+        <select id="f_need">${mndSelOpts(MND_DISCIPLINES,'')}</select></div>
+      <div id="f_matchPanel"></div>
       ${canSeeMoney()?`<div class="form-row"><label>Service-unit rate for this child (UGX) <span style="color:var(--muted);font-weight:400">— optional; shown to the professional</span></label><input id="f_unitrate" type="number" min="0" placeholder="e.g. 25000"/></div>`:''}
     </div>
     <div id="eventFields" style="display:none">
@@ -2411,6 +2540,80 @@ async function openAssignForm(){
   document.body.appendChild(m);
   const kindSel=m.querySelector('#f_kind');
   kindSel.onchange=()=>{ const ev=kindSel.value==='event'; m.querySelector('#childFields').style.display=ev?'none':''; m.querySelector('#eventFields').style.display=ev?'':'none'; };
+
+  /* Suggestions: rank professionals for the chosen child, showing why.
+     The Director still picks from the dropdown — clicking a suggestion
+     just selects it there. Nothing auto-assigns. */
+  function paintMatches(){
+    const host=m.querySelector('#f_matchPanel'); if(!host) return;
+    if(kindSel.value==='event'){ host.innerHTML=''; return; }
+    const childId=m.querySelector('#f_child').value;
+    const child=kids.find(k=>k.id===childId);
+    if(!child){ host.innerHTML=''; return; }
+    const need=m.querySelector('#f_need').value||null;
+
+    const ranked=profs.map(p=>{
+      const r=mndScoreProfessional(child, p, {needDiscipline:need, caseload:loadBy[p.id]||0});
+      return {p, r};
+    }).sort((a,b)=>b.r.score-a.r.score);
+
+    // context line so the Director sees what is being matched on
+    const ctx=[];
+    if(child.district) ctx.push(child.district);
+    if(child.home_languages) ctx.push(child.home_languages.split(/[,;/]/)[0].trim());
+    if(child.age_months_at_intake!=null) ctx.push(mndMonthsStr(child.age_months_at_intake));
+    const missingCtx=[];
+    if(!child.district) missingCtx.push('district');
+    if(!child.home_languages) missingCtx.push('home language');
+    if(child.age_months_at_intake==null) missingCtx.push('age');
+
+    const top=ranked.slice(0,5);
+    host.innerHTML=`
+      <div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:4px 0 14px;background:#FBFAFC">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
+          <div class="row-name" style="color:var(--accent-deep);flex:1">Suggested professionals</div>
+          <span style="font-size:11.5px;color:var(--muted)">a shortlist, not a decision</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+          Matching on: ${ctx.length?escapeHtml(ctx.join(' · ')):'limited information'}${need?' · needs '+escapeHtml(mndLabelFor(MND_DISCIPLINES,need)):''}.
+          ${missingCtx.length?'<span style="color:var(--warn)"> Missing '+missingCtx.join(', ')+' on this child — add it for a sharper match.</span>':''}
+        </div>
+        <div id="f_matchRows"></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5">
+          \u201cCloser\u201d means the professional lists this district or area \u2014 the system stores names, not map distance, so it cannot judge true proximity. The final choice is always yours.
+        </div>
+      </div>`;
+    const rows=m.querySelector('#f_matchRows');
+    rows.innerHTML=top.map((x,i)=>{
+      const strong=x.r.score>=60, ok=x.r.score>=30;
+      const dot = strong?'var(--teal)':(ok?'var(--accent)':'var(--warn)');
+      const fitLine=x.r.fits.length?x.r.fits.join(' · '):'nothing recorded to match on';
+      const gapLine=x.r.gaps.length?('<div style="font-size:11.5px;color:var(--warn);margin-top:2px">gaps: '+x.r.gaps.map(escapeHtml).join(' · ')+'</div>'):'';
+      return `<div class="mt-row" data-prof="${x.p.id}" style="display:flex;gap:10px;align-items:flex-start;padding:9px 8px;border-radius:9px;cursor:pointer;${i? 'border-top:1px solid var(--line)':''}">
+        <span style="width:9px;height:9px;border-radius:50%;background:${dot};margin-top:5px;flex-shrink:0"></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px">${escapeHtml(x.p.full_name)}${x.p.discipline?' <span style="font-weight:400;color:var(--muted)">— '+escapeHtml(x.p.discipline)+'</span>':''}</div>
+          <div style="font-size:12px;color:var(--ink)">${escapeHtml(fitLine)}</div>
+          ${gapLine}
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm mt-pick" data-prof="${x.p.id}" style="width:auto;flex-shrink:0">Select</button>
+      </div>`;
+    }).join('');
+    // clicking a row or its button selects that professional below
+    rows.querySelectorAll('.mt-row').forEach(r=>{
+      r.onclick=(e)=>{
+        const id=r.dataset.prof;
+        const sel=m.querySelector('#f_prof'); if(sel){ sel.value=id; sel.style.outline='2px solid var(--accent)'; setTimeout(()=>sel.style.outline='',900); }
+        toast('Selected — you can still change it below.');
+      };
+    });
+  }
+  m.querySelector('#f_child').onchange=paintMatches;
+  m.querySelector('#f_need').onchange=paintMatches;
+  const _origKind=kindSel.onchange;
+  kindSel.onchange=()=>{ _origKind(); paintMatches(); };
+  paintMatches();
+
   const close=()=>m.remove();
   m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#f_cancel').onclick=close;
@@ -2871,6 +3074,17 @@ const MND_SETTING = [
   ['community','Community'],
   ['online','Online']
 ];
+
+/* Preferred work settings. Values MATCH clients.delivery_channel exactly
+   (direct | clinic | school) so a professional's preference can be
+   compared against how a child actually receives services. "Direct" is
+   home / direct-to-family delivery. */
+const MND_PREF_SETTINGS = [
+  ['direct','Home / direct to family'],
+  ['clinic','Clinic'],
+  ['school','School']
+];
+function mndSettingLabel(v){ return mndLabelFor(MND_PREF_SETTINGS, v); }
 
 const MND_NONATT_REASON = [
   ['child_illness','Child was unwell'],
@@ -6920,6 +7134,11 @@ async function renderMyEngagement(v){
           ${MND_AGE_GROUPS.map(a=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
             <input type="checkbox" class="eag-chk" value="${a[0]}" ${(p.age_groups||[]).indexOf(a[0])>=0?'checked':''} style="width:auto"/> ${escapeHtml(a[1])}</label>`).join('')}
         </div></div>
+      <div class="form-row"><label>Settings you prefer to work in <span style="color:var(--muted);font-weight:400">— we use this to match children to you; leave blank if you have no preference</span></label>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;padding:4px 0">
+          ${MND_PREF_SETTINGS.map(s=>`<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13.5px">
+            <input type="checkbox" class="eps-chk" value="${s[0]}" ${(p.preferred_settings||[]).indexOf(s[0])>=0?'checked':''} style="width:auto"/> ${escapeHtml(s[1])}</label>`).join('')}
+        </div></div>
       <div class="form-row two">
         <div><label>Areas you can cover</label><input id="e_areas" value="${escapeHtml(p.areas_covered||'')}" placeholder="e.g. Kampala, Wakiso"/></div>
         <div><label>Other work commitments</label><input id="e_othemp" value="${escapeHtml(p.other_employment||'')}" placeholder="e.g. part-time at a hospital"/></div>
@@ -6983,6 +7202,7 @@ async function renderMyEngagement(v){
       days_available:gf('e_days'),
       delivery_languages:gv('e_dlang')||null,
       age_groups:ags.length?ags:null,
+      preferred_settings:(function(){const s=[...document.querySelectorAll('.eps-chk:checked')].map(x=>x.value);return s.length?s:null;})(),
       areas_covered:gv('e_areas')||null,
       other_employment:gv('e_othemp')||null
     };
