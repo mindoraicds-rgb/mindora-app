@@ -1575,6 +1575,124 @@ function paintClients(q){
   });
 }
 
+/* =====================================================================
+   CHILD HISTORY & CONTEXT — controlled vocabularies
+   ---------------------------------------------------------------------
+   These are the fields a good clinician asks in a first interview
+   anyway. Recording them as chosen values instead of prose is better
+   clinical record-keeping: it makes handover cleaner, and it means the
+   answers can be counted later without anyone re-reading case notes.
+
+   Every list ends with an explicit "not known" where not knowing is a
+   real and honest answer. A blank and a "we asked and they didn't know"
+   are different facts and must stay distinguishable.
+   ===================================================================== */
+
+const MND_NOTICED_BY = [
+  ['parent','Parent or caregiver'],
+  ['other_family','Another family member'],
+  ['teacher','Teacher or school'],
+  ['health_worker','Health worker'],
+  ['other','Someone else'],
+  ['unknown','Not known']
+];
+
+const MND_PRIOR_INTERVENTION = [
+  ['none','None at all'],
+  ['some_therapy','Some therapy elsewhere'],
+  ['school_support','School-based support only'],
+  ['traditional_faith','Traditional or faith-based help'],
+  ['other','Other'],
+  ['unknown','Not known']
+];
+
+const MND_REFERRAL_SOURCE = [
+  ['self','Family found us themselves'],
+  ['parent_referral','Another parent'],
+  ['school','School or teacher'],
+  ['health_facility','Hospital or clinic'],
+  ['professional','Another professional'],
+  ['community','Community or church'],
+  ['online','Online or social media'],
+  ['other','Other']
+];
+
+const MND_SETTLEMENT = [
+  ['urban','Urban'],
+  ['peri_urban','Peri-urban'],
+  ['rural','Rural']
+];
+
+const MND_CAREGIVER_REL = [
+  ['mother','Mother'],
+  ['father','Father'],
+  ['grandparent','Grandparent'],
+  ['other_relative','Other relative'],
+  ['guardian','Guardian'],
+  ['institution','Institution or home']
+];
+
+const MND_CAREGIVER_EDU = [
+  ['none','No formal schooling'],
+  ['primary','Primary'],
+  ['secondary','Secondary'],
+  ['tertiary','Tertiary / university'],
+  ['postgraduate','Postgraduate'],
+  ['unknown','Not known']
+];
+
+/* Banded, never an income figure. People report income unreliably and
+   often resent being asked. This is the same judgement already made when
+   pricing context is set — recorded openly instead of implied. */
+const MND_MEANS_BAND = [
+  ['low','Low'],
+  ['lower_middle','Lower middle'],
+  ['middle','Middle'],
+  ['upper','Upper'],
+  ['unknown','Not assessed']
+];
+
+const MND_BAND_VARIANCE = [
+  ['affordability','Affordability'],
+  ['family_choice','Family chose a lower band'],
+  ['capacity','Mindora capacity'],
+  ['transport','Transport or distance'],
+  ['other','Other']
+];
+
+/* Common Ugandan languages, plus free text for anything else. Not
+   exhaustive by design — the "other" box carries the rest. */
+const MND_LANGUAGES = ['English','Luganda','Runyankole','Rukiga','Luo','Ateso',
+  'Lugbara','Runyoro','Rutooro','Lusoga','Swahili','Lumasaba','Kakwa','Madi'];
+
+function mndSelOpts(list, val){
+  return '<option value="">—</option>' + list.map(function(p){
+    return '<option value="'+p[0]+'"'+((val||'')===p[0]?' selected':'')+'>'+escapeHtml(p[1])+'</option>';
+  }).join('');
+}
+function mndLabelFor(list, val){
+  for(var i=0;i<list.length;i++){ if(list[i][0]===val) return list[i][1]; }
+  return val||'';
+}
+
+/* Age in months. Mirrors mnd_age_months() in the database exactly,
+   including the "day of month not yet reached" rule, so the app and the
+   database never disagree about a child's age. */
+function mndAgeMonths(dob, on){
+  if(!dob) return null;
+  var d=new Date(dob+'T00:00:00'), o=on?new Date(on+'T00:00:00'):new Date();
+  if(isNaN(d.getTime())||isNaN(o.getTime())) return null;
+  var m=(o.getFullYear()-d.getFullYear())*12+(o.getMonth()-d.getMonth());
+  if(o.getDate()<d.getDate()) m-=1;
+  return m<0?0:m;
+}
+function mndMonthsStr(m){
+  if(m===null||m===undefined||isNaN(m)) return '';
+  var y=Math.floor(m/12), r=m%12;
+  if(y<=0) return m+' months';
+  return y+'y '+r+'m ('+m+' months)';
+}
+
 async function openClientForm(c){
   if(!RATE_BY_KEY) await loadRateCard();
   const edit=!!c; c=c||{};
@@ -1624,6 +1742,74 @@ async function openClientForm(c){
         <div class="form-row"><label>Clinical impressions</label><textarea id="f_cimp" placeholder="Clinician's interpretation of the child's presentation">${escapeHtml(c.clinical_impressions||'')}</textarea></div>
         <div class="form-row"><label>Developmental / relevant history</label><textarea id="f_chist" placeholder="Birth, milestones, medical, family history relevant to the case">${escapeHtml(c.developmental_history||'')}</textarea></div>
         <div class="form-row"><label>Clinical recommendations</label><textarea id="f_crec" placeholder="Recommended program, intensity, focus areas, referrals">${escapeHtml(c.clinical_recommendations||'')}</textarea></div>
+      </div>
+    </details>
+    <details class="clin-fold">
+      <summary>History &amp; context <span class="fold-note">— the child's story before Mindora, and the home they go back to</span></summary>
+      <div class="fold-body">
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5">
+          Ask these once, at intake. They shape the program: how long the family has been
+          waiting, who is at home to carry out strategies, what language to work in, and
+          how far they travel. Leave anything blank you did not ask &mdash; a blank means
+          "not asked", which is different from "not known".
+        </p>
+
+        <div style="font-size:12px;font-weight:700;color:var(--accent-deep);letter-spacing:.04em;margin:0 0 8px">THE ROAD HERE</div>
+        <div class="form-row two">
+          <div><label>Age when the concern was first noticed <span style="color:var(--muted);font-weight:400">— months</span></label>
+            <input id="f_cfage" type="number" min="0" max="300" value="${c.concern_first_age_months??''}" placeholder="e.g. 18"/></div>
+          <div><label>Noticed by</label><select id="f_cfby">${mndSelOpts(MND_NOTICED_BY, c.concern_first_noticed_by)}</select></div>
+        </div>
+        <div class="form-row two" style="margin-top:-6px">
+          <div><label>Age at first help from anyone <span style="color:var(--muted);font-weight:400">— months</span></label>
+            <input id="f_fcage" type="number" min="0" max="300" value="${c.first_contact_age_months??''}" placeholder="e.g. 30"/></div>
+          <div><label>Providers seen before Mindora</label>
+            <input id="f_prior_n" type="number" min="0" max="50" value="${c.prior_providers_count??''}" placeholder="0"/></div>
+        </div>
+        <div id="f_delayNote" style="font-size:12.5px;color:var(--muted);margin:-4px 0 12px"></div>
+        <div class="form-row two">
+          <div><label>Help received before Mindora</label><select id="f_prior_i">${mndSelOpts(MND_PRIOR_INTERVENTION, c.prior_intervention)}</select></div>
+          <div><label>How the family reached us</label><select id="f_refsrc">${mndSelOpts(MND_REFERRAL_SOURCE, c.referral_source)}</select></div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--accent-deep);letter-spacing:.04em;margin:14px 0 8px">HOME &amp; LANGUAGE</div>
+        <div class="form-row two">
+          <div><label>Main caregiver</label><select id="f_crel">${mndSelOpts(MND_CAREGIVER_REL, c.caregiver_relationship)}</select></div>
+          <div><label>Their schooling</label><select id="f_cedu">${mndSelOpts(MND_CAREGIVER_EDU, c.caregiver_education)}</select></div>
+        </div>
+        <div class="form-row two" style="margin-top:-6px">
+          <div><label>Who usually brings the child</label><input id="f_accomp" value="${escapeHtml(c.accompanying_adult||'')}" placeholder="e.g. grandmother, house help"/></div>
+          <div><label>Household means <span style="color:var(--muted);font-weight:400">— a judgement, not an income</span></label><select id="f_means">${mndSelOpts(MND_MEANS_BAND, c.household_means_band)}</select></div>
+        </div>
+        <div class="form-row"><label>Languages spoken at home <span style="color:var(--muted);font-weight:400">— what the child actually hears, not the school language</span></label>
+          <input id="f_homelang" value="${escapeHtml(c.home_languages||'')}" placeholder="e.g. Luganda, English" list="mnd_langs"/>
+          <datalist id="mnd_langs">${MND_LANGUAGES.map(l=>`<option value="${l}"></option>`).join('')}</datalist></div>
+        <div class="form-row"><label>Language the program will be delivered in</label>
+          <input id="f_intlang" value="${escapeHtml(c.intervention_language||'')}" placeholder="e.g. Luganda" list="mnd_langs"/></div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--accent-deep);letter-spacing:.04em;margin:14px 0 8px">WHERE THEY LIVE</div>
+        <div class="form-row two">
+          <div><label>District</label><input id="f_district" value="${escapeHtml(c.district||'')}" placeholder="e.g. Kampala"/></div>
+          <div><label>Sub-county / division</label><input id="f_subcounty" value="${escapeHtml(c.sub_county||'')}" placeholder="e.g. Nakawa"/></div>
+        </div>
+        <div class="form-row two" style="margin-top:-6px">
+          <div><label>Setting</label><select id="f_settle">${mndSelOpts(MND_SETTLEMENT, c.settlement_type)}</select></div>
+          <div><label>Travel time one way <span style="color:var(--muted);font-weight:400">— minutes</span></label>
+            <input id="f_travel" type="number" min="0" max="600" value="${c.travel_time_minutes??''}" placeholder="e.g. 45"/></div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--accent-deep);letter-spacing:.04em;margin:14px 0 8px">BAND ACTUALLY SERVED</div>
+        <div class="form-row two">
+          <div><label>Band the child is served on</label><select id="f_aband"><option value="">— same as assessed —</option>${[1,2,3,4].map(b=>`<option value="${b}" ${c.assigned_band==b?'selected':''}>Band ${b}</option>`).join('')}</select></div>
+          <div><label>If lower, why</label><select id="f_bvar">${mndSelOpts(MND_BAND_VARIANCE, c.band_variance_reason)}</select></div>
+        </div>
+        <div id="f_bandNote" style="font-size:12.5px;margin:-4px 0 10px"></div>
+
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-top:6px">
+          <input type="checkbox" id="f_bdone" ${c.baseline_complete?'checked':''} style="width:auto;margin:3px 0 0"/>
+          <span><strong>This history is complete</strong><br>
+          <span style="font-weight:400;color:var(--muted)">Tick when you have asked what you can. Unticked cases are counted as incomplete rather than treated as zeros.</span></span>
+        </label>
       </div>
     </details>
     <div class="form-row"><label>Child photo <span style="color:var(--muted);font-weight:400">(optional)</span></label><div id="f_photo_up"></div></div>
@@ -1720,6 +1906,51 @@ async function openClientForm(c){
   paintFees(!c.id && !FEE.monthly_fee);   // new child: fill from card. existing: keep what's stored.
 
   photoUploader('f_photo_up','f_photo',c.photo_url,'children');
+
+  /* Live note under the pathway fields. Shows the family's wait back to
+     them as they type — the clinician sees the delay immediately, which is
+     the clinically useful thing, and it doubles as a sense-check that the
+     two ages were entered the right way round. */
+  (function wireDelay(){
+    const cf=m.querySelector('#f_cfage'), fc=m.querySelector('#f_fcage'), note=m.querySelector('#f_delayNote');
+    if(!cf||!fc||!note) return;
+    const paint=()=>{
+      const a=parseInt(cf.value,10), b=parseInt(fc.value,10);
+      if(isNaN(a)&&isNaN(b)){ note.textContent=''; return; }
+      if(isNaN(a)||isNaN(b)){ note.textContent='Both ages are needed to show the wait.'; note.style.color='var(--muted)'; return; }
+      const d=b-a;
+      if(d<0){
+        note.innerHTML='<strong>Check these:</strong> first help is earlier than the first concern. One of them is probably the wrong way round.';
+        note.style.color='var(--danger)';
+      } else {
+        note.innerHTML='This family waited <strong>'+d+' month'+(d===1?'':'s')+'</strong> between noticing and getting help.';
+        note.style.color = d>=24 ? 'var(--warn)' : 'var(--muted)';
+      }
+    };
+    cf.oninput=paint; fc.oninput=paint; paint();
+  })();
+
+  /* Band variance. If the child is served below the assessed band, a
+     reason is required — that gap is unmet clinical need and it must not
+     be recorded silently. */
+  (function wireBand(){
+    const ab=m.querySelector('#f_aband'), bv=m.querySelector('#f_bvar'),
+          as=m.querySelector('#f_band'), note=m.querySelector('#f_bandNote');
+    if(!ab||!bv||!note) return;
+    const paint=()=>{
+      const assessed=parseInt(as?as.value:'',10), assigned=parseInt(ab.value,10);
+      if(isNaN(assigned)||isNaN(assessed)){ note.textContent=''; return; }
+      if(assigned<assessed){
+        note.innerHTML='Served <strong>'+(assessed-assigned)+' band'+((assessed-assigned)===1?'':'s')+' below</strong> the clinical assessment. Give the reason &mdash; this is recorded as unmet need, not as a lower need.';
+        note.style.color='var(--warn)';
+      } else if(assigned>assessed){
+        note.innerHTML='Served <em>above</em> the assessed band. Unusual &mdash; check the assessed band is right.';
+        note.style.color='var(--muted)';
+      } else { note.textContent=''; }
+    };
+    ab.onchange=paint; bv.onchange=paint; if(as) as.addEventListener('change',paint); paint();
+  })();
+
   // fill the institution selector so a child can be linked to a school
   (async()=>{
     const {data:insts}=await sb.from('institutions').select('id,name').order('name');
@@ -1759,6 +1990,53 @@ async function openClientForm(c){
       teacher_phone:m.querySelector('#f_tphone').value.trim()||null,
       teacher_email:m.querySelector('#f_temail').value.trim()||null,
     };
+
+    /* History & context (Stage 39). Read defensively: every field is
+       optional, and a blank must save as null rather than as 0 or "" so
+       that "not asked" stays distinguishable from a real zero. */
+    const gv=(sel)=>{ const e=m.querySelector(sel); return e?e.value.trim():''; };
+    const gn=(sel)=>{ const v=gv(sel); if(v==='') return null; const n=parseInt(v,10); return isNaN(n)?null:n; };
+    payload.concern_first_age_months = gn('#f_cfage');
+    payload.concern_first_noticed_by = gv('#f_cfby')||null;
+    payload.first_contact_age_months = gn('#f_fcage');
+    payload.prior_providers_count    = gn('#f_prior_n');
+    payload.prior_intervention       = gv('#f_prior_i')||null;
+    payload.referral_source          = gv('#f_refsrc')||null;
+    payload.caregiver_relationship   = gv('#f_crel')||null;
+    payload.caregiver_education      = gv('#f_cedu')||null;
+    payload.accompanying_adult       = gv('#f_accomp')||null;
+    payload.household_means_band     = gv('#f_means')||null;
+    payload.home_languages           = gv('#f_homelang')||null;
+    payload.intervention_language    = gv('#f_intlang')||null;
+    payload.district                 = gv('#f_district')||null;
+    payload.sub_county               = gv('#f_subcounty')||null;
+    payload.settlement_type          = gv('#f_settle')||null;
+    payload.travel_time_minutes      = gn('#f_travel');
+    payload.assigned_band            = gn('#f_aband');
+    payload.band_variance_reason     = gv('#f_bvar')||null;
+    const bdone=m.querySelector('#f_bdone');
+    payload.baseline_complete        = bdone?bdone.checked:false;
+    if(payload.baseline_complete){
+      payload.baseline_recorded_by = ME.id;
+      payload.baseline_recorded_at = new Date().toISOString();
+    }
+    // Age at intake is a historical fact — stamp it once, on creation only,
+    // and never recompute it afterwards or it would drift as the child ages.
+    if(!edit && payload.dob){
+      payload.age_months_at_intake = mndAgeMonths(payload.dob, null);
+    }
+    // A band served below the assessed band without a stated reason would
+    // record unmet need as though it were a lower need. Refuse to save it.
+    if(payload.assigned_band!==null && c.assessed_band &&
+       payload.assigned_band < parseInt(c.assessed_band,10) && !payload.band_variance_reason){
+      const bandSel=m.querySelector('#f_band');
+      const assessedNow=bandSel?parseInt(bandSel.value,10):parseInt(c.assessed_band,10);
+      if(payload.assigned_band < assessedNow){
+        toast('This child is served below the assessed band. Give the reason before saving.',true);
+        btn.disabled=false; btn.textContent=edit?'Save changes':'Add child';
+        return;
+      }
+    }
     // Money fields only when this login can see money. For a routine-only
     // secretary we deliberately OMIT them so an edit never wipes existing fees.
     if(canSeeMoney()){
@@ -9343,6 +9621,8 @@ function consentPanelHtml(c){
         : 'This child\u2019s photo and information must <strong>never</strong> appear in the community feed or anywhere public. The app will block it.'}
       <br>Home programs, session summaries and feedback to this child\u2019s own parent are sent as normal either way.
       <br><span style="color:var(--muted)">Signed form on file: ${filed?'yes':'<strong style="color:var(--warn)">not uploaded</strong>'}${c.consent_signed_on?' · signed '+fmtDate(c.consent_signed_on):''}</span>
+      <br><span style="color:var(--muted)">Anonymized reporting: <strong>${c.consent_internal_reports===true?'yes':(c.consent_internal_reports===false?'refused':'not asked')}</strong>
+      · Research use: <strong style="${c.consent_research===true?'':'color:var(--muted)'}">${c.consent_research===true?'yes':(c.consent_research===false?'refused':'not asked')}</strong>${c.research_id?' · ref '+escapeHtml(c.research_id):''}</span>
       ${c.consent_notes?'<br><span style="color:var(--muted)">'+escapeHtml(c.consent_notes)+'</span>':''}
     </div>
   </div>`;
@@ -9371,6 +9651,48 @@ function consentForm(c, after){
       <span style="font-weight:400;color:var(--muted)">Photos and information may appear in the community feed and other places where people outside the care team can see them. If this is not explicitly initialled on the form, leave it unticked.</span></span>
     </label></div>
 
+    <div style="border-top:1px solid var(--line);margin:14px 0;padding-top:14px">
+      <div class="row-name" style="color:var(--accent-deep)">Use of anonymized information</div>
+      <p style="font-size:12.5px;color:var(--muted);margin:4px 0 12px;line-height:1.5">
+        Each of these is a separate question and the parent may agree to one and refuse
+        another. Tick only what is actually initialled on the form. Refusing any of them
+        changes nothing about the child's care &mdash; and the parent must have been told that.
+      </p>
+    </div>
+
+    <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="cs_svc" ${c.consent_service?'checked':''} style="width:auto;margin:3px 0 0"/>
+      <span><strong>Parent consented to the program itself</strong><br>
+      <span style="font-weight:400;color:var(--muted)">Assessment, sessions, and keeping a record of the child's care.</span></span>
+    </label></div>
+
+    <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="cs_rep" ${c.consent_internal_reports?'checked':''} style="width:auto;margin:3px 0 0"/>
+      <span><strong>Anonymized use in reports and summaries</strong><br>
+      <span style="font-weight:400;color:var(--muted)">Counts and progress figures with no name attached, used to improve the program and to report to schools, funders and government.</span></span>
+    </label></div>
+
+    <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="cs_res" ${c.consent_research?'checked':''} style="width:auto;margin:3px 0 0"/>
+      <span><strong>Anonymized use in research, including publication</strong><br>
+      <span style="font-weight:400;color:var(--muted)">Findings may appear in studies or journals, never with the child's name, photo or anything that could identify them. If this was not explicitly agreed, leave it unticked &mdash; it cannot be added later without asking again.</span></span>
+    </label></div>
+
+    <div class="form-row"><label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+      <input type="checkbox" id="cs_idsh" ${c.consent_identified_share?'checked':''} style="width:auto;margin:3px 0 0"/>
+      <span><strong>Named sharing with a specific third party</strong><br>
+      <span style="font-weight:400;color:var(--muted)">Rare. Only where the parent agreed to a <em>named</em> partner or purpose, written on the form. Never a blanket permission.</span></span>
+    </label></div>
+
+    <div class="form-row two">
+      <div><label>Consent document version</label>
+        <input id="cs_ver" value="${escapeHtml(c.consent_version||'')}" placeholder="e.g. MND-AGR-01-B v2"/></div>
+      <div><label>Date these were agreed</label>
+        <input type="date" id="cs_resdate" value="${c.consent_research_on||''}"/></div>
+    </div>
+    <div class="form-row"><label>Who gave consent</label>
+      <input id="cs_by" value="${escapeHtml(c.consent_given_by||'')}" placeholder="e.g. Grace N. — mother"/></div>
+
     <div class="form-row"><label>Date the form was signed</label>
       <input type="date" id="cs_date" value="${c.consent_signed_on||''}"/></div>
 
@@ -9386,6 +9708,13 @@ function consentForm(c, after){
     const {error}=await sb.from('clients').update({
       consent_form_on_file:m.querySelector('#cs_filed').checked,
       consent_public_sharing:m.querySelector('#cs_public').checked,
+      consent_service:m.querySelector('#cs_svc').checked,
+      consent_internal_reports:m.querySelector('#cs_rep').checked,
+      consent_research:m.querySelector('#cs_res').checked,
+      consent_identified_share:m.querySelector('#cs_idsh').checked,
+      consent_version:m.querySelector('#cs_ver').value.trim()||null,
+      consent_research_on:m.querySelector('#cs_resdate').value||null,
+      consent_given_by:m.querySelector('#cs_by').value.trim()||null,
       consent_signed_on:m.querySelector('#cs_date').value||null,
       consent_notes:m.querySelector('#cs_notes').value.trim()||null,
       consent_recorded_by:ME.id,
