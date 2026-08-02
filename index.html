@@ -3287,10 +3287,26 @@ function sessionForm(c){
     <div class="form-row"><label>Other goals / notes</label><textarea id="s_goals" placeholder="Anything not covered by the goals above"></textarea></div>
     <div class="form-row"><label>Summary</label><textarea id="s_sum" placeholder="What happened in the session"></textarea></div>
     <div class="form-row"><label>Progress notes</label><textarea id="s_prog"></textarea></div>
+    <details class="clin-fold">
+      <summary>Home / school program <span class="fold-note">— optional; guidance that lives with this session</span></summary>
+      <div class="fold-body">
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5">
+          Add practical guidance for the family to use at home, and/or for the teacher to use in class.
+          It stays attached to this session, so the parent (and the child's other professionals) see the
+          session and its program together, and can reply in one place. Leave blank if there's none.
+        </p>
+        <div class="form-row"><label>For home <span style="color:var(--muted);font-weight:400">— the caregiver</span></label>
+          <textarea id="s_home" placeholder="e.g. Practice two-word requests at mealtimes — 'more juice', 'want ball'"></textarea></div>
+        <div class="form-row"><label>For school <span style="color:var(--muted);font-weight:400">— the teacher, if the child is in a partner school</span></label>
+          <textarea id="s_school" placeholder="e.g. Give extra processing time before expecting a response; use visual cues"></textarea></div>
+        <div class="form-row"><label>Program attachments <span style="color:var(--muted);font-weight:400">— demo videos, picture cards, worksheets</span></label><div id="s_patt"></div></div>
+      </div>
+    </details>
     <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="s_vis" type="checkbox" checked style="width:auto"/> Share this with the parent</label></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="s_cancel">Cancel</button><button class="btn btn-primary" id="s_save">Save session</button></div>
   </div></div>`);
   document.body.appendChild(m);
+  attachmentUploader('s_patt','sessProg','sessionprograms',[]);
 
   /* Approach picker. Grouped by discipline with the logged-for
      professional's own discipline first, but nothing hidden — real cases
@@ -3373,6 +3389,9 @@ function sessionForm(c){
       goals_worked:m.querySelector('#s_goals').value.trim()||null,
       summary:m.querySelector('#s_sum').value.trim()||null,
       progress_notes:m.querySelector('#s_prog').value.trim()||null,
+      home_program:m.querySelector('#s_home')?m.querySelector('#s_home').value.trim()||null:null,
+      school_program:m.querySelector('#s_school')?m.querySelector('#s_school').value.trim()||null:null,
+      program_attachments:(ATTACH_STATE['sessProg']&&ATTACH_STATE['sessProg'].length)?ATTACH_STATE['sessProg']:null,
       visible_to_parent:m.querySelector('#s_vis').checked
     }).select().single();
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save session';return;}
@@ -3516,35 +3535,203 @@ function clinicalSummaryHtml(c, secs, rep){
 }
 
 // ---- Shared: full session detail (read-only), respects parent visibility ----
+/* =====================================================================
+   CONTACT-DETAIL FILTER  (session feedback thread)
+   ---------------------------------------------------------------------
+   Blocks the obvious attempts to move contact off-platform: phone
+   numbers (digits or spelled out), emails, "@handles", and the common
+   "call/whatsapp/text me on…" patterns. It is a DETERRENT, not a
+   guarantee — a determined person can evade any filter. So blocked
+   attempts are ALSO flagged for the director (the accountability layer
+   that catches what pattern-matching misses).
+
+   Deliberately tuned to avoid blocking normal talk: "meet at 3",
+   "session 2", "goal 4" must pass. We only block runs that look like
+   real contact details.
+   ===================================================================== */
+function mndContactCheck(text){
+  if(!text) return {blocked:false};
+  const t=text.toLowerCase();
+
+  // 1. Long digit runs (a phone number), tolerating spaces/dashes/dots/+()
+  //    Ugandan numbers are ~10 digits; block any run of 7+ digits.
+  const digits=(t.match(/[0-9][0-9\s().\-]{5,}[0-9]/g)||[]);
+  for(const d of digits){ if((d.replace(/[^0-9]/g,'')).length>=7) return {blocked:true,reason:'a phone number'}; }
+
+  // 2. Email addresses
+  if(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i.test(text)) return {blocked:true,reason:'an email address'};
+
+  // 3. @handles (social)
+  if(/(^|\s)@[a-z0-9._]{3,}/i.test(text)) return {blocked:true,reason:'a social handle'};
+
+  // 4. Spelled-out digit runs: "zero seven four one..." — 5+ number words in a row
+  const numwords='(zero|one|two|three|four|five|six|seven|eight|nine|oh|nought|double|triple)';
+  const re=new RegExp('(?:'+numwords+'[\\s,\\-]+){4,}'+numwords,'i');
+  if(re.test(t)) return {blocked:true,reason:'a phone number written in words'};
+
+  // 5. Explicit "reach me on <platform>" invitations with a target
+  if(/\b(whats\s?app|whatsapp|telegram|signal|call me|text me|dm me|my number|reach me on|find me on)\b/i.test(t)){
+    // only block if it's paired with something that looks like a contact target nearby
+    if(/[0-9]/.test(t) || /@/.test(t) || /\b(number|line|phone|cell|mobile)\b/i.test(t)){
+      return {blocked:true,reason:'contact details'};
+    }
+    // a bare "call me" without a number is a soft flag, not a block
+    return {blocked:false, flag:true};
+  }
+  return {blocked:false};
+}
+
 async function sessionDetail(s, c){
   // resolve who logged it
   let author='';
   if(s.professional_id){ const {data:pr}=await sb.from('professionals').select('full_name,discipline,profile_id').eq('id',s.professional_id).maybeSingle(); if(pr){ author=pr.full_name+(pr.discipline?(' · '+pr.discipline):''); s._authorProfile=pr.profile_id; } }
   const isAuthor = s._authorProfile && s._authorProfile===ME.id;
-  const editsLeft = 2-(s.edit_count||0);
-  const canEditSummary = isStaff() || (isAuthor && editsLeft>0);
-  const staffEditor = isStaff() && !isAuthor;
+  const isParent = ME.role==='parent';
+
+  // Edit window: author may edit while open; after that, corrections are addenda.
+  let editOpen=false;
+  try{ const {data:eo}=await sb.rpc('mnd_session_edit_open',{p_session_id:s.id}); editOpen=!!eo; }catch(e){ editOpen=false; }
+  const canEditNow = isAuthor && editOpen;
+  const canAddendum = (isAuthor || isStaff()) && !editOpen;
+  const staffEditor = isStaff();
+
+  const appNames = (s.approaches&&s.approaches.length)? mndApproachNames(s.approaches):'';
+
   const rows=[
     ['Date', fmtDate(s.session_date)],
     ['Type', s.session_type||'Session'],
-    ['Service units', (s.service_units||0)+''],
     ['Logged by', author||'—'],
+    ...(appNames?[['What we did', appNames]]:[]),
+    ...(s.delivery_format?[['Format', mndLabelFor(MND_DELIVERY_FORMAT,s.delivery_format)]]:[]),
+    ...(s.setting?[['Setting', mndLabelFor(MND_SETTING,s.setting)]]:[]),
     ['Goals worked on', s.goals_worked||'—'],
     ['Summary', s.summary||'—'],
-    ['Progress notes', s.progress_notes||'—'],
-    ['Shared with parent', s.visible_to_parent?'Yes':'No (private to team)'],
+    ...(isParent?[]:[['Progress notes', s.progress_notes||'—']]),
+    ...(s.home_program?[['For home', s.home_program]]:[]),
+    ...(s.school_program?[['For school', s.school_program]]:[]),
+    ...(isParent?[]:[['Shared with parent', s.visible_to_parent?'Yes':'No (private to team)']]),
   ];
-  const m=el(`<div class="modal-bg show"><div class="modal">
+
+  const {data:addenda}=await sb.from('session_addenda').select('*').eq('session_id',s.id).order('created_at');
+
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:620px">
     <h3>${escapeHtml(s.session_type||'Session')}</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(s.session_date)}</div>
     <div class="clin">${rows.map(([k,val])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
-    ${staffEditor?'<div class="row-sub" style="margin-top:8px">As director you can edit this summary (does not count against the author\u2019s edit limit).</div>':(isAuthor?`<div class="row-sub" style="margin-top:8px">${editsLeft>0?`You can edit this summary ${editsLeft} more time${editsLeft>1?'s':''}.`:'This summary is locked (2 edits used).'}</div>`:'')}
-    <div class="modal-actions">${canEditSummary?'<button class="btn btn-ghost" id="sd_edit" style="width:auto">Edit summary</button>':''}<button class="btn btn-primary" id="sd_close">Close</button></div>
+    ${(s.program_attachments&&s.program_attachments.length)?`<div style="margin:8px 0">${attachmentsView(s.program_attachments)}</div>`:''}
+    ${(addenda&&addenda.length)?`<div style="border-top:1px solid var(--line);margin:12px 0 8px;padding-top:10px">
+      <div class="row-name" style="color:var(--accent-deep)">Corrections</div>
+      ${addenda.map(a=>`<div style="font-size:13px;margin:6px 0;padding:8px 10px;background:#FBF6EE;border-left:3px solid var(--warn);border-radius:6px">
+        <div>${escapeHtml(a.body)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Added ${fmtDate(a.created_at)}</div></div>`).join('')}
+    </div>`:''}
+    ${canEditNow?'<div class="row-sub" style="margin-top:8px;color:var(--teal)">You can still edit this session (the edit window is open).</div>':(canAddendum?'<div class="row-sub" style="margin-top:8px">The edit window has closed. To fix something, add a dated correction below — the original stays on record.</div>':'')}
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
+      ${canEditNow?'<button class="btn btn-ghost" id="sd_edit" style="width:auto">Edit session</button>':''}
+      ${canAddendum?'<button class="btn btn-ghost" id="sd_add" style="width:auto">Add a correction</button>':''}
+      <button class="btn btn-primary" id="sd_close">Close</button>
+    </div>
+    <div id="sd_feedbackWrap"></div>
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#sd_close').onclick=close;
   const eb=m.querySelector('#sd_edit');
-  if(eb) eb.onclick=()=>{ close(); sessionEditForm(s,c,staffEditor); };
+  if(eb) eb.onclick=()=>{ close(); sessionEditForm(s,c,staffEditor&&!isAuthor); };
+  const ab=m.querySelector('#sd_add');
+  if(ab) ab.onclick=()=>{ addendumForm(s,c,()=>{ close(); reopenSession(s,c); }); };
+  renderSessionFeedback(m.querySelector('#sd_feedbackWrap'), s, c);
+}
+
+function reopenSession(s,c){
+  sb.from('session_logs').select('*').eq('id',s.id).maybeSingle().then(({data})=>{ if(data) sessionDetail(data,c); });
+}
+
+function addendumForm(s,c,after){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Add a correction</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(s.session_date)}</div>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5">The original session note stays exactly as it was. Your correction is added below it, with today's date, so the record stays honest.</p>
+    <div class="form-row"><label>What needs correcting</label><textarea id="ad_body" style="min-height:100px" placeholder="e.g. Duration should read 45 minutes, not 30."></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="ad_cancel">Cancel</button><button class="btn btn-primary" id="ad_save">Add correction</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#ad_cancel').onclick=close;
+  m.querySelector('#ad_save').onclick=async()=>{
+    const body=m.querySelector('#ad_body').value.trim();
+    if(!body){toast('Please write the correction.',true);return;}
+    const btn=m.querySelector('#ad_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('session_addenda').insert({ session_id:s.id, client_id:c.id, author_id:ME.id, body:body });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Add correction';return;}
+    toast('Correction added'); close(); if(after) after();
+  };
+}
+
+async function renderSessionFeedback(host, s, c){
+  if(!host) return;
+  const isParent = ME.role==='parent';
+  const isLogger = s._authorProfile && s._authorProfile===ME.id;
+  const isDir = isDirector();
+  if(!isParent && !isLogger && !isDir){ host.innerHTML=''; return; }
+  const {data:msgs}=await sb.from('session_feedback').select('*').eq('session_id',s.id).order('created_at');
+  const canPost = isParent || isLogger;
+  host.innerHTML=`
+    <div style="border-top:1px solid var(--line);margin:12px 0 8px;padding-top:10px">
+      <div class="row-name" style="color:var(--accent-deep)">${isDir?'Parent \u2194 therapist messages (viewing as director)':'Questions & feedback'}</div>
+      ${isDir?'<div class="row-sub" style="color:var(--muted)">You can see this thread for oversight. You are not shown as a participant.</div>':'<div class="row-sub" style="color:var(--muted)">A private line between you and this session\u2019s therapist. Please keep contact details on Mindora.</div>'}
+    </div>
+    <div id="sf_list" style="max-height:220px;overflow:auto;margin:6px 0"></div>
+    ${canPost?`<div class="form-row" style="margin-top:6px"><textarea id="sf_body" placeholder="Write a message…" style="min-height:64px"></textarea></div>
+      <div id="sf_warn" style="font-size:12px;color:var(--coral);margin:-6px 0 8px;display:none"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" id="sf_send" style="width:auto">Send</button>
+        ${(isLogger||isDir)?'<button class="btn btn-ghost btn-sm" id="sf_escalate" style="width:auto">Start case discussion \u2192</button>':''}
+      </div>`:''}`;
+  const list=host.querySelector('#sf_list');
+  const paint=(items)=>{
+    if(!items||!items.length){ list.innerHTML='<div class="row-sub" style="color:var(--muted)">No messages yet.</div>'; return; }
+    list.innerHTML=items.map(msg=>{
+      const mine=msg.author_id===ME.id;
+      const who=msg.author_role==='parent'?'Parent':'Therapist';
+      return `<div style="margin:6px 0;display:flex;${mine?'justify-content:flex-end':''}">
+        <div style="max-width:80%;padding:8px 11px;border-radius:12px;background:${mine?'var(--accent-soft,#EEE6F3)':'#F4F4F6'};font-size:13.5px">
+          <div style="font-size:10.5px;color:var(--muted);margin-bottom:2px">${who} · ${fmtDate(msg.created_at)}${msg.contact_flagged?' · <span style="color:var(--coral)">flagged</span>':''}</div>
+          <div>${escapeHtml(msg.body)}</div></div></div>`;
+    }).join('');
+    list.scrollTop=list.scrollHeight;
+  };
+  paint(msgs);
+  if(canPost){
+    const send=host.querySelector('#sf_send'), body=host.querySelector('#sf_body'), warn=host.querySelector('#sf_warn');
+    send.onclick=async()=>{
+      const text=body.value.trim();
+      if(!text) return;
+      const chk=mndContactCheck(text);
+      if(chk.blocked){
+        warn.style.display='block';
+        warn.textContent='Please remove '+(chk.reason||'contact details')+'. To protect everyone, contact details are kept on Mindora — the director has been notified of this attempt.';
+        try{ await sb.from('session_feedback').insert({ session_id:s.id, client_id:c.id, professional_id:s.professional_id||null, author_id:ME.id, author_role:isParent?'parent':'professional', body:'[blocked: '+(chk.reason||'contact details')+'] '+text, contact_flagged:true }); }catch(e){}
+        return;
+      }
+      send.disabled=true; send.textContent='Sending…';
+      const {error}=await sb.from('session_feedback').insert({ session_id:s.id, client_id:c.id, professional_id:s.professional_id||null, author_id:ME.id, author_role:isParent?'parent':'professional', body:text, contact_flagged: !!chk.flag });
+      send.disabled=false; send.textContent='Send';
+      if(error){ toast(error.message,true); return; }
+      body.value=''; warn.style.display='none';
+      const {data:fresh}=await sb.from('session_feedback').select('*').eq('session_id',s.id).order('created_at');
+      paint(fresh);
+    };
+    const esc=host.querySelector('#sf_escalate');
+    if(esc) esc.onclick=async()=>{
+      if(!confirm('Start a case discussion about this child with the whole team?\n\nThe private parent thread stays as it is; this opens a separate team conversation.')) return;
+      try{
+        const {data:newId,error}=await sb.rpc('create_case_discussion',{ p_topic:'From a session on '+fmtDate(s.session_date), p_client_id:c.id, p_visibility:'open', p_member_ids:[] });
+        if(error){ toast(error.message,true); return; }
+        toast('Case discussion started.');
+        const {data:d}=await sb.from('case_discussions').select('*').eq('id',newId).maybeSingle();
+        if(d){ SELECTED_DISCUSSION=d; const bg=host.closest('.modal-bg'); if(bg) bg.remove(); go('discussion_view'); }
+      }catch(e){ toast('Could not start discussion.',true); }
+    };
+  }
 }
 
 function sessionEditForm(s,c,staffEdit){
