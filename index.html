@@ -7065,10 +7065,14 @@ function waitlistForm(w){
 async function renderChildProgress(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
   const canLog = isStaff() || ME.role==='professional';
-  const [{data:goals},{data:prog}]=await Promise.all([
+  const [{data:goals},{data:prog},{data:contribs}]=await Promise.all([
     sb.from('goals').select('*').eq('client_id',c.id).order('started_on',{ascending:true}),
-    sb.from('goal_progress').select('*').eq('client_id',c.id).order('recorded_on',{ascending:true})
+    sb.from('goal_progress').select('*').eq('client_id',c.id).order('recorded_on',{ascending:true}),
+    sb.from('goal_contributors').select('goal_id,professional_id').eq('client_id',c.id)
   ]);
+  // contributors per goal, and whether I'm one
+  const contribBy={}; (contribs||[]).forEach(x=>{ (contribBy[x.goal_id]=contribBy[x.goal_id]||[]).push(x.professional_id); });
+  const iAmContrib=(gid)=>MY_PROF_ID && (contribBy[gid]||[]).includes(MY_PROF_ID);
   const byGoal={}; (prog||[]).forEach(p=>{ (byGoal[p.goal_id]=byGoal[p.goal_id]||[]).push(p); });
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
@@ -7115,14 +7119,20 @@ async function renderChildProgress(v,c){
     if(!activeGoals.length) return;
     const gids=activeGoals.map(g=>g.id);
     const allPts=[];
-    gids.forEach(id=>(byGoal[id]||[]).forEach(p=>allPts.push({goal_id:id,score:Number(p.score)||0,d:p.recorded_on})));
-    if(allPts.length<2) return;               // need at least a couple of points to be meaningful
+    gids.forEach(id=>(byGoal[id]||[]).forEach(p=>allPts.push({goal_id:id,prof:p.profile_id||'_',score:Number(p.score)||0,d:p.recorded_on})));
+    if(allPts.length<2) return;               // need a couple of points to be meaningful
     const dates=[...new Set(allPts.map(p=>p.d))].sort();
-    const lastKnown={};                        // goal_id -> latest score up to current date
+    // track latest score per (goal, professional); a goal's value is the mean
+    // across its contributors, then the overall is the mean across goals.
+    const lastByGoalProf={};                   // goal_id -> {prof -> score}
     const series=dates.map(d=>{
-      allPts.filter(p=>p.d===d).forEach(p=>{ lastKnown[p.goal_id]=p.score; });
-      const vals=Object.values(lastKnown);
-      const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+      allPts.filter(p=>p.d===d).forEach(p=>{
+        (lastByGoalProf[p.goal_id]=lastByGoalProf[p.goal_id]||{})[p.prof]=p.score;
+      });
+      const goalVals=Object.values(lastByGoalProf).map(profs=>{
+        const v=Object.values(profs); return v.reduce((a,b)=>a+b,0)/v.length;
+      });
+      const avg=goalVals.reduce((a,b)=>a+b,0)/goalVals.length;
       return {d, score:Math.round(avg)};
     });
     if(series.length<2) return;
@@ -7148,21 +7158,58 @@ async function renderChildProgress(v,c){
       wrap.appendChild(el(`<div class="section-head" style="margin-top:14px"><h3>${escapeHtml(gk)}</h3></div>`));
     }
     groups[gk].forEach(g=>{
-    const pts=(byGoal[g.id]||[]).slice().sort((a,b)=>a.recorded_on<b.recorded_on?-1:1);
+    const rawPts=(byGoal[g.id]||[]).slice().sort((a,b)=>a.recorded_on<b.recorded_on?-1:1);
+    const contribIds=contribBy[g.id]||[];
+    const shared=contribIds.length>1;
+    // For a SHARED goal, the plotted line is the average of each contributor's
+    // latest score at each date. For a single-owner goal, it's just their points.
+    let pts=rawPts;
+    if(shared){
+      const dates=[...new Set(rawPts.map(p=>p.recorded_on))].sort();
+      // group scores by professional
+      const lastByProf={};
+      pts=dates.map(d=>{
+        rawPts.filter(p=>p.recorded_on===d).forEach(p=>{ if(p.profile_id) lastByProf[p.profile_id]=p.score; });
+        const vals=Object.values(lastByProf);
+        return {recorded_on:d, score:Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),
+                note:'Average of '+vals.length+' professional'+(vals.length>1?'s':'')};
+      });
+    }
     const latest=pts.length?pts[pts.length-1].score:null;
+    const iContribute = isStaff() || iAmContrib(g.id);
+    const canJoin = !iContribute && ME.role==='professional' && MY_PROF_ID;   // team pro not yet on this goal
+    const capHit = contribIds.length>=2;
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:12px">
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         ${g.domain?`<span class="pill band">${escapeHtml(g.domain)}</span>`:''}
+        ${shared?'<span class="pill enquiry" title="Worked on by more than one professional">shared</span>':''}
         <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(g.goal)}</div>
-        ${latest!=null?`<span class="pill ${latest>=100?'active':'enquiry'}">${latest}%</span>`:'<span class="pill assessment">no scores</span>'}
-        ${(isStaff()||(ME.role==='professional'&&g.profile_id===ME.id))?`<button class="btn btn-primary btn-sm logProg" data-id="${g.id}" style="width:auto;padding:6px 12px">+ Record</button>`:''}
+        ${latest!=null?`<span class="pill ${latest>=100?'active':'enquiry'}">${latest}%${shared?' avg':''}</span>`:'<span class="pill assessment">no scores</span>'}
+        ${iContribute?`<button class="btn btn-primary btn-sm logProg" data-id="${g.id}" style="width:auto;padding:6px 12px">+ Record</button>`:''}
+        ${canJoin?(capHit
+            ? `<button class="btn btn-ghost btn-sm joinGoal" data-id="${g.id}" data-cap="1" style="width:auto;padding:6px 12px">Work on this goal</button>`
+            : `<button class="btn btn-ghost btn-sm joinGoal" data-id="${g.id}" style="width:auto;padding:6px 12px">+ Work on this goal</button>`):''}
       </div>
       ${g.baseline?`<div class="row-sub" style="white-space:normal"><b>Baseline:</b> ${escapeHtml(g.baseline)}${g.target?` &nbsp;·&nbsp; <b>Target:</b> ${escapeHtml(g.target)}`:''}</div>`:''}
       <div class="prog-chart">${sparkline(pts)}</div>
+      ${shared?`<div class="row-sub" style="color:var(--muted)">This goal is shared. The line is the average of each professional's latest score. Each records their own.</div>`:''}
       ${pts.length?`<div class="row-sub" style="white-space:normal;color:var(--teal)"><b>Latest note:</b> ${escapeHtml(pts[pts.length-1].note||'—')} <span style="color:var(--muted)">(${fmtDate(pts[pts.length-1].recorded_on)})</span></div>`:''}
     </div>`);
     const lb=card.querySelector('.logProg');
     if(lb) lb.onclick=()=>goalProgressForm(c,g);
+    const jb=card.querySelector('.joinGoal');
+    if(jb) jb.onclick=async()=>{
+      if(jb.dataset.cap){
+        toast('This goal already has two professionals. Ask the director to add you as a third.',true);
+        return;
+      }
+      jb.disabled=true; jb.textContent='Joining…';
+      const {data:res,error}=await sb.rpc('mnd_join_goal',{p_goal:g.id});
+      if(error){ toast(error.message,true); jb.disabled=false; jb.textContent='+ Work on this goal'; return; }
+      if(res && res.startsWith('blocked')){ toast(res.replace('blocked: ',''),true); jb.disabled=false; jb.textContent='Work on this goal'; return; }
+      if(res && res.startsWith('error')){ toast(res.replace('error: ',''),true); jb.disabled=false; jb.textContent='+ Work on this goal'; return; }
+      toast('You can now record progress on this goal.'); renderChildProgress($('#view'),c);
+    };
     wrap.appendChild(card);
     });
   });
