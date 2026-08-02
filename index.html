@@ -3604,7 +3604,8 @@ async function sessionDetail(s, c){
     ...(appNames?[['What we did', appNames]]:[]),
     ...(s.delivery_format?[['Format', mndLabelFor(MND_DELIVERY_FORMAT,s.delivery_format)]]:[]),
     ...(s.setting?[['Setting', mndLabelFor(MND_SETTING,s.setting)]]:[]),
-    ['Goals worked on', s.goals_worked||'—'],
+    ...(goalLine?[['Goals worked on', goalLine, true]]:[]),
+    ...(s.goals_worked?[['Other notes on goals', s.goals_worked]]:[]),
     ['Summary', s.summary||'—'],
     ...(isParent?[]:[['Progress notes', s.progress_notes||'—']]),
     ...(s.home_program?[['For home', s.home_program]]:[]),
@@ -3614,9 +3615,25 @@ async function sessionDetail(s, c){
 
   const {data:addenda}=await sb.from('session_addenda').select('*').eq('session_id',s.id).order('created_at');
 
+  // the actual goals worked on this session (the ticked ones), with their score today
+  let goalLine='';
+  try{
+    const {data:sg}=await sb.from('session_goals').select('goal_id').eq('session_id',s.id);
+    if(sg&&sg.length){
+      const gids=sg.map(x=>x.goal_id);
+      const {data:gs}=await sb.from('goals').select('id,goal,domain,discipline').in('id',gids);
+      const {data:gp}=await sb.from('goal_progress').select('goal_id,score').eq('client_id',c.id).eq('recorded_on',s.session_date).in('goal_id',gids);
+      const scoreBy={}; (gp||[]).forEach(p=>{ scoreBy[p.goal_id]=p.score; });
+      goalLine=(gs||[]).map(g=>{
+        const sc=scoreBy[g.id];
+        return escapeHtml(g.goal)+(sc!=null?(' — '+Math.round(sc)+'%'):'');
+      }).join('<br>');
+    }
+  }catch(e){ goalLine=''; }
+
   const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:620px">
     <h3>${escapeHtml(s.session_type||'Session')}</h3><div class="sub">${escapeHtml(c.full_name)} · ${fmtDate(s.session_date)}</div>
-    <div class="clin">${rows.map(([k,val])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${escapeHtml(String(val))}</div></div>`).join('')}</div>
+    <div class="clin">${rows.map(([k,val,isHtml])=>`<div class="clin-item"><div class="clin-k">${k}</div><div class="clin-v">${isHtml?val:escapeHtml(String(val))}</div></div>`).join('')}</div>
     ${(s.program_attachments&&s.program_attachments.length)?`<div style="margin:8px 0">${attachmentsView(s.program_attachments)}</div>`:''}
     ${(addenda&&addenda.length)?`<div style="border-top:1px solid var(--line);margin:12px 0 8px;padding-top:10px">
       <div class="row-name" style="color:var(--accent-deep)">Corrections</div>
@@ -7059,6 +7076,39 @@ async function renderChildProgress(v,c){
     const gg=$('#goToGoals'); if(gg) gg.onclick=()=>{ SELECTED_CHILD=c; go('child_goals'); };
     return;
   }
+  // ---- Overall progress: one combined line across ALL goals ----
+  // For each date any goal was scored, average the most-recent-known score
+  // of every goal up to that date. This shows the child's overall trajectory
+  // rather than only per-goal lines, and it draws on every professional's
+  // scores together (the "central graph" across the whole team).
+  (function overallChart(){
+    if(!activeGoals.length) return;
+    const gids=activeGoals.map(g=>g.id);
+    const allPts=[];
+    gids.forEach(id=>(byGoal[id]||[]).forEach(p=>allPts.push({goal_id:id,score:Number(p.score)||0,d:p.recorded_on})));
+    if(allPts.length<2) return;               // need at least a couple of points to be meaningful
+    const dates=[...new Set(allPts.map(p=>p.d))].sort();
+    const lastKnown={};                        // goal_id -> latest score up to current date
+    const series=dates.map(d=>{
+      allPts.filter(p=>p.d===d).forEach(p=>{ lastKnown[p.goal_id]=p.score; });
+      const vals=Object.values(lastKnown);
+      const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+      return {d, score:Math.round(avg)};
+    });
+    if(series.length<2) return;
+    const latest=series[series.length-1].score, first=series[0].score;
+    const delta=latest-first;
+    wrap.appendChild(el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:16px;border:1px solid var(--accent-deep)">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="row-name" style="flex:1;min-width:150px;color:var(--accent-deep)">Overall progress</div>
+        <span class="pill ${latest>=100?'active':'enquiry'}">${latest}%</span>
+        ${delta!==0?`<span class="row-sub" style="color:${delta>0?'var(--teal)':'var(--coral)'}">${delta>0?'▲':'▼'} ${Math.abs(delta)} since start</span>`:''}
+      </div>
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">Averaged across all ${activeGoals.length} active goal${activeGoals.length>1?'s':''}, using every team member's scores.</div>
+      <div class="prog-chart">${sparkline(series.map(s=>({score:s.score,recorded_on:s.d})))}</div>
+    </div>`));
+  })();
+
   // group goals by discipline (SLT / OT / PT …) so each professional's area is clear
   const groups={};
   activeGoals.forEach(g=>{ const key=g.discipline||'General'; (groups[key]=groups[key]||[]).push(g); });
@@ -7075,7 +7125,7 @@ async function renderChildProgress(v,c){
         ${g.domain?`<span class="pill band">${escapeHtml(g.domain)}</span>`:''}
         <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(g.goal)}</div>
         ${latest!=null?`<span class="pill ${latest>=100?'active':'enquiry'}">${latest}%</span>`:'<span class="pill assessment">no scores</span>'}
-        ${canLog?`<button class="btn btn-primary btn-sm logProg" data-id="${g.id}" style="width:auto;padding:6px 12px">+ Record</button>`:''}
+        ${(isStaff()||(ME.role==='professional'&&g.profile_id===ME.id))?`<button class="btn btn-primary btn-sm logProg" data-id="${g.id}" style="width:auto;padding:6px 12px">+ Record</button>`:''}
       </div>
       ${g.baseline?`<div class="row-sub" style="white-space:normal"><b>Baseline:</b> ${escapeHtml(g.baseline)}${g.target?` &nbsp;·&nbsp; <b>Target:</b> ${escapeHtml(g.target)}`:''}</div>`:''}
       <div class="prog-chart">${sparkline(pts)}</div>
