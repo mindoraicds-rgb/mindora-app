@@ -3920,37 +3920,87 @@ async function renderParentChild(v,c){
   (async function paintSummary(){
     const box=$('#summaryBox'); if(!box) return;
     try{
-      const [{data:goals},{data:prog},{data:sess},{data:miles}]=await Promise.all([
+      const [{data:goals},{data:prog},{data:miles}]=await Promise.all([
         sb.from('goals').select('*').eq('client_id',c.id),
-        sb.from('goal_progress').select('goal_id,score,recorded_on').eq('client_id',c.id).order('recorded_on',{ascending:true}),
-        sb.from('session_logs').select('session_date,visible_to_parent').eq('client_id',c.id).eq('visible_to_parent',true),
+        sb.from('goal_progress').select('goal_id,score,recorded_on,parent_progress').eq('client_id',c.id).order('recorded_on',{ascending:true}),
         sb.from('milestones').select('title,achieved_on').eq('client_id',c.id).eq('visible_to_parent',true).order('achieved_on',{ascending:false}).limit(1)
       ]);
       const first=firstNameOf(c.full_name);
       const active=(goals||[]).filter(g=>g.status!=='discontinued');
       const achieved=(goals||[]).filter(g=>g.status==='achieved');
+      const goalById={}; (goals||[]).forEach(g=>{ goalById[g.id]=g; });
       const byGoal={}; (prog||[]).forEach(p=>{ (byGoal[p.goal_id]=byGoal[p.goal_id]||[]).push(p); });
-      let firstAvg=null,lastAvg=null;
-      const withPts=Object.values(byGoal).filter(a=>a.length);
-      if(withPts.length){
-        firstAvg=Math.round(withPts.reduce((s,a)=>s+a[0].score,0)/withPts.length);
-        lastAvg=Math.round(withPts.reduce((s,a)=>s+a[a.length-1].score,0)/withPts.length);
+
+      const phr=(t)=>(t||'').trim().replace(/[.]$/,'');
+      // Calibrated, deliberately-modest descriptive band from a score (the fallback).
+      // Kept non-committal: never "has almost achieved" — that would overpromise.
+      const band=(to)=>{
+        if(to>=100) return 'has reached';
+        if(to>=75)  return 'is making strong progress on';
+        if(to>=50)  return 'is making clear progress on';
+        if(to>=25)  return 'is starting to make progress on';
+        return 'is at the early stages of';
+      };
+
+      const moves=[];
+      Object.keys(byGoal).forEach(gid=>{
+        const g=goalById[gid]; if(!g||g.status==='discontinued') return;
+        const pts=byGoal[gid]; if(!pts.length) return;
+        const fromV=Math.round(pts[0].score), toV=Math.round(pts[pts.length-1].score);
+        const last=pts[pts.length-1];
+        moves.push({goal:g.goal, from:fromV, to:toV, delta:toV-fromV, hasHistory:pts.length>1,
+                    parentLine:(last.parent_progress||'').trim()});
+      });
+      const improved=moves.filter(m=>m.delta>0).sort((a,b)=>b.delta-a.delta);
+      const dropped=moves.filter(m=>m.delta<0).sort((a,b)=>a.delta-b.delta);
+
+      // Words-first sentence for one goal. Professional's own parent line if present
+      // (Option B), else a calibrated descriptive phrase (Option A). % is quiet.
+      const describe=(m)=>{
+        if(m.parentLine){
+          return `${escapeHtml(m.parentLine.replace(/[.]$/,''))} <span style="color:var(--muted)">(${m.to}%)</span>`;
+        }
+        return `${escapeHtml(first)} ${band(m.to)} \u201c${escapeHtml(phr(m.goal))}\u201d <span style="color:var(--muted)">(${m.to}%)</span>`;
+      };
+
+      const parts=[];
+
+      if(achieved.length){
+        const names=achieved.slice(0,2).map(g=>`\u201c${escapeHtml(phr(g.goal))}\u201d`).join(' and ');
+        parts.push(`${escapeHtml(first)} has reached ${achieved.length===1?'the goal of':'goals including'} ${names}. \u{1F389}`);
       }
-      const sessCount=(sess||[]).length;
-      let line='';
-      if(!active.length){
-        line=`We're getting to know ${escapeHtml(first)} and setting the first goals. Your child's progress will show here as the team begins work.`;
-      } else if(firstAvg==null){
-        line=`The team is working on ${active.length} goal${active.length>1?'s':''} with ${escapeHtml(first)}. Progress scores will start to appear here after the next few sessions.`;
-      } else if(lastAvg>firstAvg){
-        const up=lastAvg-firstAvg;
-        line=`${escapeHtml(first)} is making progress. Across ${active.length} goal${active.length>1?'s':''}, things have moved forward${up>=10?' noticeably':''} since starting${achieved.length?`, and ${achieved.length} goal${achieved.length>1?'s have':' has'} already been reached`:''}. The team has shared ${sessCount} session update${sessCount===1?'':'s'} with you.`;
-      } else if(lastAvg===firstAvg){
-        line=`The team is working steadily with ${escapeHtml(first)} on ${active.length} goal${active.length>1?'s':''}. Progress can take time and isn't always a straight line — the team is tracking it closely and will keep you updated.`;
+
+      const topImp=improved.find(m=>m.hasHistory);
+      if(topImp){
+        let s=describe(topImp);
+        if(!topImp.parentLine){ s=s.replace(/ <span/,` \u2014 up from ${topImp.from}% when they started <span`); }
+        parts.push(s + (improved.length>1?` And ${improved.length-1} other goal${improved.length-1>1?'s are':' is'} improving too.`:''));
+      }
+
+      const topDrop=dropped.find(m=>m.hasHistory);
+      if(topDrop){
+        if(topDrop.parentLine){
+          parts.push(`On \u201c${escapeHtml(phr(topDrop.goal))}\u201d: ${escapeHtml(topDrop.parentLine.replace(/[.]$/,''))} <span style="color:var(--muted)">(now ${topDrop.to}%)</span>. The team is aware and adjusting.`);
+        } else {
+          parts.push(`\u201c${escapeHtml(phr(topDrop.goal))}\u201d has slipped a little recently <span style="color:var(--muted)">(${topDrop.from}% \u2192 ${topDrop.to}%)</span> \u2014 the team is aware and adjusting.`);
+        }
+      }
+
+      let line;
+      if(parts.length){
+        line=parts.join(' ');
+      } else if(!active.length){
+        line=`We're getting to know ${escapeHtml(first)} and setting the first goals. Progress will show here in plain words as the team begins work.`;
+      } else if(!moves.length){
+        line=`The team has set ${active.length} goal${active.length>1?'s':''} for ${escapeHtml(first)} but hasn't recorded progress yet. After the next couple of check-ins, you'll see here \u2014 in plain words \u2014 how ${escapeHtml(first)} is doing on each.`;
       } else {
-        line=`${escapeHtml(first)}'s scores have dipped recently, which can happen — progress isn't always steady. The team is aware and adjusting the plan. Please talk to them if you have any worries.`;
+        const one=moves[0];
+        line = one.parentLine
+          ? `${escapeHtml(one.parentLine.replace(/[.]$/,''))} <span style="color:var(--muted)">(${one.to}%)</span>. More will appear here as the team records further progress.`
+          : `The team has started tracking ${escapeHtml(first)}'s goals \u2014 ${escapeHtml(first)} ${band(one.to)} \u201c${escapeHtml(phr(one.goal))}\u201d. You'll see more here as progress is recorded.`;
       }
-      const win=(miles&&miles[0])?`<div style="margin-top:10px;padding:10px 12px;background:var(--teal-soft,#E6F5F0);border-radius:10px;font-size:13.5px"><b>Most recent milestone:</b> ${escapeHtml(miles[0].title)}</div>`:'';
+
+      const win=(miles&&miles[0])?`<div style="margin-top:10px;padding:10px 12px;background:var(--teal-soft,#E6F5F0);border-radius:10px;font-size:13.5px"><b>Latest milestone:</b> ${escapeHtml(miles[0].title)}</div>`:'';
       box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;background:var(--accent-soft,#F3EEF7);border:none">
         <div class="row-name" style="color:var(--accent-deep)">How ${escapeHtml(first)} is doing</div>
         <div style="font-size:14.5px;line-height:1.6">${line}</div>${win}</div>`;
@@ -7393,7 +7443,8 @@ function goalProgressForm(c,g){
     </div>
     <input id="gp_range" type="range" min="0" max="100" value="0" style="width:100%;margin:4px 0 2px"/>
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:10px"><span>Starting point</span><span>Goal met</span></div>
-    <div class="form-row"><label>Note (what changed)</label><textarea id="gp_note" placeholder="e.g. Now using 2-word phrases with prompting"></textarea></div>
+    <div class="form-row"><label>Note (what changed) <span style="color:var(--muted);font-weight:400">— for the team</span></label><textarea id="gp_note" placeholder="e.g. Now using 2-word phrases with prompting"></textarea></div>
+    <div class="form-row"><label>In plain words, for the parent <span style="color:var(--muted);font-weight:400">— optional; this is what the family reads</span></label><textarea id="gp_pline" placeholder="e.g. ${escapeHtml(firstNameOf(c.full_name))} is starting to use two-word phrases much more often"></textarea></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="gp_cancel">Cancel</button><button class="btn btn-primary" id="gp_save">Save</button></div>
   </div></div>`);
   document.body.appendChild(m);
@@ -7408,6 +7459,7 @@ function goalProgressForm(c,g){
     const btn=m.querySelector('#gp_save');btn.disabled=true;btn.textContent='Saving…';
     const {error}=await sb.from('goal_progress').insert({
       goal_id:g.id, client_id:c.id, score, note:m.querySelector('#gp_note').value.trim()||null,
+      parent_progress:m.querySelector('#gp_pline')?m.querySelector('#gp_pline').value.trim()||null:null,
       recorded_on:m.querySelector('#gp_date').value||today, profile_id:ME.id
     });
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save';return;}
