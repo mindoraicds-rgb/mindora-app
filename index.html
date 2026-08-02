@@ -2901,6 +2901,7 @@ async function renderProChild(v,c){
 
     <div class="section-head"><h3>Sessions</h3><div style="display:flex;gap:8px">
       <button class="btn btn-ghost btn-sm" id="logMissed" style="width:auto">Missed session</button>
+      <button class="btn btn-ghost btn-sm" id="markMilestone" style="width:auto">✨ Mark milestone</button>
       <button class="btn btn-primary btn-sm" id="logSession">+ Log a session</button></div></div>
     <div class="rows" id="sessRows"></div>
 
@@ -2908,8 +2909,7 @@ async function renderProChild(v,c){
     <div class="rows" id="hpRows"></div>`;
   $('#proClin').innerHTML=clinicalSummaryHtml(c, secs, rep);
   $('#backBtn').onclick=()=>go('pro_children');
-  $('#logSession').onclick=()=>sessionForm(c);
-  { const lm=$('#logMissed'); if(lm) lm.onclick=()=>missedSessionForm(c); }
+  $('#logSession').onclick=()=>sessionForm(c);  { const lm=$('#logMissed'); if(lm) lm.onclick=()=>missedSessionForm(c); }  { const mm=$('#markMilestone'); if(mm) mm.onclick=()=>milestoneForm(c,()=>renderProChild($('#view'),c)); }
   $('#addHP').onclick=()=>homeProgramForm(c);
   $('#qaPlan').onclick=()=>{SELECTED_CHILD=c;go('child_plan');};
   $('#qaSched').onclick=()=>{SELECTED_CHILD=c;go('child_schedule');};
@@ -3860,8 +3860,11 @@ async function renderParentChild(v,c){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="pBack" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1><p>Your child's progress, sessions, and program — all in one place.</p></div>
+    <div id="summaryBox"></div>
     <div class="biodata" id="bioBox"></div>
+    <div id="milesBox"></div>
     <div id="goalsBox"></div>
+    <div id="pNotesBox"></div>
     <div class="clin" id="clinBox"></div>
     <div class="section-head" style="margin-top:20px"><h3>Recent sessions</h3></div>
     <div class="rows" id="sessBox"><div class="loading"><div class="spin"></div> Loading…</div></div>
@@ -3913,6 +3916,65 @@ async function renderParentChild(v,c){
       <div class="empty" style="padding:22px"><h4>Assessment in progress</h4><p>Your child's clinical summary will appear here once the team completes the first assessment.</p></div>`;
   }
 
+  // --- #1 plain-language "how your child is doing" summary (honest) ---
+  (async function paintSummary(){
+    const box=$('#summaryBox'); if(!box) return;
+    try{
+      const [{data:goals},{data:prog},{data:sess},{data:miles}]=await Promise.all([
+        sb.from('goals').select('*').eq('client_id',c.id),
+        sb.from('goal_progress').select('goal_id,score,recorded_on').eq('client_id',c.id).order('recorded_on',{ascending:true}),
+        sb.from('session_logs').select('session_date,visible_to_parent').eq('client_id',c.id).eq('visible_to_parent',true),
+        sb.from('milestones').select('title,achieved_on').eq('client_id',c.id).eq('visible_to_parent',true).order('achieved_on',{ascending:false}).limit(1)
+      ]);
+      const first=firstNameOf(c.full_name);
+      const active=(goals||[]).filter(g=>g.status!=='discontinued');
+      const achieved=(goals||[]).filter(g=>g.status==='achieved');
+      const byGoal={}; (prog||[]).forEach(p=>{ (byGoal[p.goal_id]=byGoal[p.goal_id]||[]).push(p); });
+      let firstAvg=null,lastAvg=null;
+      const withPts=Object.values(byGoal).filter(a=>a.length);
+      if(withPts.length){
+        firstAvg=Math.round(withPts.reduce((s,a)=>s+a[0].score,0)/withPts.length);
+        lastAvg=Math.round(withPts.reduce((s,a)=>s+a[a.length-1].score,0)/withPts.length);
+      }
+      const sessCount=(sess||[]).length;
+      let line='';
+      if(!active.length){
+        line=`We're getting to know ${escapeHtml(first)} and setting the first goals. Your child's progress will show here as the team begins work.`;
+      } else if(firstAvg==null){
+        line=`The team is working on ${active.length} goal${active.length>1?'s':''} with ${escapeHtml(first)}. Progress scores will start to appear here after the next few sessions.`;
+      } else if(lastAvg>firstAvg){
+        const up=lastAvg-firstAvg;
+        line=`${escapeHtml(first)} is making progress. Across ${active.length} goal${active.length>1?'s':''}, things have moved forward${up>=10?' noticeably':''} since starting${achieved.length?`, and ${achieved.length} goal${achieved.length>1?'s have':' has'} already been reached`:''}. The team has shared ${sessCount} session update${sessCount===1?'':'s'} with you.`;
+      } else if(lastAvg===firstAvg){
+        line=`The team is working steadily with ${escapeHtml(first)} on ${active.length} goal${active.length>1?'s':''}. Progress can take time and isn't always a straight line — the team is tracking it closely and will keep you updated.`;
+      } else {
+        line=`${escapeHtml(first)}'s scores have dipped recently, which can happen — progress isn't always steady. The team is aware and adjusting the plan. Please talk to them if you have any worries.`;
+      }
+      const win=(miles&&miles[0])?`<div style="margin-top:10px;padding:10px 12px;background:var(--teal-soft,#E6F5F0);border-radius:10px;font-size:13.5px"><b>Most recent milestone:</b> ${escapeHtml(miles[0].title)}</div>`:'';
+      box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;background:var(--accent-soft,#F3EEF7);border:none">
+        <div class="row-name" style="color:var(--accent-deep)">How ${escapeHtml(first)} is doing</div>
+        <div style="font-size:14.5px;line-height:1.6">${line}</div>${win}</div>`;
+    }catch(e){ box.innerHTML=''; }
+  })();
+
+  // --- #2/#5 milestones (the human wins, with any photos/clips) ---
+  (async function paintMilestones(){
+    const box=$('#milesBox'); if(!box) return;
+    const {data:miles,error}=await sb.from('milestones').select('*').eq('client_id',c.id)
+      .eq('visible_to_parent',true).order('achieved_on',{ascending:false}).limit(8);
+    if(error||!miles||!miles.length){ box.innerHTML=''; return; }
+    box.innerHTML=`<div class="section-head" style="margin-top:18px"><h3>Milestones & moments ✨</h3></div>
+      <div class="rows">${miles.map(mi=>`
+        <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="row-name" style="flex:1">${escapeHtml(mi.title)}</div>
+            <span class="row-sub">${fmtDate(mi.achieved_on)}</span>
+          </div>
+          ${mi.detail?`<div class="row-sub" style="white-space:normal">${escapeHtml(mi.detail)}</div>`:''}
+          ${(mi.attachments&&mi.attachments.length)?`<div>${attachmentsView(mi.attachments)}</div>`:''}
+        </div>`).join('')}</div>`;
+  })();
+
   // --- goals, in plain language, with a simple progress read ---
   (async function paintGoals(){
     const box=$('#goalsBox'); if(!box) return;
@@ -3944,7 +4006,8 @@ async function renderParentChild(v,c){
           ${g.domain?`<span class="pill band">${escapeHtml(g.domain)}</span>`:''}
           <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(g.goal)}</div>
           ${badge}
-        </div></div>`;
+        </div>
+        ${g.parent_explanation?`<div class="row-sub" style="white-space:normal;color:var(--muted)">${escapeHtml(g.parent_explanation)}</div>`:''}</div>`;
     }).join('');
   })();
 
@@ -3972,6 +4035,24 @@ async function renderParentChild(v,c){
       card.onclick=()=>sessionDetail(s,c);
       box.appendChild(card);
     });
+  })();
+
+  // --- #3 parent contributes what they see at home ---
+  (async function paintParentNotes(){
+    const box=$('#pNotesBox'); if(!box) return;
+    const {data:notes}=await sb.from('parent_notes').select('*').eq('client_id',c.id).order('created_at',{ascending:false}).limit(10);
+    const list=(notes||[]).map(n=>{
+      const tag=n.kind==='concern'?'<span class="pill enquiry">concern</span>':n.kind==='win'?'<span class="pill active">win at home</span>':'<span class="pill band">note</span>';
+      return `<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px">
+        <div style="display:flex;gap:10px;align-items:center">${tag}<span class="row-sub" style="flex:1;text-align:right">${fmtDate(n.created_at)}</span></div>
+        <div style="font-size:13.5px;white-space:normal">${escapeHtml(n.body)}</div></div>`;
+    }).join('');
+    box.innerHTML=`
+      <div class="section-head" style="margin-top:18px"><h3>What you're seeing at home</h3>
+        <button class="btn btn-primary btn-sm" id="addPNote" style="width:auto">+ Share something</button></div>
+      <div class="row-sub" style="color:var(--muted);margin-bottom:8px">You see ${escapeHtml(firstNameOf(c.full_name))} in real life more than anyone. A win you noticed or a worry — the team sees these and it helps.</div>
+      <div class="rows">${list||'<div class="row-sub" style="color:var(--muted);padding:8px">Nothing shared yet.</div>'}</div>`;
+    const ab=$('#addPNote'); if(ab) ab.onclick=()=>parentNoteForm(c,()=>renderParentChild($('#view'),c));
   })();
 
   $('#pBack').onclick=()=>go('parent_home');
@@ -4030,6 +4111,68 @@ async function renderParentActivities(v,c){
     r.appendChild(card);
   });
 }
+
+/* Parent logs a win / concern / note from home (#3). */
+function parentNoteForm(c, after){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Share something from home</h3><div class="sub">For ${escapeHtml(c.full_name)} · the team will see this</div>
+    <div class="form-row"><label>What kind?</label>
+      <select id="pn_kind">
+        <option value="win">A win — something good I noticed</option>
+        <option value="concern">A concern — something I'm worried about</option>
+        <option value="note">Just a note for the team</option>
+      </select></div>
+    <div class="form-row"><label>Tell the team</label><textarea id="pn_body" style="min-height:110px" placeholder="e.g. She asked for water using words today, without me prompting!"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="pn_cancel">Cancel</button><button class="btn btn-primary" id="pn_save">Share</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#pn_cancel').onclick=close;
+  m.querySelector('#pn_save').onclick=async()=>{
+    const body=m.querySelector('#pn_body').value.trim();
+    if(!body){toast('Please write something to share.',true);return;}
+    const btn=m.querySelector('#pn_save');btn.disabled=true;btn.textContent='Sharing…';
+    const {error}=await sb.from('parent_notes').insert({
+      client_id:c.id, author_id:ME.id, kind:m.querySelector('#pn_kind').value, body:body
+    });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Share';return;}
+    toast('Shared with the team — thank you'); close(); if(after) after();
+  };
+}
+
+/* Professional/staff records a milestone (#2/#5), optionally with a photo/clip. */
+function milestoneForm(c, after){
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>Mark a milestone</h3><div class="sub">A real moment for ${escapeHtml(c.full_name)} — the family will treasure this</div>
+    <div class="form-row"><label>The milestone <span style="color:var(--muted);font-weight:400">— in plain, human words</span></label>
+      <input id="ms_title" placeholder="e.g. Said her first two-word sentence"/></div>
+    <div class="form-row"><label>A little more <span style="color:var(--muted);font-weight:400">— optional</span></label>
+      <textarea id="ms_detail" placeholder="What made this special, or what it means"></textarea></div>
+    <div class="form-row"><label>Date</label><input id="ms_date" type="date" value="${new Date().toISOString().slice(0,10)}"/></div>
+    <div class="form-row"><label>Photo or short clip <span style="color:var(--muted);font-weight:400">— only with the family's consent</span></label><div id="ms_att"></div></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="ms_vis" type="checkbox" checked style="width:auto"/> Share with the family</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="ms_cancel">Cancel</button><button class="btn btn-primary" id="ms_save">Save milestone</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  attachmentUploader('ms_att','milestone','milestones',[]);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#ms_cancel').onclick=close;
+  m.querySelector('#ms_save').onclick=async()=>{
+    const title=m.querySelector('#ms_title').value.trim();
+    if(!title){toast('Please describe the milestone.',true);return;}
+    const btn=m.querySelector('#ms_save');btn.disabled=true;btn.textContent='Saving…';
+    const {error}=await sb.from('milestones').insert({
+      client_id:c.id, professional_id:MY_PROF_ID||null, author_id:ME.id,
+      title:title, detail:m.querySelector('#ms_detail').value.trim()||null,
+      attachments:(ATTACH_STATE['milestone']&&ATTACH_STATE['milestone'].length)?ATTACH_STATE['milestone']:null,
+      achieved_on:m.querySelector('#ms_date').value||new Date().toISOString().slice(0,10),
+      visible_to_parent:m.querySelector('#ms_vis').checked
+    });
+    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save milestone';return;}
+    toast('Milestone saved'); close(); if(after) after();
+  };
+}
+
 async function renderParentBilling(v){
   const {data,error}=await sb.from('invoices').select('*').order('invoice_date',{ascending:false});
   if(error){v.innerHTML=`<div class="empty"><h4>Couldn't load billing</h4><p>${escapeHtml(error.message)}</p></div>`;return;}
@@ -6505,6 +6648,7 @@ function goalForm(c,g){
       <div><label>Target</label><input id="g_target" value="${escapeHtml(g.target||'')}" placeholder="Measurable target"/></div>
     </div>
     <div class="form-row"><label>Latest progress</label><textarea id="g_prog">${escapeHtml(g.progress_note||'')}</textarea></div>
+    <div class="form-row"><label>In plain words, for the parent <span style="color:var(--muted);font-weight:400">— why this matters & what they can do (optional)</span></label><textarea id="g_pexp" placeholder="e.g. This helps ${escapeHtml(firstNameOf(c.full_name))} tell you what they need. At home, pause and wait for a word before giving them what they point to.">${escapeHtml(g.parent_explanation||'')}</textarea></div>
     <div class="modal-actions">${edit?'<button class="btn btn-ghost" id="g_del" style="color:var(--danger)">Delete</button>':''}<button class="btn btn-ghost" id="g_cancel">Cancel</button><button class="btn btn-primary" id="g_save">${edit?'Save':'Add goal'}</button></div>
   </div></div>`);
   document.body.appendChild(m);
@@ -6518,6 +6662,7 @@ function goalForm(c,g){
     const payload={client_id:c.id,domain:m.querySelector('#g_domain').value.trim()||null,discipline:m.querySelector('#g_disc').value||null,goal,
       baseline:m.querySelector('#g_base').value.trim()||null,target:m.querySelector('#g_target').value.trim()||null,
       status:m.querySelector('#g_status').value,progress_note:m.querySelector('#g_prog').value.trim()||null,
+      parent_explanation:m.querySelector('#g_pexp')?m.querySelector('#g_pexp').value.trim()||null:null,
       updated_at:new Date().toISOString()};
     let error;
     if(edit){ ({error}=await sb.from('goals').update(payload).eq('id',g.id)); }
