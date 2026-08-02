@@ -233,6 +233,7 @@ a{color:var(--purple)}
 .modal .sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
 .form-row{margin-bottom:13px}
 .form-row.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .form-row label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
 .form-row input,.form-row select,.form-row textarea{width:100%;padding:13px 15px;border:1.5px solid var(--line);border-radius:11px;background:#FCFBFD}
 .form-row textarea{resize:vertical;min-height:150px;line-height:1.6;font-size:15px;overflow:hidden;white-space:pre-wrap;word-wrap:break-word}
@@ -5270,13 +5271,14 @@ async function renderFinances(v){
   if(!isDirector()){ v.innerHTML=`<div class="coming"><h3>Finances</h3><p>This area is for the Director only.</p></div>`; return; }
   await loadAccounts();
   v.innerHTML=`<div class="searchbar" style="gap:8px;flex-wrap:wrap">
-      ${['overview','cash book','invoices','bills','rate cards','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
+      ${['overview','cash book','invoices','bills','quotations','rate cards','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
     </div><div id="finBody"><div class="loading"><div class="spin"></div> Loading…</div></div>`;
   document.querySelectorAll('.fintab').forEach(b=>b.onclick=()=>{FIN_TAB=b.dataset.t;renderFinances($('#view'));});
   const body=$('#finBody');
   if(FIN_TAB==='cash book')return finCashbook(body);
   if(FIN_TAB==='invoices')return finInvoices(body);
   if(FIN_TAB==='bills')return finBills(body);
+  if(FIN_TAB==='quotations')return finQuotations(body);
   if(FIN_TAB==='rate cards')return finRateCards(body);
   if(FIN_TAB==='taxes')return finTaxes(body);
   return finOverview(body);
@@ -5634,6 +5636,183 @@ function masterRateCardHtml(byKey){
       }).join('')}</tr>`).join('')}</tbody></table></div>
       </div>`).join('')}
   </div>`;
+}
+
+/* =====================================================================
+   QUOTATIONS — an open, self-fill quote generator.
+   Services are selectable (or type your own); every figure is typed by
+   you. Produces a branded PDF you download/print and email yourself.
+   Shows client-facing prices only — no internal split, ever.
+   ===================================================================== */
+const MND_QUOTE_SERVICES=[
+  'Band 1 — Monitored Developmental Support (monthly)',
+  'Band 2 — Structured Targeted Support (monthly)',
+  'Band 3 — Coordinated Multi-Domain Support (monthly)',
+  'Band 4 — Intensive / Specialized Support (monthly)',
+  'Initial assessment',
+  'Developmental screening',
+  'Parent coaching session',
+  'School inclusion audit',
+  'Teacher training session',
+  'Model A — School referral partnership',
+  'Model B — School inclusion partnership (setup)',
+  'Model B — School inclusion partnership (monthly)',
+  'Clinic / centre partnership',
+  'Consultancy & advisory',
+  'Other (type below)'
+];
+let QUOTE_LINES=[];
+
+function finQuotations(b){
+  if(!QUOTE_LINES.length) QUOTE_LINES=[{service:'',desc:'',qty:1,unit:''}];
+  const today=new Date().toISOString().slice(0,10);
+  const qno='Q-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+  b.innerHTML=`
+    <div class="row-sub" style="color:var(--muted);margin-bottom:14px">Build a quotation, then download it as a PDF to email. Pick a service or type your own; you fill in every figure. Prices shown are what the client pays.</div>
+
+    <div class="form-row two">
+      <div><label>Quotation no.</label><input id="q_no" value="${qno}"/></div>
+      <div><label>Date</label><input id="q_date" type="date" value="${today}"/></div>
+    </div>
+
+    <div class="section-head" style="margin-top:6px"><h3>Quote to</h3></div>
+    <div class="form-row"><label>Recipient name</label><input id="q_to" placeholder="e.g. Sunrise Primary School  /  Mrs. Grace Nakato"/></div>
+    <div class="form-row two">
+      <div><label>Attention / contact</label><input id="q_att" placeholder="e.g. The Head Teacher"/></div>
+      <div><label>Email or phone</label><input id="q_contact" placeholder="optional"/></div>
+    </div>
+    <div class="form-row"><label>Address</label><input id="q_addr" placeholder="optional"/></div>
+
+    <div class="section-head" style="margin-top:14px"><h3>Services</h3><button class="btn btn-ghost btn-sm" id="q_addline" style="width:auto">+ Add line</button></div>
+    <div id="q_lines"></div>
+
+    <div class="form-row two" style="margin-top:12px">
+      <div><label>Currency</label><input id="q_cur" value="UGX"/></div>
+      <div><label>Tax note (optional)</label><input id="q_tax" placeholder="e.g. Prices exclusive of VAT"/></div>
+    </div>
+    <div class="form-row"><label>Validity</label><input id="q_valid" value="This quotation is valid for 30 days from the date above."/></div>
+    <div class="form-row"><label>Notes / terms (optional)</label><textarea id="q_notes" placeholder="Payment terms, what's included, next steps…"></textarea></div>
+
+    <div class="row-card" style="cursor:default;justify-content:space-between;margin-top:6px">
+      <div class="row-name">Total</div>
+      <div class="row-name" id="q_total" style="color:var(--accent-deep)">—</div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <button class="btn btn-ghost" id="q_reset" style="width:auto">Clear</button>
+      <button class="btn btn-primary" id="q_pdf" style="width:auto">Download / print PDF</button>
+    </div>`;
+
+  const linesBox=b.querySelector('#q_lines');
+  const cur=()=>b.querySelector('#q_cur').value||'';
+  const money=(n)=>{ const v=Number(n)||0; return cur()+' '+v.toLocaleString(); };
+
+  function paintLines(){
+    linesBox.innerHTML=QUOTE_LINES.map((ln,i)=>`
+      <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:8px">
+        <div class="form-row" style="margin:0"><label>Service</label>
+          <select class="q_srv" data-i="${i}">
+            <option value="">— choose a service —</option>
+            ${MND_QUOTE_SERVICES.map(s=>`<option ${ln.service===s?'selected':''}>${s}</option>`).join('')}
+          </select></div>
+        <div class="form-row" style="margin:0"><label>Description ${'/'} details</label>
+          <input class="q_desc" data-i="${i}" value="${escapeHtml(ln.desc||'')}" placeholder="What this covers (type freely)"/></div>
+        <div class="form-row three" style="margin:0">
+          <div><label>Qty</label><input class="q_qty" data-i="${i}" type="number" min="0" step="1" value="${ln.qty}"/></div>
+          <div><label>Unit price</label><input class="q_unit" data-i="${i}" type="number" min="0" step="any" value="${ln.unit}" placeholder="0"/></div>
+          <div><label>Line total</label><input value="${money((Number(ln.qty)||0)*(Number(ln.unit)||0))}" disabled style="background:#F4F1F7"/></div>
+        </div>
+        ${QUOTE_LINES.length>1?`<button class="btn btn-ghost btn-sm q_del" data-i="${i}" style="width:auto;align-self:flex-start">Remove line</button>`:''}
+      </div>`).join('');
+    // wire
+    linesBox.querySelectorAll('.q_srv').forEach(s=>s.onchange=e=>{ QUOTE_LINES[+e.target.dataset.i].service=e.target.value; if(!QUOTE_LINES[+e.target.dataset.i].desc && !/Other/.test(e.target.value)) { QUOTE_LINES[+e.target.dataset.i].desc=e.target.value.replace(/\s*\(.*\)$/,''); } paintLines(); recalc(); });
+    linesBox.querySelectorAll('.q_desc').forEach(x=>x.oninput=e=>{ QUOTE_LINES[+e.target.dataset.i].desc=e.target.value; });
+    linesBox.querySelectorAll('.q_qty').forEach(x=>x.oninput=e=>{ QUOTE_LINES[+e.target.dataset.i].qty=e.target.value; recalc(); paintTotalsOnly(e); });
+    linesBox.querySelectorAll('.q_unit').forEach(x=>x.oninput=e=>{ QUOTE_LINES[+e.target.dataset.i].unit=e.target.value; recalc(); paintTotalsOnly(e); });
+    linesBox.querySelectorAll('.q_del').forEach(x=>x.onclick=e=>{ QUOTE_LINES.splice(+e.target.dataset.i,1); paintLines(); recalc(); });
+  }
+  function paintTotalsOnly(e){ const row=e.target.closest('.row-card'); const i=+e.target.dataset.i; const li=row.querySelector('input[disabled]'); if(li) li.value=money((Number(QUOTE_LINES[i].qty)||0)*(Number(QUOTE_LINES[i].unit)||0)); }
+  function total(){ return QUOTE_LINES.reduce((s,ln)=>s+(Number(ln.qty)||0)*(Number(ln.unit)||0),0); }
+  function recalc(){ b.querySelector('#q_total').textContent=money(total()); }
+
+  paintLines(); recalc();
+  b.querySelector('#q_addline').onclick=()=>{ QUOTE_LINES.push({service:'',desc:'',qty:1,unit:''}); paintLines(); };
+  b.querySelector('#q_cur').oninput=recalc;
+  b.querySelector('#q_reset').onclick=()=>{ QUOTE_LINES=[{service:'',desc:'',qty:1,unit:''}]; finQuotations(b); };
+  b.querySelector('#q_pdf').onclick=()=>{
+    const g=id=>b.querySelector('#'+id)?b.querySelector('#'+id).value.trim():'';
+    if(!g('q_to')){ toast('Add who the quote is for.',true); return; }
+    quotePrint({
+      no:g('q_no'), date:g('q_date'), to:g('q_to'), att:g('q_att'), contact:g('q_contact'),
+      addr:g('q_addr'), cur:g('q_cur'), taxNote:g('q_tax'), valid:g('q_valid'), notes:g('q_notes'),
+      lines:QUOTE_LINES.filter(l=>l.service||l.desc||Number(l.unit)), total:total()
+    });
+  };
+}
+
+function quotePrint(q){
+  const cur=q.cur||'';
+  const money=n=>cur+' '+(Number(n)||0).toLocaleString();
+  const rows=q.lines.map(l=>{
+    const lt=(Number(l.qty)||0)*(Number(l.unit)||0);
+    const name=(l.service&&!/Other/.test(l.service))?l.service:'';
+    const desc=l.desc||name||'Service';
+    return `<tr>
+      <td>${escapeHtml(desc)}${(name&&l.desc&&name!==l.desc)?`<div class="muted">${escapeHtml(name)}</div>`:''}</td>
+      <td class="r">${escapeHtml(String(l.qty||0))}</td>
+      <td class="r">${money(l.unit||0)}</td>
+      <td class="r">${money(lt)}</td></tr>`;
+  }).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Quotation ${escapeHtml(q.no)}</title>
+  <style>
+    @page{margin:18mm}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1A1A2E;font-size:11pt;line-height:1.5}
+    .stripe{height:6px;background:linear-gradient(90deg,#000 33%,#FFB020 33% 66%,#E4322B 66%)}
+    header{padding:16px 0 12px;border-bottom:2px solid #6C3483;margin-bottom:8px}
+    h1{font-family:Georgia,serif;color:#6C3483;margin:0 0 2px;font-size:19pt}
+    .sub{color:#6B6475;font-size:9.5pt}
+    .title{font-family:Georgia,serif;color:#4A1E63;font-size:22pt;margin:18px 0 2px;text-align:right}
+    .qmeta{text-align:right;color:#6B6475;font-size:10pt;margin-bottom:14px}
+    .to{margin:10px 0 16px}
+    .to b{color:#4A1E63}
+    table{width:100%;border-collapse:collapse;margin:10px 0}
+    th{background:#F4EFF7;color:#4A1E63;text-align:left;padding:9px 10px;font-size:9.5pt;border-bottom:2px solid #6C3483}
+    td{padding:9px 10px;border-bottom:1px solid #E6D8EE;vertical-align:top}
+    td.r,th.r{text-align:right}
+    .muted{color:#8A8397;font-size:9pt}
+    .totrow td{border:none;padding-top:12px;font-size:13pt;font-weight:700;color:#4A1E63}
+    .note{margin-top:14px;padding:11px 13px;background:#F9F6FC;border-left:3px solid #6C3483;border-radius:6px;font-size:10pt;white-space:pre-wrap}
+    .valid{margin-top:10px;color:#6B6475;font-size:9.5pt}
+    footer{margin-top:30px;padding-top:10px;border-top:1px solid #E6D8EE;color:#6B6475;font-size:9pt;text-align:center}
+    @media print{.noprint{display:none}}
+  </style></head><body>
+  <div class="stripe"></div>
+  <header>
+    <h1>Mindora Inclusive Child Development Services</h1>
+    <div class="sub">P.O. Box 204346, Kampala GPO, Uganda · Reg. No. 80034948359720 · mindoraicds@gmail.com · 0741 397 167</div>
+  </header>
+  <div class="title">QUOTATION</div>
+  <div class="qmeta">${escapeHtml(q.no)} &nbsp;·&nbsp; ${fmtDate(q.date)}</div>
+  <div class="to">
+    <div class="muted">Prepared for</div>
+    <b>${escapeHtml(q.to)}</b>
+    ${q.att?`<br>${escapeHtml(q.att)}`:''}
+    ${q.addr?`<br>${escapeHtml(q.addr)}`:''}
+    ${q.contact?`<br>${escapeHtml(q.contact)}`:''}
+  </div>
+  <table>
+    <thead><tr><th>Service</th><th class="r">Qty</th><th class="r">Unit price</th><th class="r">Amount</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="4" class="muted">No services added.</td></tr>'}</tbody>
+    <tfoot><tr class="totrow"><td colspan="3" class="r">Total</td><td class="r">${money(q.total)}</td></tr></tfoot>
+  </table>
+  ${q.taxNote?`<div class="valid">${escapeHtml(q.taxNote)}</div>`:''}
+  ${q.notes?`<div class="note">${escapeHtml(q.notes)}</div>`:''}
+  ${q.valid?`<div class="valid">${escapeHtml(q.valid)}</div>`:''}
+  <footer>Home, Hope &amp; Harmony · Thank you for considering Mindora.<br>This quotation is not an invoice. To proceed, please get in touch to confirm.</footer>
+  <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 async function finRateCards(b){
