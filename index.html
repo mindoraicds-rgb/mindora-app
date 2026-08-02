@@ -3916,10 +3916,13 @@ async function renderParentChild(v,c){
   // --- goals, in plain language, with a simple progress read ---
   (async function paintGoals(){
     const box=$('#goalsBox'); if(!box) return;
-    const {data:goals}=await sb.from('goals').select('*').eq('client_id',c.id)
-      .neq('status','discontinued').order('started_on',{ascending:false});
-    if(!goals||!goals.length){ box.innerHTML=''; return; }
-    // latest progress score per goal, to show movement
+    box.innerHTML=`<div class="section-head" style="margin-top:6px"><h3>What we're working on</h3></div><div class="rows" id="pgRows"><div class="row-sub" style="color:var(--muted);padding:10px">Loading goals…</div></div>`;
+    const gr=$('#pgRows');
+    // ALL goals (including achieved) so the parent sees the full picture, not a filtered subset
+    const {data:goals,error:gErr}=await sb.from('goals').select('*').eq('client_id',c.id)
+      .order('status',{ascending:true}).order('started_on',{ascending:false});
+    if(gErr){ gr.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:10px">Couldn't load goals: ${escapeHtml(gErr.message)}</div>`; return; }
+    if(!goals||!goals.length){ gr.innerHTML='<div class="empty" style="padding:20px"><h4>No goals set yet</h4><p>Your child\u2019s goals will appear here once the team sets them.</p></div>'; return; }
     const ids=goals.map(g=>g.id);
     let latest={};
     try{
@@ -3927,30 +3930,32 @@ async function renderParentChild(v,c){
         .in('goal_id',ids).order('recorded_on',{ascending:false});
       (prog||[]).forEach(p=>{ if(!(p.goal_id in latest)) latest[p.goal_id]=p; });
     }catch(e){}
-    box.innerHTML=`
-      <div class="section-head" style="margin-top:6px"><h3>What we're working on</h3></div>
-      <div class="rows">${goals.map(g=>{
-        const done=g.status==='achieved';
-        const p=latest[g.id];
-        const badge = done
-          ? '<span class="pill active">Achieved 🎉</span>'
+    gr.innerHTML=goals.map(g=>{
+      const done=g.status==='achieved';
+      const discontinued=g.status==='discontinued';
+      const p=latest[g.id];
+      const badge = done
+        ? '<span class="pill active">Achieved 🎉</span>'
+        : discontinued
+          ? '<span class="pill exited">Closed</span>'
           : (p ? `<span class="pill assessment">Progress: ${Math.round(p.score)}%</span>` : '<span class="pill enquiry">Just started</span>');
-        return `<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:5px">
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            ${g.domain?`<span class="pill band">${escapeHtml(g.domain)}</span>`:''}
-            <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(g.goal)}</div>
-            ${badge}
-          </div></div>`;
-      }).join('')}</div>`;
+      return `<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:5px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          ${g.domain?`<span class="pill band">${escapeHtml(g.domain)}</span>`:''}
+          <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(g.goal)}</div>
+          ${badge}
+        </div></div>`;
+    }).join('');
   })();
 
   // --- recent sessions the parent can open in full ---
   (async function paintSessions(){
     const box=$('#sessBox'); if(!box) return;
-    const {data:sess}=await sb.from('session_logs').select('*').eq('client_id',c.id)
+    const {data:sess,error:sErr}=await sb.from('session_logs').select('*').eq('client_id',c.id)
       .eq('visible_to_parent',true).order('session_date',{ascending:false}).limit(15);
+    if(sErr){ box.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:10px">Couldn't load sessions: ${escapeHtml(sErr.message)}</div>`; return; }
     if(!sess||!sess.length){
-      box.innerHTML='<div class="empty" style="padding:22px"><h4>No sessions yet</h4><p>Session updates will appear here after each visit.</p></div>';
+      box.innerHTML='<div class="empty" style="padding:22px"><h4>No sessions yet</h4><p>Session updates will appear here after each visit that the team shares with you.</p></div>';
       return;
     }
     box.innerHTML='';
@@ -3979,28 +3984,49 @@ async function renderParentChild(v,c){
 
 async function renderParentActivities(v,c){
   if(!c){go('parent_home');return;}
-  const {data:all}=await sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false});
-  const programs=(all||[]).filter(p=>p.visible_to_parent);
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="aBack" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>Home activities</h1><p>Practise these with ${escapeHtml(firstNameOf(c.full_name))} at home. Tap one to acknowledge or ask a question.</p></div>
-    <div class="rows" id="actRows"></div>`;
+    <div class="welcome"><h1>Home activities</h1><p>Practise these with ${escapeHtml(firstNameOf(c.full_name))} at home. Tap one to open it.</p></div>
+    <div class="rows" id="actRows"><div class="row-sub" style="color:var(--muted);padding:10px">Loading…</div></div>`;
   $('#aBack').onclick=()=>{SELECTED_CHILD=c;go('parent_child');};
   const r=$('#actRows');
-  if(!programs.length){
-    r.innerHTML=`<div class="empty" style="padding:30px"><h4>No home activities yet</h4><p>Activities to practice at home will appear here.</p></div>`;
+
+  // Source 1: standalone home programs (older records)
+  const {data:hp,error:hpErr}=await sb.from('home_programs').select('*').eq('client_id',c.id).order('issued_date',{ascending:false});
+  // Source 2: home/school programs that now live ON a session log
+  const {data:sp,error:spErr}=await sb.from('session_logs').select('*').eq('client_id',c.id)
+    .eq('visible_to_parent',true).order('session_date',{ascending:false});
+
+  if(hpErr && spErr){ r.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:10px">Couldn't load activities: ${escapeHtml(hpErr.message)}</div>`; return; }
+
+  const items=[];
+  (hp||[]).filter(p=>p.visible_to_parent).forEach(p=>items.push({
+    kind:'program', title:p.title||'Home activity', text:p.instructions||'',
+    date:p.issued_date, ack:p.acknowledged_at, _p:p
+  }));
+  (sp||[]).filter(s=>s.home_program||s.school_program).forEach(s=>items.push({
+    kind:'session',
+    title:(s.session_type||'Session')+' — home/school activity',
+    text:[s.home_program?('At home: '+s.home_program):'', s.school_program?('At school: '+s.school_program):''].filter(Boolean).join('  •  '),
+    date:s.session_date, _s:s
+  }));
+  items.sort((a,b)=>(a.date<b.date?1:-1));
+
+  if(!items.length){
+    r.innerHTML=`<div class="empty" style="padding:30px"><h4>No home activities yet</h4><p>Activities to practise at home will appear here once the team shares them — either on their own, or as part of a session.</p></div>`;
     return;
   }
-  programs.forEach(p=>{
+  r.innerHTML='';
+  items.forEach(it=>{
     const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:5px">
       <div style="display:flex;gap:10px;align-items:center">
-        <div class="row-name" style="flex:1">${escapeHtml(p.title||'Home activity')}</div>
-        ${p.acknowledged_at?'<span class="pill active">✓ received</span>':'<span class="pill enquiry">new</span>'}
+        <div class="row-name" style="flex:1">${escapeHtml(it.title)}</div>
+        ${it.kind==='program'?(it.ack?'<span class="pill active">✓ received</span>':'<span class="pill enquiry">new</span>'):'<span class="pill band">from a session</span>'}
       </div>
-      ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions.slice(0,120))}${p.instructions.length>120?'…':''}</div>`:''}
-      <div class="row-sub">${fmtDate(p.issued_date)}</div>
+      ${it.text?`<div class="row-sub" style="white-space:normal">${escapeHtml(it.text.slice(0,140))}${it.text.length>140?'…':''}</div>`:''}
+      <div class="row-sub">${fmtDate(it.date)}</div>
     </div>`);
-    card.onclick=()=>homeProgramDetail(p,c);
+    card.onclick=()=> it.kind==='program' ? homeProgramDetail(it._p,c) : sessionDetail(it._s,c);
     r.appendChild(card);
   });
 }
