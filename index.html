@@ -6598,6 +6598,25 @@ async function renderStaffChild(v,c){
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function monthLabel(d){ const x=new Date(d); return MONTHS[x.getMonth()]+' '+x.getFullYear(); }
+// Month options from the child's first activity month up to the current
+// calendar month, newest first. Always includes the real current month.
+function planMonthOptions(c, selected){
+  const now=new Date();
+  const cur=new Date(now.getFullYear(),now.getMonth(),1);
+  let start;
+  const seed = c && (c.created_at||c.intake_date);
+  if(seed){ const s=new Date(seed); start=new Date(s.getFullYear(),s.getMonth(),1); }
+  else { start=new Date(cur.getFullYear(),cur.getMonth()-11,1); }   // fallback: last 12 months
+  if(start>cur) start=cur;
+  const opts=[];
+  let d=new Date(cur);
+  while(d>=start){
+    const iso=new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);
+    opts.push(`<option value="${iso}" ${selected&&selected.slice(0,7)===iso.slice(0,7)?'selected':''}>${monthLabel(iso)}</option>`);
+    d=new Date(d.getFullYear(),d.getMonth()-1,1);
+  }
+  return opts.join('');
+}
 function thisMonthISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10); }
 function recentMonthOptions(selected){
   const out=[]; const now=new Date();
@@ -6734,10 +6753,11 @@ async function editProfShares(c){
   };
 }
 
+let PLAN_PERIOD=null;   // YYYY-MM-01 the plan view is showing; null = current month
 async function renderChildPlan(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
   if(ME.role==='parent'){ v.innerHTML='<div class="empty"><h4>Not available</h4><p>This area is for the care team.</p></div>'; return; }
-  const period=thisMonthISO();
+  const period = PLAN_PERIOD || thisMonthISO();   // exact selected month, defaults to the real current month
   // If the work has been split per-professional and the viewer is a professional,
   // show only THEIR allocated slice. Otherwise show the whole-child plan.
   let rows, usingSplit=false;
@@ -6753,22 +6773,25 @@ async function renderChildPlan(v,c){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1>
-      <p>${c.assessed_band?'Band '+c.assessed_band+' · ':''}Live tracking for ${monthLabel(period)}. ${canEditPlan()?'You can edit targets and confirm activities.':(usingSplit?'This is your share of the plan for this child.':'Targets are set by Mindora.')}</p></div>
+      <p>${c.assessed_band?'Band '+c.assessed_band+' · ':''}Showing <b>${monthLabel(period)}</b>. ${canEditPlan()?'You can edit targets and confirm activities.':(usingSplit?'This is your share of the plan for this child.':'Targets are set by Mindora.')}</p></div>
+    <div class="form-row" style="max-width:260px;margin-bottom:8px"><label>Month</label>
+      <select id="planMonth">${planMonthOptions(c, period)}</select></div>
+    <div id="finStatus"></div>
 
     <div class="plan-ring-wrap">
       <div class="plan-ring" style="--p:${pct}">
-        <div class="plan-ring-inner"><div class="plan-ring-pct">${pct}%</div><div class="plan-ring-lbl">this month</div></div>
+        <div class="plan-ring-inner"><div class="plan-ring-pct">${pct}%</div><div class="plan-ring-lbl">${monthLabel(period).split(' ')[0]}</div></div>
       </div>
       <div class="plan-ring-side">
         <div class="plan-big">${totDone}<span>/${totTarget}</span></div>
-        <div class="plan-sub">activities completed this month</div>
+        <div class="plan-sub">activities completed in ${monthLabel(period)}</div>
         ${!c.assessed_band?'<div class="row-sub" style="color:var(--warn);margin-top:6px">No band assigned yet — assign a band to activate the tracker.</div>':''}
       </div>
     </div>
 
     <div class="section-head" style="margin-top:24px"><h3>Activities</h3>${canEditPlan()&&c.assessed_band?'<button class="btn btn-ghost btn-sm" id="editTargets" style="width:auto">Edit targets</button>':''}</div>
     <div class="rows" id="planRows"></div>
-    <div class="section-head" style="margin-top:26px"><h3>Hours coverage this month</h3></div>
+    <div class="section-head" style="margin-top:26px"><h3>Hours coverage — ${monthLabel(period)}</h3></div>
     <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Actual time logged toward this child's monthly bundle, per professional and activity type, against the Band ${c.assigned_band||c.assessed_band||'—'} target${mndBandTargetHours(c.assigned_band||c.assessed_band)?' of '+mndBandTargetHours(c.assigned_band||c.assessed_band)+' hours':''}. Hours are built from direct sessions, caregiver guidance, school liaison, coordination and documentation.</div>
     <div id="hoursCoverage"><div class="row-sub" style="color:var(--muted);padding:8px">Loading hours…</div></div>
     <div class="section-head" style="margin-top:26px"><h3>Session summaries</h3></div>
@@ -6782,19 +6805,56 @@ async function renderChildPlan(v,c){
       <button class="btn btn-primary" id="finalizeBtn" style="width:auto;white-space:nowrap">Finalize month</button>
     </div>`:''}`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
+  { const sel=$('#planMonth'); if(sel) sel.onchange=()=>{ PLAN_PERIOD=sel.value; renderChildPlan($('#view'),c); }; }
+
+  // Finalization status for the shown month: finalized, or pending with the
+  // exact reason (who / which activity was missing).
+  (async function paintFinStatus(){
+    const box=$('#finStatus'); if(!box) return;
+    const {data:fin}=await sb.from('op_forms').select('*')
+      .eq('client_id',c.id).eq('kind','svc_units').eq('period_month',period).eq('status','finalized').maybeSingle();
+    if(fin){
+      box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--teal-soft,#E6F5F0);border:1px solid var(--teal)">
+        <div class="row-main"><div class="row-name" style="color:var(--teal-deep,#0F6E56)">✓ ${monthLabel(period)} finalized</div>
+        <div class="row-sub">Locked for billing and pay on ${fmtDate(fin.created_at)}.</div></div></div>`;
+      return;
+    }
+    // pending — work out what's missing
+    const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',period);
+    let missing='';
+    if(shares && shares.length){
+      const unfulfilled=shares.filter(s=>!s.fulfilled);
+      if(unfulfilled.length){
+        const pids=unfulfilled.map(s=>s.professional_id).filter(Boolean);
+        let nm={};
+        if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
+        missing=`<div class="row-sub" style="white-space:normal;margin-top:6px"><b>Not yet ready to finalize.</b> Bundle not marked fulfilled for: ${unfulfilled.map(s=>escapeHtml(nm[s.professional_id]||'a professional')).join(', ')}.</div>`;
+      } else {
+        missing=`<div class="row-sub" style="margin-top:6px">All professionals' bundles are marked fulfilled — this month is ready to finalize.</div>`;
+      }
+    } else {
+      missing=`<div class="row-sub" style="margin-top:6px">No care-team shares recorded for this month yet.</div>`;
+    }
+    box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)">
+      <div class="row-main"><div class="row-name">${monthLabel(period)} — pending</div>${missing}</div></div>`;
+  })();
   // Hours coverage — actual minutes logged this month per professional & activity,
   // against the band's target hours. Shows the director real-time coverage.
   (async function paintHours(){
     const box=$('#hoursCoverage'); if(!box) return;
     const targetHrs=mndBandTargetHours(c.assigned_band||c.assessed_band);
-    const ym=period.slice(0,7);           // period is YYYY-MM-01; take YYYY-MM
+    const ym=period.slice(0,7);                          // YYYY-MM of the selected month
     const monthStart=ym+'-01';
+    // exclusive upper bound = first day of the next month
+    const d0=new Date(monthStart);
+    const next=new Date(d0.getFullYear(), d0.getMonth()+1, 1).toISOString().slice(0,10);
     const {data:sess,error}=await sb.from('session_logs')
       .select('professional_id,activity_key,duration_minutes,session_date')
-      .eq('client_id',c.id).gte('session_date',monthStart);
+      .eq('client_id',c.id).gte('session_date',monthStart).lt('session_date',next);
     if(error){ box.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:8px">Couldn't load hours: ${escapeHtml(error.message)}</div>`; return; }
-    const mine=(sess||[]).filter(s=> s.session_date && s.session_date.slice(0,7)===ym );
-    if(!mine.length){ box.innerHTML='<div class="empty" style="padding:20px"><h4>No hours logged yet this month</h4><p>Logged sessions and activities will build up here.</p></div>'; return; }
+    // belt-and-braces: match the month prefix regardless of date/timestamp format
+    const mine=(sess||[]).filter(s=> s.session_date && String(s.session_date).slice(0,7)===ym );
+    if(!mine.length){ box.innerHTML=`<div class="empty" style="padding:20px"><h4>No hours logged in ${monthLabel(period)}</h4><p>Logged sessions and activities for this month will appear here.</p></div>`; return; }
     // group by professional
     const byProf={};
     mine.forEach(s=>{
