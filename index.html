@@ -10386,10 +10386,20 @@ function asBuildSections(child, a, protoRows, scores){
   const done=(protoRows||[]).slice().sort((x,y)=>
     AS_DOMAIN_ORDER.indexOf(x.protocol_domain)-AS_DOMAIN_ORDER.indexOf(y.protocol_domain));
 
+  // For a standalone assessment there is no child yet — use the subject
+  // details captured on the assessment itself.
+  const subj = child || {
+    full_name: a.subject_name||'',
+    child_no: null,
+    dob: a.subject_dob||null
+  };
+
   const ident=[
-    'Name: '+(child.full_name||''),
-    child.child_no?'File number: '+child.child_no:'',
-    child.dob?'Date of birth: '+fmtDate(child.dob):'',
+    'Name: '+(subj.full_name||''),
+    subj.child_no?'File number: '+subj.child_no:'',
+    subj.dob?'Date of birth: '+fmtDate(subj.dob):'',
+    (!child && a.subject_caregiver)?'Caregiver: '+a.subject_caregiver:'',
+    (!child && a.assessment_purpose)?'Purpose of assessment: '+a.assessment_purpose:'',
     asAgeStr(a)?'Age at assessment: '+asAgeStr(a):'',
     'Date of assessment: '+fmtDate(a.assessment_date),
     'Assessed by: '+(a.examiner_name||'')+(a.examiner_discipline?', '+a.examiner_discipline:''),
@@ -11286,7 +11296,7 @@ async function renderAssessmentReport(v,a){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessment</button>
     <div class="welcome"><h1>Assessment report</h1>
-      <p>${escapeHtml(c?c.full_name:'')} · ${fmtDate(a.assessment_date)} · ${rep.status==='final'?'Final':'Draft'}</p></div>
+      <p>${escapeHtml(c?c.full_name:(a.subject_name||''))} · ${fmtDate(a.assessment_date)} · ${rep.status==='final'?'Final':'Draft'}</p></div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <button class="btn btn-ghost btn-sm" id="regen" style="width:auto">Regenerate from protocols</button>
@@ -11384,11 +11394,13 @@ async function renderAssessmentReport(v,a){
    PRINT / PDF — branded
 --------------------------------------------------------------------- */
 function asPrint(child, a, blocks, docTitle){
+  const dispName = child ? (child.full_name||'') : (a.subject_name||'');
+  const dispNo = child && child.child_no ? child.child_no : '';
   const w=window.open('','_blank');
   if(!w){ toast('Allow pop-ups to print',true); return; }
   const body=blocks.map(([t,v])=>`
     <section><h2>${escapeHtml(t)}</h2><div class="body">${escapeHtml(v||'—').replace(/\n/g,'<br>')}</div></section>`).join('');
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)} — ${escapeHtml(child?child.full_name:'')}</title>
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)} — ${escapeHtml(dispName)}</title>
   <style>
     @page{margin:18mm 16mm}
     *{box-sizing:border-box}
@@ -11406,14 +11418,14 @@ function asPrint(child, a, blocks, docTitle){
   <div class="stripe"></div>
   <header>
     <h1>Mindora Inclusive Child Development Services</h1>
-    <div class="meta">${escapeHtml(docTitle)} · ${escapeHtml(child?child.full_name:'')}${child&&child.child_no?' · '+escapeHtml(child.child_no):''} · ${fmtDate(a.assessment_date)}</div>
+    <div class="meta">${escapeHtml(docTitle)} · ${escapeHtml(dispName)}${dispNo?' · '+escapeHtml(dispNo):''} · ${fmtDate(a.assessment_date)}</div>
   </header>
   ${body}
   <footer>
     Home, Hope &amp; Harmony · mindoraicds@gmail.com · 0741 397 167<br>
     Mindora criterion-referenced protocol findings are descriptive and are not standardized scores.
     Where standard scores appear, they derive from the licensed instrument named, administered in full with its own materials.<br>
-    Confidential. Prepared for the named child and their care team.
+    Confidential. Prepared for the named person and their care team.
   </footer>
   <script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
   </body></html>`);
