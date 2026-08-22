@@ -1187,6 +1187,129 @@ function maybeShowTutorialOnLogin(){
     setTimeout(()=>showTutorial(false), 700);                 // let the home screen render first
   }catch(e){}
 }
+
+/* =====================================================================
+   PER-TAB HELP CARDS
+   Each main screen calls tabHelp('key', viewEl). On the FIRST visit to
+   that screen (per device) the cards auto-show; after that a small "?"
+   button in the corner reopens them any time. Same card engine, scoped
+   to one screen. Content is written in the Director's voice, per screen.
+   ===================================================================== */
+const MND_TAB_HELP={
+  // ---- professional ----
+  pro_requests:{title:'Requests',cards:[
+    {h:'New children arrive here',b:'When Mindora assigns a child to you, they appear here first. Nothing starts until you respond.'},
+    {h:'Accept or decline',b:'Open a request, read the note about the child and what\u2019s needed, then accept or decline. Accepting unlocks the full record so you can begin.'},
+    {h:'You don\u2019t pick from a list',b:'Mindora matches children to you by discipline, availability and need. This keeps care coordinated \u2014 you simply say yes or no to each match.'},
+  ]},
+  pro_children:{title:'My children',cards:[
+    {h:'Everyone you\u2019re working with',b:'Every child you\u2019ve accepted sits here. Tap one to open their full record.'},
+    {h:'The whole picture',b:'Inside a child you\u2019ll see their plan, goals, session history and care team \u2014 including what other professionals have done, so you see the child from every angle.'},
+    {h:'Start from here',b:'Logging a session, setting a goal, marking a milestone \u2014 it all begins by opening the right child here.'},
+  ]},
+  pro_child:{title:'A child\u2019s record',cards:[
+    {h:'This is the heart of your work',b:'Everything about this child lives here \u2014 their plan, goals, progress and history, and the care team around them.'},
+    {h:'Log a session',b:'After each visit, tap <b>Log a session</b>. Record what you did, the goals you worked on, and a short summary. Add a home or school activity if there is one. This is what verifies your work for payment.'},
+    {h:'Goals & milestones',b:'Set clear goals and score progress over time. When something real happens \u2014 a first word, a breakthrough \u2014 tap <b>Mark milestone</b>. Parents treasure these.'},
+    {h:'You can see the team\u2019s work',b:'Sessions logged by other professionals on this child are visible to you, so the team stays on the same page. To discuss anything clinical, start a <b>Case discussion</b>.'},
+  ]},
+  case_discussions:{title:'Case discussions',cards:[
+    {h:'The team\u2019s conversation',b:'This is where the whole team around a child talks \u2014 to coordinate, ask questions, and think together.'},
+    {h:'Keep it clinical and shared',b:'Anything the team should see about a child\u2019s care belongs here, so nothing gets stuck in a private message. The Director can see these for oversight.'},
+    {h:'Different from parent messages',b:'Your private thread with a parent on a session stays private. When a parent conversation needs the team, it can be lifted into a case discussion.'},
+  ]},
+  my_engagement:{title:'My details',cards:[
+    {h:'This is your profile',b:'Your qualifications, training, languages, the ages and settings you work with, and your availability. Mindora uses all of it to match you to the right children.'},
+    {h:'Fill it in fully',b:'A complete profile means better matches. A thin one means poor ones. It\u2019s worth the few minutes.'},
+    {h:'Some things lock, some don\u2019t',b:'Your qualifications and consent lock once you submit them (for a clean record). Practice details like availability stay editable. If a locked detail is wrong, the Director can reopen it.'},
+    {h:'Your confidence ratings',b:'You may be asked to rate your own confidence across areas. This is used only to plan training and match cases well \u2014 never for pay, assignment or renewal. A low rating is useful information, not a mark against you.'},
+  ]},
+  // ---- parent ----
+  parent_child:{title:'Your child',cards:[
+    {h:'Everything in one place',b:'This is where you see how your child is doing, what the team is working on, and what you can do at home.'},
+    {h:'How your child is doing',b:'At the top is a plain-language summary \u2014 real words, not jargon \u2014 telling you honestly how things are going.'},
+    {h:'Goals and sessions',b:'You\u2019ll see <b>what we\u2019re working on</b> and why it matters, and a list of recent sessions. Tap any session to read the full note and any home activities.'},
+    {h:'Milestones to treasure',b:'Real moments \u2014 a first word, a breakthrough \u2014 appear under <b>Milestones</b>, sometimes with a photo or clip. These are yours to keep.'},
+    {h:'You\u2019re part of the team',b:'Use <b>Share something</b> to tell the team about a win at home or a worry. You see your child in real life more than anyone \u2014 it genuinely helps.'},
+  ]},
+  parent_activities:{title:'Home activities',cards:[
+    {h:'Things to practise at home',b:'The team shares simple activities here to do with your child between visits \u2014 the practice at home is often where the biggest change comes from.'},
+    {h:'Tap to open',b:'Open any activity to see the full instructions, and any photo or video the team added to show you how.'},
+    {h:'Ask if unsure',b:'If an activity isn\u2019t clear, ask the team \u2014 they\u2019d always rather explain than have you guess.'},
+  ]},
+  parent_community:{title:'Community',cards:[
+    {h:'From the Mindora family',b:'Updates, tips and encouragement the team shares with all our families. A place to feel part of something.'},
+  ]},
+  parent_billing:{title:'Billing',cards:[
+    {h:'Your payments',b:'Here you can see your billing with Mindora in one place.'},
+    {h:'Questions?',b:'Anything about fees or payments \u2014 reach the team through Support and we\u2019ll help.'},
+  ]},
+  // ---- institution ----
+  inst_home:{title:'My institution',cards:[
+    {h:'Your partnership',b:'This is where your partnership with Mindora lives \u2014 your details and the children supported through your setting.'},
+    {h:'Working together',b:'Mindora works inside your real environment \u2014 classrooms, routines, staff \u2014 so support fits the child\u2019s actual day.'},
+  ]},
+  inst_community:{title:'Community',cards:[
+    {h:'Stay connected',b:'Updates and resources Mindora shares with partner schools and institutions.'},
+  ]},
+};
+
+function tabHelp(key, viewEl){
+  const conf=MND_TAB_HELP[key]; if(!conf||!viewEl) return;
+  // floating "?" button (always present)
+  if(!viewEl.querySelector('.tabHelpBtn')){
+    const btn=el(`<button class="tabHelpBtn" title="What\u2019s on this screen?" style="position:fixed;right:16px;bottom:78px;z-index:900;width:42px;height:42px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:20px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.22);cursor:pointer">?</button>`);
+    btn.onclick=()=>showHelpCards(conf);
+    document.body.appendChild(btn);
+    // remove the button when the view changes (next render clears #view; we also clean stragglers)
+  }
+  // auto-show once per device per tab
+  try{
+    if(localStorage.getItem('mnd_help_'+key)!=='1'){
+      setTimeout(()=>{ showHelpCards(conf); try{localStorage.setItem('mnd_help_'+key,'1');}catch(e){} }, 550);
+    }
+  }catch(e){}
+}
+
+// clean up any stray "?" buttons on navigation (called by go())
+function clearTabHelpButtons(){ document.querySelectorAll('.tabHelpBtn').forEach(b=>b.remove()); }
+
+function showHelpCards(conf){
+  // don't stack on top of another card modal (e.g. the first-login welcome)
+  if(document.querySelector('.modal-bg #h_body, .modal-bg #tut_body')) return;
+  let i=0;
+  const m=el(`<div class="modal-bg show" style="z-index:9999"><div class="modal" style="max-width:430px;text-align:center">
+    <div id="h_body" style="min-height:170px"></div>
+    <div id="h_dots" style="display:flex;gap:6px;justify-content:center;margin:16px 0"></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <button class="btn btn-ghost btn-sm" id="h_skip" style="width:auto">Close</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="h_prev" style="width:auto">Back</button>
+        <button class="btn btn-primary btn-sm" id="h_next" style="width:auto">Next</button>
+      </div>
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const body=m.querySelector('#h_body'), dots=m.querySelector('#h_dots');
+  const close=()=>m.remove();
+  const paint=()=>{
+    const c=conf.cards[i];
+    body.innerHTML=`<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">${escapeHtml(conf.title)}</div>
+      <h2 style="font-family:var(--serif,Georgia);color:var(--accent-deep);margin:0 0 12px;font-size:20px">${c.h}</h2>
+      <div style="font-size:14.5px;line-height:1.65">${c.b}</div>`;
+    dots.innerHTML=conf.cards.map((_,n)=>`<span style="width:8px;height:8px;border-radius:50%;background:${n===i?'var(--accent)':'var(--line,#ddd)'}"></span>`).join('');
+    m.querySelector('#h_prev').style.visibility=i===0?'hidden':'visible';
+    m.querySelector('#h_next').textContent=(i===conf.cards.length-1)?'Got it':'Next';
+    if(conf.cards.length===1){ m.querySelector('#h_prev').style.display='none'; }
+  };
+  m.querySelector('#h_next').onclick=()=>{ if(i<conf.cards.length-1){i++;paint();} else close(); };
+  m.querySelector('#h_prev').onclick=()=>{ if(i>0){i--;paint();} };
+  m.querySelector('#h_skip').onclick=close;
+  m.addEventListener('click',e=>{ if(e.target===m) close(); });
+  let sx=0; m.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});
+  m.addEventListener('touchend',e=>{ const dx=e.changedTouches[0].clientX-sx; if(dx<-40&&i<conf.cards.length-1){i++;paint();} else if(dx>40&&i>0){i--;paint();} });
+  paint();
+}
 function initials(n){return (n||'M').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function money(n){return 'UGX '+Number(n||0).toLocaleString();}
 function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
@@ -1527,6 +1650,7 @@ function go(view){
   if(NAV_BACK){ NAV_BACK=false; }
   else if(view!==currentView){ NAV_HISTORY.push(currentView); if(NAV_HISTORY.length>40) NAV_HISTORY.shift(); }
   currentView=view;
+  clearTabHelpButtons();
   if(view==='inst_home') INST_SECTION=null;
   $('#pageTitle').textContent=TITLES[view]||'Mindora';
   setActiveNav();
@@ -1554,6 +1678,9 @@ function go(view){
    data_safety:renderDataSafety,
    program_eval:renderProgramEval, research:renderResearch,
    program_eval_doc:(vv)=>renderEvalDoc(vv,SELECTED_EVAL)}[view]||(()=>{}))(v);
+  // per-tab help cards: auto-show once per device, then "?" button. Small
+  // delay lets the async render paint before we attach to #view.
+  if(MND_TAB_HELP[view]) setTimeout(()=>{ if(currentView===view) tabHelp(view, $('#view')); }, 400);
 }
 
 /* ===================== DASHBOARD ===================== */
