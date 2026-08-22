@@ -6253,6 +6253,11 @@ function paymentForm(kind,doc){
 /* ===================== REPORTS (director) ===================== */
 let REPORT_TYPE='pnl', REPORT_PERIOD='fy', ALLTXNS=[], LAST_CSV=[], LAST_TITLE='Mindora report', LAST_PERIOD='';
 const isoD=d=>d.toISOString().slice(0,10);
+// Timezone-safe: build YYYY-MM-DD / YYYY-MM-01 from LOCAL date parts, never
+// via toISOString() (which converts to UTC and can roll a local midnight back
+// into the previous day/month — that caused the current month to go missing).
+function localISO(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function localMonthISO(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'); return `${y}-${m}-01`; }
 function reportRange(){
   const now=new Date(), y=now.getFullYear(), mo=now.getMonth(); let from,to;
   if(REPORT_PERIOD==='month'){from=new Date(y,mo,1);to=new Date(y,mo+1,0);}
@@ -6611,16 +6616,16 @@ function planMonthOptions(c, selected){
   const opts=[];
   let d=new Date(cur);
   while(d>=start){
-    const iso=new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);
+    const iso=localMonthISO(d);
     opts.push(`<option value="${iso}" ${selected&&selected.slice(0,7)===iso.slice(0,7)?'selected':''}>${monthLabel(iso)}</option>`);
     d=new Date(d.getFullYear(),d.getMonth()-1,1);
   }
   return opts.join('');
 }
-function thisMonthISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10); }
+function thisMonthISO(){ return localMonthISO(new Date()); }
 function recentMonthOptions(selected){
   const out=[]; const now=new Date();
-  for(let i=0;i<7;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const iso=d.toISOString().slice(0,10); out.push(`<option value="${iso}" ${iso===selected?'selected':''}>${monthLabel(iso)}</option>`); }
+  for(let i=0;i<7;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const iso=localMonthISO(d); out.push(`<option value="${iso}" ${iso===selected?'selected':''}>${monthLabel(iso)}</option>`); }
   return out.join('');
 }
 const canEditPlan=()=>['director','secretary'].includes(ME.role);
@@ -6847,7 +6852,7 @@ async function renderChildPlan(v,c){
     const monthStart=ym+'-01';
     // exclusive upper bound = first day of the next month
     const d0=new Date(monthStart);
-    const next=new Date(d0.getFullYear(), d0.getMonth()+1, 1).toISOString().slice(0,10);
+    const next=localMonthISO(new Date(d0.getFullYear(), d0.getMonth()+1, 1));
     const {data:sess,error}=await sb.from('session_logs')
       .select('professional_id,activity_key,duration_minutes,session_date')
       .eq('client_id',c.id).gte('session_date',monthStart).lt('session_date',next);
