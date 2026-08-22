@@ -5795,6 +5795,16 @@ const PROF_RATE_TIERS=[
   {key:'b',label:'Tier B · Mid'},
   {key:'c',label:'Tier C · Community'},
 ];
+// Numeric monthly target hours per band (from the rate card above). Tier A
+// variants noted; the standard target is used unless a tier is recorded.
+const MND_BAND_TARGET_HOURS = { 1:8, 2:11, 3:16, 4:20 };
+const MND_BAND_TARGET_HOURS_TIERA = { 3:20, 4:24 };
+function mndBandTargetHours(band, tier){
+  const b=parseInt(band,10); if(!b) return null;
+  if((tier==='A'||tier==='a') && MND_BAND_TARGET_HOURS_TIERA[b]) return MND_BAND_TARGET_HOURS_TIERA[b];
+  return MND_BAND_TARGET_HOURS[b]||null;
+}
+
 const PROF_RATE_BANDS=[
   {band:'band1',label:'Band 1',hours:'8 hours',   a:'250,000',        b:'190,000',        c:'130,000'},
   {band:'band2',label:'Band 2',hours:'11 hours',  a:'200,000 – 400,000', b:'175,000 – 350,000', c:'132,500 – 265,000'},
@@ -6758,6 +6768,9 @@ async function renderChildPlan(v,c){
 
     <div class="section-head" style="margin-top:24px"><h3>Activities</h3>${canEditPlan()&&c.assessed_band?'<button class="btn btn-ghost btn-sm" id="editTargets" style="width:auto">Edit targets</button>':''}</div>
     <div class="rows" id="planRows"></div>
+    <div class="section-head" style="margin-top:26px"><h3>Hours coverage this month</h3></div>
+    <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Actual time logged toward this child's monthly bundle, per professional and activity type, against the Band ${c.assigned_band||c.assessed_band||'—'} target${mndBandTargetHours(c.assigned_band||c.assessed_band)?' of '+mndBandTargetHours(c.assigned_band||c.assessed_band)+' hours':''}. Hours are built from direct sessions, caregiver guidance, school liaison, coordination and documentation.</div>
+    <div id="hoursCoverage"><div class="row-sub" style="color:var(--muted);padding:8px">Loading hours…</div></div>
     <div class="section-head" style="margin-top:26px"><h3>Session summaries</h3></div>
     <div class="rows" id="planSessions"></div>
     ${canEditPlan()&&c.assessed_band?`<div class="finalize-card" id="finalizeCard">
@@ -6769,6 +6782,54 @@ async function renderChildPlan(v,c){
       <button class="btn btn-primary" id="finalizeBtn" style="width:auto;white-space:nowrap">Finalize month</button>
     </div>`:''}`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
+  // Hours coverage — actual minutes logged this month per professional & activity,
+  // against the band's target hours. Shows the director real-time coverage.
+  (async function paintHours(){
+    const box=$('#hoursCoverage'); if(!box) return;
+    const targetHrs=mndBandTargetHours(c.assigned_band||c.assessed_band);
+    const ym=period.slice(0,7);           // period is YYYY-MM-01; take YYYY-MM
+    const monthStart=ym+'-01';
+    const {data:sess,error}=await sb.from('session_logs')
+      .select('professional_id,activity_key,duration_minutes,session_date')
+      .eq('client_id',c.id).gte('session_date',monthStart);
+    if(error){ box.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:8px">Couldn't load hours: ${escapeHtml(error.message)}</div>`; return; }
+    const mine=(sess||[]).filter(s=> s.session_date && s.session_date.slice(0,7)===ym );
+    if(!mine.length){ box.innerHTML='<div class="empty" style="padding:20px"><h4>No hours logged yet this month</h4><p>Logged sessions and activities will build up here.</p></div>'; return; }
+    // group by professional
+    const byProf={};
+    mine.forEach(s=>{
+      const pid=s.professional_id||'_unknown';
+      (byProf[pid]=byProf[pid]||{total:0,acts:{}});
+      const mins=Number(s.duration_minutes)||0;
+      byProf[pid].total+=mins;
+      const k=s.activity_key||'direct_session';
+      byProf[pid].acts[k]=(byProf[pid].acts[k]||0)+mins;
+    });
+    // resolve names
+    const pids=Object.keys(byProf).filter(x=>x!=='_unknown');
+    let nm={};
+    if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name,discipline').in('id',pids); (pf||[]).forEach(p=>nm[p.id]={n:p.full_name,d:p.discipline}); }
+    const ACTLBL={direct_session:'Direct sessions',caregiver:'Caregiver guidance',school_checkin:'School / teacher liaison',coordination:'Inter-professional meetings',documentation:'Documentation'};
+    const fmtH=m=>{ const h=m/60; return (Math.round(h*10)/10)+'h'; };
+    box.innerHTML=Object.keys(byProf).map(pid=>{
+      const d=byProf[pid];
+      const name=pid==='_unknown'?'Unattributed':(nm[pid]?nm[pid].n:'A professional');
+      const disc=nm[pid]&&nm[pid].d?' · '+escapeHtml(nm[pid].d):'';
+      const doneH=d.total/60;
+      const pct=targetHrs?Math.min(100,Math.round(doneH/targetHrs*100)):null;
+      const met=targetHrs&&doneH>=targetHrs;
+      const bar=targetHrs?`<div style="height:8px;background:var(--line,#eee);border-radius:5px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${pct}%;background:${met?'var(--teal)':'var(--accent)'}"></div></div>`:'';
+      const breakdown=Object.keys(d.acts).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>${escapeHtml(ACTLBL[k]||k)}</span><span>${fmtH(d.acts[k])}</span></div>`).join('');
+      return `<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="row-name" style="flex:1">${escapeHtml(name)}${disc}</div>
+          <span class="pill ${met?'active':'band'}">${fmtH(d.total)}${targetHrs?' / '+targetHrs+'h':''}</span>
+        </div>${bar}${breakdown}
+        ${targetHrs&&!met?`<div class="row-sub" style="color:var(--muted)">${Math.round((targetHrs-doneH)*10)/10}h remaining toward target</div>`:''}
+        ${met?'<div class="row-sub" style="color:var(--teal)">Target hours met ✓</div>':''}
+      </div>`;
+    }).join('');
+  })();
   // session summaries feed the service plan too
   (async()=>{
     const psBox=$('#planSessions'); if(!psBox) return;
