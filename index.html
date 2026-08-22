@@ -8630,6 +8630,315 @@ const AS_SCALES = {
 
 const ASSESS_PROTOCOLS = [
 
+/* ============ CASE HISTORY — begins every assessment ============ */
+{
+  code:'MND-HX-01', domain:'case_history',
+  title:'Comprehensive Case History',
+  band:'All ages',
+  purpose:'The foundation of every assessment. A structured developmental, medical, family and functional history taken with the caregiver before any direct testing. Findings here shape which protocols follow and how results are interpreted.',
+  sections:[
+    { s:'Referral & presenting concern', items:[
+      {c:'a1', t:'Who referred the child and why', a:'Record the referral source and the exact words of the concern', ty:'T'},
+      {c:'a2', t:'Primary concern in the caregiver\u2019s own words', a:'Do not translate into clinical terms yet \u2014 capture it as said', ty:'T'},
+      {c:'a3', t:'When the concern was first noticed', a:'Onset and who first noticed it', ty:'T'},
+      {c:'a4', t:'How the concern has changed over time', a:'Improving, static, worsening, fluctuating', ty:'C',
+        o:['Improving','Static','Worsening','Fluctuating','Too early to tell']},
+      {c:'a5', t:'What the family hopes this assessment will achieve', a:'Their goals anchor the whole process', ty:'T'},
+    ]},
+    { s:'Pregnancy, birth & neonatal', items:[
+      {c:'b1', t:'Pregnancy \u2014 complications, illness, substance exposure', a:'', ty:'T'},
+      {c:'b2', t:'Gestation at birth', a:'Note if preterm (<37 weeks)', ty:'N', u:'weeks'},
+      {c:'b3', t:'Birth weight', a:'Note if low (<2.5 kg)', ty:'N', u:'kg'},
+      {c:'b4', t:'Delivery \u2014 type and complications', a:'', ty:'T'},
+      {c:'b5', t:'Neonatal period \u2014 SCBU/NICU, jaundice, feeding, oxygen, seizures', a:'', ty:'T'},
+      {c:'b6', t:'Any birth or neonatal complication of note', a:'', ty:'V'},
+    ]},
+    { s:'Developmental milestones', items:[
+      {c:'c1', t:'Smiled / social responsiveness', a:'Social smile ~6 weeks', ty:'T'},
+      {c:'c2', t:'Sat independently', a:'Typical ~6\u20138 months', ty:'N', u:'months'},
+      {c:'c3', t:'Walked independently', a:'Typical ~12\u201318 months', ty:'N', u:'months'},
+      {c:'c4', t:'First words', a:'Typical ~12 months', ty:'N', u:'months'},
+      {c:'c5', t:'Two-word combinations', a:'Typical ~18\u201324 months', ty:'N', u:'months'},
+      {c:'c6', t:'Toilet trained (day)', a:'', ty:'N', u:'months'},
+      {c:'c7', t:'Overall pattern of milestones', a:'On time, delayed, regressed, or uneven', ty:'C',
+        o:['All on time','Globally delayed','Delayed in one area only','Regression / loss of skills','Uneven / scattered']},
+      {c:'c8', t:'Any loss of previously acquired skills', a:'Regression is a red flag needing urgent attention', ty:'V'},
+    ]},
+    { s:'Medical history', items:[
+      {c:'d1', t:'Significant illnesses, hospitalisations, surgeries', a:'', ty:'T'},
+      {c:'d2', t:'Seizures or episodes of altered awareness', a:'', ty:'V'},
+      {c:'d3', t:'Hearing \u2014 status and last test', a:'Always establish hearing before interpreting language/speech', ty:'T'},
+      {c:'d4', t:'Vision \u2014 status and last test', a:'', ty:'T'},
+      {c:'d5', t:'Current medications', a:'', ty:'T'},
+      {c:'d6', t:'Diagnoses already given', a:'', ty:'T'},
+      {c:'d7', t:'Ear infections / grommets history', a:'Recurrent otitis media affects speech-language', ty:'T'},
+    ]},
+    { s:'Family & social history', items:[
+      {c:'e1', t:'Who lives at home with the child', a:'', ty:'T'},
+      {c:'e2', t:'Languages spoken at home', a:'Essential for interpreting all language findings', ty:'T'},
+      {c:'e3', t:'Family history of speech, language, learning or developmental difficulties', a:'Many are highly heritable', ty:'V'},
+      {c:'e4', t:'Major changes or stresses (moves, loss, separation)', a:'', ty:'T'},
+      {c:'e5', t:'Any safeguarding concerns noted', a:'Follow the safeguarding policy if anything arises', ty:'V'},
+    ]},
+    { s:'Education & current functioning', items:[
+      {c:'f1', t:'Current setting (school/nursery) and attendance', a:'', ty:'T'},
+      {c:'f2', t:'How the child is coping there \u2014 academically and socially', a:'', ty:'T'},
+      {c:'f3', t:'Support already in place', a:'', ty:'T'},
+      {c:'f4', t:'Daily living / self-care independence for age', a:'', ty:'M'},
+      {c:'f5', t:'Play and friendships', a:'', ty:'T'},
+      {c:'f6', t:'Behaviour and emotional regulation at home and school', a:'', ty:'T'},
+    ]},
+    { s:'Prior assessment & services', items:[
+      {c:'g1', t:'Previous assessments and their findings', a:'Request copies where possible', ty:'T'},
+      {c:'g2', t:'Therapies or interventions tried and their effect', a:'', ty:'T'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Key history findings that shape this assessment', a:'What from the history must be kept in mind interpreting results', ty:'T'},
+      {c:'z2', t:'Which assessment protocols are indicated by this history', a:'Name the domains to pursue', ty:'T'},
+      {c:'z3', t:'Red flags requiring onward referral', a:'e.g. regression, seizures, hearing not established', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ SPECIFIC LEARNING DISORDER \u2014 READING (dyslexia) ============ */
+{
+  code:'MND-SLD-01', domain:'learning',
+  title:'Reading Profile (Specific Learning Disorder \u2014 Reading / Dyslexia)',
+  band:'5\u201316 years',
+  purpose:'Direct assessment of the reading system aligned to DSM-5 Specific Learning Disorder with impairment in reading. The IQ-discrepancy model is not used; academic skills are assessed directly. Several items are stimulus-observe-record: the clinician presents a task and records accuracy and speed.',
+  sections:[
+    { s:'Foundations \u2014 phonological awareness (present the task, record score)', items:[
+      {c:'a1', t:'Rhyme awareness \u2014 present pairs, child judges rhyme (e.g. cat/hat, dog/log)', a:'Present 10 pairs; record number correct. Expected mastery by ~5\u20136y', ty:'N', u:'/10 correct'},
+      {c:'a2', t:'Syllable segmentation \u2014 child claps/counts syllables in spoken words', a:'Present 10 words; record correct', ty:'N', u:'/10 correct'},
+      {c:'a3', t:'Phoneme blending \u2014 clinician says sounds /c/-/a/-/t/, child says the word', a:'Present 10; record correct. Core dyslexia marker', ty:'N', u:'/10 correct'},
+      {c:'a4', t:'Phoneme segmentation \u2014 clinician says a word, child says each sound', a:'Present 10; record correct', ty:'N', u:'/10 correct'},
+      {c:'a5', t:'Phoneme manipulation / elision \u2014 \u201csay CAT without /c/\u201d', a:'Present 10; record correct. Strong discriminator', ty:'N', u:'/10 correct'},
+      {c:'a6', t:'Overall phonological awareness', a:'Clinical judgement across the tasks above', ty:'M'},
+    ]},
+    { s:'Phonological memory & rapid naming (timed \u2014 record speed)', items:[
+      {c:'b1', t:'Nonword repetition \u2014 child repeats made-up words (e.g. \u201cblonterstaping\u201d)', a:'Taps phonological memory; present 10, record correct', ty:'N', u:'/10 correct'},
+      {c:'b2', t:'Digit span forward', a:'Longest sequence repeated correctly', ty:'N', u:'digits'},
+      {c:'b3', t:'Rapid Automatic Naming \u2014 time to name a grid of familiar objects/colours', a:'RAN: speed, not accuracy. Present a 50-item grid, record seconds', ty:'N', u:'seconds'},
+      {c:'b4', t:'Rapid Automatic Naming \u2014 letters or digits grid', a:'Record seconds to name the grid; slow naming is a key marker', ty:'N', u:'seconds'},
+    ]},
+    { s:'Phonics & decoding (present words, record accuracy)', items:[
+      {c:'c1', t:'Letter-name knowledge', a:'Number of letters named correctly', ty:'N', u:'/26'},
+      {c:'c2', t:'Letter-sound knowledge', a:'Number of letter-sounds given correctly', ty:'N', u:'/26'},
+      {c:'c3', t:'Real word reading \u2014 graded single words', a:'Record how many of the presented list are read correctly', ty:'N', u:'/20 correct'},
+      {c:'c4', t:'Nonword / pseudoword decoding (e.g. \u201cfornalask\u201d)', a:'The purest test of decoding \u2014 cannot be read from memory. Record correct', ty:'N', u:'/15 correct'},
+      {c:'c5', t:'Decoding strategy observed', a:'What the child actually does when stuck', ty:'C',
+        o:['Sounds out letter by letter','Uses onset-rime chunks','Guesses from first letter','Guesses from context/picture','Refuses / gives up','Reads fluently, no strategy needed']},
+    ]},
+    { s:'Fluency (timed connected text)', items:[
+      {c:'d1', t:'Oral reading accuracy on a graded passage', a:'Percent of words read correctly', ty:'N', u:'% accuracy'},
+      {c:'d2', t:'Oral reading rate', a:'Words correct per minute on connected text', ty:'N', u:'wcpm'},
+      {c:'d3', t:'Prosody / expression when reading aloud', a:'Monotone and choppy vs phrased and expressive', ty:'M'},
+      {c:'d4', t:'Observed reading behaviours', a:'Finger-tracking, losing place, skipping lines, fatigue, distress', ty:'T'},
+    ]},
+    { s:'Comprehension (and reading vs listening)', items:[
+      {c:'e1', t:'Reading comprehension \u2014 questions on a passage the child read', a:'Literal and inferential; record correct', ty:'N', u:'/10 correct'},
+      {c:'e2', t:'Listening comprehension \u2014 questions on a passage read TO the child', a:'Strong listening but weak reading points to the reading system, not language', ty:'N', u:'/10 correct'},
+      {c:'e3', t:'Reading vs listening comparison', a:'The key dyslexia signature is reading << listening', ty:'C',
+        o:['Reading much weaker than listening (dyslexia pattern)','Both similar','Both weak (consider language disorder)','Reading stronger than listening']},
+    ]},
+    { s:'Impact & DSM-5 anchors', items:[
+      {c:'f1', t:'Difficulties persisted \u22656 months despite targeted help', a:'DSM-5 criterion A', ty:'V'},
+      {c:'f2', t:'Skills substantially below age expectation', a:'DSM-5 criterion B', ty:'V'},
+      {c:'f3', t:'Interferes with school / daily life', a:'DSM-5 criterion C', ty:'V'},
+      {c:'f4', t:'Not better explained by hearing, vision, another condition or lack of schooling', a:'DSM-5 criterion D \u2014 rule these out', ty:'V'},
+      {c:'f5', t:'Impact in the child\u2019s own experience', a:'Avoidance, anxiety, self-esteem', ty:'T'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Pattern of strengths and weaknesses across the reading system', a:'Where exactly the breakdown is', ty:'T'},
+      {c:'z2', t:'Validity of this sample', a:'Cooperation, attention, effort, any reason findings under-represent ability', ty:'T'},
+      {c:'z3', t:'Recommendations', a:'Intervention targets, accommodations, onward referral', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ SLD \u2014 WRITTEN EXPRESSION (dysgraphia) ============ */
+{
+  code:'MND-SLD-02', domain:'learning',
+  title:'Written Expression Profile (SLD \u2014 Written Expression / Dysgraphia)',
+  band:'5\u201316 years',
+  purpose:'Direct assessment of transcription (handwriting, spelling) and text generation, aligned to DSM-5 SLD with impairment in written expression. Includes stimulus-observe-record tasks: the clinician sets a writing task and records legibility, speed and accuracy.',
+  sections:[
+    { s:'Handwriting \u2014 mechanics (set the task, observe, record)', items:[
+      {c:'a1', t:'Pencil grasp and posture observed', a:'Mature tripod vs immature/awkward grasp; pressure', ty:'T'},
+      {c:'a2', t:'Letter formation and legibility on a copying task', a:'Have the child copy a sentence; rate legibility', ty:'M'},
+      {c:'a3', t:'Handwriting speed \u2014 letters per minute on a copying task', a:'Timed copy; record letters/min', ty:'N', u:'letters/min'},
+      {c:'a4', t:'Consistency of size, spacing and alignment', a:'', ty:'M'},
+      {c:'a5', t:'Fatigue, discomfort or complaint during writing', a:'Common and important in dysgraphia', ty:'V'},
+    ]},
+    { s:'Spelling (dictation \u2014 record accuracy and error type)', items:[
+      {c:'b1', t:'Single-word spelling to dictation \u2014 graded list', a:'Record correct out of the list presented', ty:'N', u:'/20 correct'},
+      {c:'b2', t:'Phonetic plausibility of misspellings', a:'\u201ckat\u201d for cat is phonetic; \u201cdgt\u201d is not \u2014 tells you where it breaks', ty:'C',
+        o:['Mostly phonetic errors','Mostly non-phonetic errors','Mixed','Few or no errors']},
+      {c:'b3', t:'Spelling within free writing', a:'Often worse than in a spelling test', ty:'M'},
+    ]},
+    { s:'Written text generation (set a prompt, analyse the sample)', items:[
+      {c:'c1', t:'Amount produced in a timed writing task', a:'Words written in the time given', ty:'N', u:'words'},
+      {c:'c2', t:'Sentence structure and grammar in the sample', a:'', ty:'M'},
+      {c:'c3', t:'Punctuation and capitalisation', a:'', ty:'M'},
+      {c:'c4', t:'Organisation and coherence of ideas', a:'Beginning-middle-end, linked ideas', ty:'M'},
+      {c:'c5', t:'Gap between spoken and written expression', a:'Rich orally but sparse on paper is the classic dysgraphia signature', ty:'C',
+        o:['Writing much weaker than speech (dysgraphia pattern)','Similar','Both weak (consider language)']},
+    ]},
+    { s:'Impact & DSM-5 anchors', items:[
+      {c:'f1', t:'Persisted \u22656 months despite help', a:'Criterion A', ty:'V'},
+      {c:'f2', t:'Substantially below age expectation', a:'Criterion B', ty:'V'},
+      {c:'f3', t:'Interferes with school / daily life', a:'Criterion C', ty:'V'},
+      {c:'f4', t:'Not better explained by another cause', a:'Criterion D', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Where writing breaks down (transcription vs generation)', a:'Motor, spelling, or idea-organisation', ty:'T'},
+      {c:'z2', t:'Validity of this sample', a:'', ty:'T'},
+      {c:'z3', t:'Recommendations and accommodations', a:'e.g. typing, scribe, extra time', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ SLD \u2014 MATHEMATICS (dyscalculia) ============ */
+{
+  code:'MND-SLD-03', domain:'learning',
+  title:'Mathematics Profile (SLD \u2014 Mathematics / Dyscalculia)',
+  band:'5\u201316 years',
+  purpose:'Direct assessment of number sense and mathematics, aligned to DSM-5 SLD with impairment in mathematics. Begins with the core deficit \u2014 numerical magnitude \u2014 before arithmetic. Several stimulus-observe-record tasks (dot enumeration, magnitude comparison, timed facts).',
+  sections:[
+    { s:'Core number sense (present stimuli, record accuracy/speed)', items:[
+      {c:'a1', t:'Subitizing \u2014 briefly show 1\u20135 dots, child says how many without counting', a:'Present arrays for ~1 second; record correct. A core dyscalculia deficit', ty:'N', u:'/10 correct'},
+      {c:'a2', t:'Counting accuracy \u2014 count a set of objects', a:'One-to-one correspondence, cardinality', ty:'M'},
+      {c:'a3', t:'Nonsymbolic magnitude \u2014 \u201cwhich group has more dots?\u201d', a:'Present 10 dot-array pairs; record correct', ty:'N', u:'/10 correct'},
+      {c:'a4', t:'Symbolic magnitude \u2014 \u201cwhich number is bigger, 7 or 4?\u201d', a:'Present 10 digit pairs; record correct and note speed', ty:'N', u:'/10 correct'},
+      {c:'a5', t:'Number\u2013quantity mapping \u2014 match a digit to a set', a:'Linking symbol to quantity is the deficit in dyscalculia', ty:'M'},
+      {c:'a6', t:'Number line estimation \u2014 place a number on a 0\u2013100 line', a:'Record how far off (roughly)', ty:'M'},
+    ]},
+    { s:'Counting & place value', items:[
+      {c:'b1', t:'Rote counting forwards', a:'How high, accurately', ty:'N', u:'up to'},
+      {c:'b2', t:'Counting backwards from 20', a:'', ty:'M'},
+      {c:'b3', t:'Understands place value (tens, units)', a:'', ty:'M'},
+    ]},
+    { s:'Arithmetic (accuracy and fluency)', items:[
+      {c:'c1', t:'Single-digit addition \u2014 accuracy', a:'Record correct out of those presented', ty:'N', u:'/10 correct'},
+      {c:'c2', t:'Arithmetic fact fluency \u2014 facts answered correctly in one minute', a:'Timed; slow fact retrieval is a hallmark', ty:'N', u:'/min'},
+      {c:'c3', t:'Strategy observed for simple sums', a:'Retrieves facts vs counts on fingers vs counts all', ty:'C',
+        o:['Instant fact retrieval','Counts on from larger','Counts all on fingers','Unreliable / guesses','Cannot attempt']},
+      {c:'c4', t:'Multi-digit calculation with regrouping', a:'', ty:'M'},
+      {c:'c5', t:'Multiplication facts recall', a:'', ty:'M'},
+    ]},
+    { s:'Applied & reasoning', items:[
+      {c:'d1', t:'Word problems \u2014 selecting the right operation', a:'', ty:'M'},
+      {c:'d2', t:'Telling time, money, measurement', a:'Everyday numeracy', ty:'M'},
+      {c:'d3', t:'Maths anxiety / avoidance observed', a:'Emotional response to number work', ty:'V'},
+    ]},
+    { s:'Impact & DSM-5 anchors', items:[
+      {c:'f1', t:'Persisted \u22656 months despite help', a:'Criterion A', ty:'V'},
+      {c:'f2', t:'Substantially below age expectation', a:'Criterion B', ty:'V'},
+      {c:'f3', t:'Interferes with school / daily life', a:'Criterion C', ty:'V'},
+      {c:'f4', t:'Not better explained by another cause', a:'Criterion D', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Is the deficit in core number sense, in facts/procedures, or in reasoning?', a:'Determines intervention', ty:'T'},
+      {c:'z2', t:'Validity of this sample', a:'', ty:'T'},
+      {c:'z3', t:'Recommendations', a:'Manipulatives, visual supports, extra time', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ MOTOR \u2014 Developmental Coordination Disorder ============ */
+{
+  code:'MND-MOT-01', domain:'motor',
+  title:'Motor Coordination Profile (Developmental Coordination Disorder)',
+  band:'3\u201316 years',
+  purpose:'Structured observation of gross motor, fine motor, balance and motor planning, aligned to DSM-5 Developmental Coordination Disorder. Stimulus-observe-record throughout: the clinician sets a motor task and records performance. Establish that difficulty is not due to a medical/neurological condition.',
+  sections:[
+    { s:'Fine motor & manual dexterity (set task, observe)', items:[
+      {c:'a1', t:'Threading beads / posting coins \u2014 speed and accuracy', a:'Timed dexterity task', ty:'M'},
+      {c:'a2', t:'Doing up buttons / zips / laces for age', a:'', ty:'M'},
+      {c:'a3', t:'Using scissors to cut along a line', a:'', ty:'M'},
+      {c:'a4', t:'Pencil control \u2014 tracing and drawing', a:'', ty:'M'},
+      {c:'a5', t:'Hand preference and bilateral coordination', a:'Using two hands together', ty:'T'},
+    ]},
+    { s:'Gross motor & ball skills', items:[
+      {c:'b1', t:'Catching a ball', a:'Age-appropriate distance and size', ty:'M'},
+      {c:'b2', t:'Throwing a ball at a target', a:'', ty:'M'},
+      {c:'b3', t:'Kicking a moving ball', a:'', ty:'M'},
+      {c:'b4', t:'Running, and changing direction / stopping', a:'Note clumsiness, collisions', ty:'M'},
+      {c:'b5', t:'Jumping, hopping, skipping for age', a:'', ty:'M'},
+    ]},
+    { s:'Balance & postural control', items:[
+      {c:'c1', t:'Static balance \u2014 stand on one leg', a:'Record seconds held', ty:'N', u:'seconds'},
+      {c:'c2', t:'Dynamic balance \u2014 walk heel-to-toe along a line', a:'', ty:'M'},
+      {c:'c3', t:'Posture at a desk / when seated', a:'Slumping, propping, fatigue', ty:'T'},
+    ]},
+    { s:'Motor planning (praxis)', items:[
+      {c:'d1', t:'Imitates unfamiliar body postures / gestures', a:'Praxis \u2014 often impaired in DCD', ty:'M'},
+      {c:'d2', t:'Learns and sequences a new motor task', a:'e.g. a clapping pattern', ty:'M'},
+      {c:'d3', t:'Copies a demonstrated action in correct order', a:'', ty:'M'},
+    ]},
+    { s:'Daily living impact', items:[
+      {c:'e1', t:'Self-care motor tasks (dressing, feeding, teeth) for age', a:'DSM-5 requires impact on daily activities', ty:'M'},
+      {c:'e2', t:'Handwriting legibility and speed (cross-ref writing profile)', a:'', ty:'M'},
+      {c:'e3', t:'Avoidance of physical play / PE', a:'', ty:'V'},
+    ]},
+    { s:'DSM-5 anchors', items:[
+      {c:'f1', t:'Motor skills substantially below expected for age and opportunity', a:'Criterion A', ty:'V'},
+      {c:'f2', t:'Interferes with daily living / academic / play activities', a:'Criterion B', ty:'V'},
+      {c:'f3', t:'Onset in early developmental period', a:'Criterion C', ty:'V'},
+      {c:'f4', t:'Not explained by intellectual disability, visual impairment or a neurological condition', a:'Criterion D \u2014 must rule out; refer if neurological signs', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Profile across fine, gross, balance and praxis', a:'', ty:'T'},
+      {c:'z2', t:'Validity and cooperation', a:'', ty:'T'},
+      {c:'z3', t:'Recommendations and onward referral', a:'Refer to paediatrics/OT/physio as indicated', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ AUTISM \u2014 social communication & restricted/repetitive ============ */
+{
+  code:'MND-ASD-01', domain:'autism',
+  title:'Social Communication & Restricted/Repetitive Profile (Autism-related)',
+  band:'All ages',
+  purpose:'Structured observation across the two DSM-5 autism domains \u2014 social communication/interaction, and restricted, repetitive behaviours \u2014 combined with caregiver report. This is a descriptive profile to inform support and onward diagnostic referral; it is not a standalone diagnosis of autism.',
+  sections:[
+    { s:'Social-emotional reciprocity', items:[
+      {c:'a1', t:'Initiates social interaction', a:'', ty:'M'},
+      {c:'a2', t:'Responds to others\u2019 initiations', a:'', ty:'M'},
+      {c:'a3', t:'Shares interest / enjoyment / affect with others', a:'Showing, bringing to share', ty:'M'},
+      {c:'a4', t:'Back-and-forth conversation or interaction', a:'', ty:'M'},
+    ]},
+    { s:'Nonverbal communication', items:[
+      {c:'b1', t:'Eye contact integrated with communication', a:'Quality and use, not mere presence', ty:'M'},
+      {c:'b2', t:'Gestures and facial expression to communicate', a:'', ty:'M'},
+      {c:'b3', t:'Follows and uses pointing / joint attention', a:'', ty:'M'},
+      {c:'b4', t:'Coordinates gaze, gesture and vocalisation together', a:'', ty:'M'},
+    ]},
+    { s:'Relationships', items:[
+      {c:'c1', t:'Interest in peers', a:'', ty:'M'},
+      {c:'c2', t:'Adjusts behaviour to social context', a:'', ty:'M'},
+      {c:'c3', t:'Imaginative / shared pretend play with others', a:'', ty:'M'},
+    ]},
+    { s:'Restricted & repetitive behaviour', items:[
+      {c:'d1', t:'Repetitive movements, speech or object use', a:'e.g. lining up, echolalia, hand movements', ty:'F'},
+      {c:'d2', t:'Insistence on sameness / distress at change / routines', a:'', ty:'F'},
+      {c:'d3', t:'Highly restricted, fixated interests (intensity/focus)', a:'', ty:'F'},
+      {c:'d4', t:'Sensory hyper- or hypo-reactivity or sensory interests', a:'Cross-reference the sensory profile', ty:'F'},
+    ]},
+    { s:'Context & impact', items:[
+      {c:'e1', t:'Present in early development (even if noticed later)', a:'DSM-5 requires early onset', ty:'V'},
+      {c:'e2', t:'Impact on daily functioning', a:'', ty:'V'},
+      {c:'e3', t:'How presentation varies across settings', a:'Home vs school vs clinic', ty:'T'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Profile summary across both domains', a:'', ty:'T'},
+      {c:'z2', t:'Validity, cooperation, and the value of this sample', a:'', ty:'T'},
+      {c:'z3', t:'Recommendation re onward multidisciplinary diagnostic assessment', a:'Be explicit this profile informs, not diagnoses', ty:'T'},
+    ]},
+  ]
+},
+
+
 /* ================= LANGUAGE — BAND A (0–36 months) ================= */
 {
   code:'MND-LNG-01', domain:'language',
@@ -9616,10 +9925,11 @@ const ASSESS_PROTOCOLS = [
 ];
 
 const AS_DOMAIN_LABEL = {
-  language:'Language', speech:'Speech', voice:'Voice', cognition:'Cognition',
-  behavior:'Behaviour', sensory:'Sensory', oral_motor:'Oral motor', dysphagia:'Dysphagia'
+  case_history:'Case history', language:'Language', speech:'Speech', voice:'Voice', cognition:'Cognition',
+  behavior:'Behaviour', sensory:'Sensory', oral_motor:'Oral motor', dysphagia:'Dysphagia',
+  learning:'Learning', motor:'Motor coordination', autism:'Social communication', adaptive:'Adaptive'
 };
-const AS_DOMAIN_ORDER = ['language','speech','voice','cognition','behavior','sensory','oral_motor','dysphagia'];
+const AS_DOMAIN_ORDER = ['case_history','language','speech','voice','cognition','behavior','sensory','oral_motor','dysphagia','learning','motor','autism','adaptive'];
 
 /* ---------------------------------------------------------------------
    HELPERS
@@ -9937,8 +10247,17 @@ async function renderChildAssessments(v,c){
       <div class="row-main">
         <div class="row-name">Assessment — ${fmtDate(a.assessment_date)}</div>
         <div class="row-sub">${escapeHtml(a.examiner_name||'—')}${a.examiner_discipline?' · '+escapeHtml(a.examiner_discipline):''} · ${done}/${n} protocol${n===1?'':'s'} complete</div>
-      </div>${pill}</div>`);
-    card.onclick=()=>{ SELECTED_CHILD=c; SELECTED_ASSESSMENT=a; go('assessment'); };
+      </div>${pill}${isStaff()?`<button class="btn btn-ghost btn-sm asDel" data-id="${a.id}" title="Delete this assessment" style="width:auto;margin-left:8px;color:var(--danger)">Delete</button>`:''}</div>`);
+    card.onclick=(e)=>{ if(e.target.closest('.asDel')) return; SELECTED_CHILD=c; SELECTED_ASSESSMENT=a; go('assessment'); };
+    const db=card.querySelector('.asDel');
+    if(db) db.onclick=async(e)=>{
+      e.stopPropagation();
+      const label=a.status==='signed'?'signed assessment':a.status==='complete'?'completed assessment':'draft assessment';
+      if(!confirm('Delete this '+label+'? This removes all its protocols, scores and report. This cannot be undone.')) return;
+      const {error}=await sb.from('assessments').delete().eq('id',a.id);
+      if(error){ toast(error.message,true); return; }
+      toast('Assessment deleted'); renderChildAssessments($('#view'),c);
+    };
     rows.appendChild(card);
   }
 }
@@ -9982,7 +10301,14 @@ function asNewForm(c){
       created_by:ME.id
     }).select().single();
     if(error){ toast(error.message,true); b.disabled=false; b.textContent='Create'; return; }
-    toast('Assessment created'); close();
+    // Every assessment begins with a case history — seed it automatically.
+    try{
+      const hx=asProto('MND-HX-01');
+      if(hx){ await sb.from('assessment_protocols').insert({
+        assessment_id:data.id, protocol_code:hx.code, protocol_title:hx.title, protocol_domain:hx.domain,
+        protocol_version:ASSESS_VERSION, administered_by:ME.id, administered_name:ME.full_name||null }); }
+    }catch(e){}
+    toast('Assessment created — case history added to begin'); close();
     SELECTED_CHILD=c; SELECTED_ASSESSMENT=data; go('assessment');
   };
 }
