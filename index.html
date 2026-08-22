@@ -1019,6 +1019,7 @@ const NAV = {
     {k:'notifications',label:'Notifications',icon:'bell'},
     {k:'clients',label:'Children',icon:'child'},
     {k:'waitlist',label:'Waitlist',icon:'requests'},
+    {k:'assessments_hub',label:'Assessments',icon:'plan'},
     {k:'professionals',label:'Professionals',icon:'prof'},
     {k:'institutions',label:'Institutions',icon:'inst'},
     {k:'assignments',label:'Assignments',icon:'assign'},
@@ -1544,6 +1545,8 @@ function buildNav(){
       b.addEventListener('click',()=>{go(item.k);closeSide();});
       nav.appendChild(b);
     });
+    // "My assessments" appears ONLY when this professional has assignment(s).
+    maybeAddAssessmentTab(nav);
   } else if(ME.role==='parent'){
     nav.appendChild(el(`<div class="nav-label">My family</div>`));
     NAV.parent.forEach(item=>{
@@ -1601,7 +1604,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',my_engagement:'My details',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',research:'Research extracts',program_eval_doc:'Evaluation'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',my_engagement:'My details',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',research:'Research extracts',program_eval_doc:'Evaluation',assessments_hub:'Assessments',my_assessments:'My assessments',standalone_assessment:'Assessment'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1677,7 +1680,9 @@ function go(view){
    assessment_report:(vv)=>renderAssessmentReport(vv,SELECTED_ASSESSMENT),
    data_safety:renderDataSafety,
    program_eval:renderProgramEval, research:renderResearch,
-   program_eval_doc:(vv)=>renderEvalDoc(vv,SELECTED_EVAL)}[view]||(()=>{}))(v);
+   program_eval_doc:(vv)=>renderEvalDoc(vv,SELECTED_EVAL),
+   assessments_hub:renderAssessmentsHub, my_assessments:renderMyAssessments,
+   standalone_assessment:(vv)=>renderAssessment(vv,SELECTED_ASSESSMENT)}[view]||(()=>{}))(v);
   // per-tab help cards: auto-show once per device, then "?" button. Small
   // delay lets the async render paint before we attach to #view.
   if(MND_TAB_HELP[view]) setTimeout(()=>{ if(currentView===view) tabHelp(view, $('#view')); }, 400);
@@ -1929,7 +1934,9 @@ function mndMonthsStr(m){
 
 async function openClientForm(c){
   if(!RATE_BY_KEY) await loadRateCard();
-  const edit=!!c; c=c||{};
+  const prefillOnly = c && c._prefillOnly;
+  const fromAssessment = c && c._fromAssessment;
+  const edit=!!c && !prefillOnly; c=c||{};
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit child':'Add a child'}</h3>
     <div class="sub">${edit?'Update this record.':'Create a new child record. You can add more details later.'}</div>
@@ -2283,10 +2290,16 @@ async function openClientForm(c){
     }
     let res;
     if(edit){ res=await sb.from('clients').update(payload).eq('id',c.id); }
-    else { payload.created_by=ME.id; payload.child_no='MND-C-'+Date.now().toString().slice(-6); res=await sb.from('clients').insert(payload); }
+    else { payload.created_by=ME.id; payload.child_no='MND-C-'+Date.now().toString().slice(-6); res=await sb.from('clients').insert(payload).select().single(); }
     if(res.error){ toast(res.error.message,true); btn.disabled=false; btn.textContent=edit?'Save changes':'Add child'; return; }
-    toast(edit?'Child updated':'Child added');
-    close(); if(currentView==='clients')renderClients($('#view')); else go('clients');
+    // If this child was created from a standalone assessment, link them.
+    if(fromAssessment && res.data && res.data.id){
+      try{ await sb.from('assessments').update({ client_id:res.data.id, linked_client_id:res.data.id }).eq('id',fromAssessment); }catch(e){}
+    }
+    toast(edit?'Child updated':(fromAssessment?'Child created from assessment':'Child added'));
+    close();
+    if(fromAssessment){ go('assessments_hub'); }
+    else if(currentView==='clients')renderClients($('#view')); else go('clients');
   };
 }
 
@@ -10501,6 +10514,203 @@ function asBuildSummary(child, a, sections, protoRows){
 /* ---------------------------------------------------------------------
    VIEW: list of assessments for a child
 --------------------------------------------------------------------- */
+/* =====================================================================
+   STANDALONE ASSESSMENT SERVICE
+   Assessment as a service in its own right: created by staff, optionally
+   assigned to a professional, able to exist with no child, and able to
+   become a child later. A professional sees "My assessments" only when
+   something is assigned to them.
+   ===================================================================== */
+
+// Conditional nav tab for professionals with assigned assessments.
+async function maybeAddAssessmentTab(nav){
+  try{
+    if(!MY_PROF_ID) return;
+    const {count}=await sb.from('assessments').select('*',{count:'exact',head:true})
+      .eq('assigned_to',MY_PROF_ID).neq('status','declined');
+    if(count && count>0){
+      const b=el(`<button class="nav-item" data-k="my_assessments">${icon('plan')}<span>My assessments</span></button>`);
+      b.addEventListener('click',()=>{go('my_assessments');closeSide();});
+      nav.appendChild(b);
+    }
+  }catch(e){}
+}
+
+// STAFF: the assessments hub — all standalone assessments, create + assign.
+async function renderAssessmentsHub(v){
+  if(!isStaff()){ go('dashboard'); return; }
+  const {data:list,error}=await sb.from('assessments').select('*')
+    .order('created_at',{ascending:false});
+  v.innerHTML=`
+    <div class="section-head"><h3>Assessments</h3><button class="btn btn-primary btn-sm" id="newSA">+ New assessment</button></div>
+    <div class="row-sub" style="color:var(--muted);margin-bottom:12px">Assessments as a service — including for people who may not join the child program. Create one, assign it to a professional, and turn it into a child record if and when that's the right step.</div>
+    <div class="rows" id="saRows"></div>`;
+  $('#newSA').onclick=()=>standaloneAssessmentForm(()=>renderAssessmentsHub($('#view')));
+  const rows=$('#saRows');
+  if(error){ rows.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`; return; }
+  if(!list||!list.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>No assessments yet</h4><p>Create one to begin.</p></div>'; return; }
+  // resolve assignee + child names
+  const profIds=[...new Set(list.map(a=>a.assigned_to).filter(Boolean))];
+  const cliIds=[...new Set(list.map(a=>a.client_id||a.linked_client_id).filter(Boolean))];
+  let profName={}, cliName={};
+  if(profIds.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',profIds); (pf||[]).forEach(p=>profName[p.id]=p.full_name); }
+  if(cliIds.length){ const {data:cl}=await sb.from('clients').select('id,full_name').in('id',cliIds); (cl||[]).forEach(c=>cliName[c.id]=c.full_name); }
+  rows.innerHTML='';
+  list.forEach(a=>{
+    const who = a.client_id?cliName[a.client_id] : (a.subject_name||'Unnamed');
+    const linked = a.linked_client_id?` · became a child`:'';
+    const st=a.status||'draft';
+    const pill = st==='complete'?'<span class="pill active">Complete</span>'
+      : st==='in_progress'?'<span class="pill enquiry">In progress</span>'
+      : st==='assigned'?'<span class="pill assessment">Assigned</span>'
+      : st==='declined'?'<span class="pill exited">Declined</span>'
+      : '<span class="pill band">Draft</span>';
+    const assignee = a.assigned_to?('Assigned to '+escapeHtml(profName[a.assigned_to]||'a professional')):'Unassigned';
+    const card=el(`<div class="row-card" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="row-name" style="flex:1;min-width:150px">${escapeHtml(who)}${a.client_id?'':' <span class="row-sub">(not yet a child)</span>'}</div>
+        ${pill}
+      </div>
+      <div class="row-sub">${fmtDate(a.assessment_date||a.created_at)} · ${assignee}${linked}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
+        <button class="btn btn-ghost btn-sm saOpen" data-id="${a.id}" style="width:auto">Open</button>
+        <button class="btn btn-ghost btn-sm saAssign" data-id="${a.id}" style="width:auto">${a.assigned_to?'Reassign':'Assign'}</button>
+        ${(!a.client_id && !a.linked_client_id)?`<button class="btn btn-ghost btn-sm saToChild" data-id="${a.id}" style="width:auto;color:var(--accent-deep)">Create child from this</button>`:''}
+        <button class="btn btn-ghost btn-sm saDel" data-id="${a.id}" style="width:auto;color:var(--danger)">Delete</button>
+      </div></div>`);
+    card.querySelector('.saOpen').onclick=()=>{ SELECTED_ASSESSMENT=a; SELECTED_CHILD=a.client_id?{id:a.client_id,full_name:cliName[a.client_id]}:null; go('standalone_assessment'); };
+    card.querySelector('.saAssign').onclick=()=>assignAssessmentModal(a,()=>renderAssessmentsHub($('#view')));
+    const tc=card.querySelector('.saToChild'); if(tc) tc.onclick=()=>createChildFromAssessment(a);
+    card.querySelector('.saDel').onclick=async()=>{
+      if(!confirm('Delete this assessment and all its protocols, scores and report? This cannot be undone.')) return;
+      const {error}=await sb.from('assessments').delete().eq('id',a.id);
+      if(error){ toast(error.message,true); return; }
+      toast('Assessment deleted'); renderAssessmentsHub($('#view'));
+    };
+    rows.appendChild(card);
+  });
+}
+
+// PROFESSIONAL: assessments assigned to me.
+async function renderMyAssessments(v){
+  if(!MY_PROF_ID){ go('role_home'); return; }
+  const {data:list,error}=await sb.from('assessments').select('*')
+    .eq('assigned_to',MY_PROF_ID).order('assigned_at',{ascending:false});
+  v.innerHTML=`<div class="welcome"><h1>My assessments</h1><p>Assessments Mindora has asked you to carry out.</p></div>
+    <div class="rows" id="maRows"></div>`;
+  const rows=$('#maRows');
+  if(error){ rows.innerHTML=`<div class="empty"><h4>Couldn't load</h4><p>${escapeHtml(error.message)}</p></div>`; return; }
+  const active=(list||[]).filter(a=>a.status!=='declined');
+  if(!active.length){ rows.innerHTML='<div class="empty" style="padding:24px"><h4>Nothing assigned</h4><p>When Mindora assigns you an assessment, it will appear here.</p></div>'; return; }
+  const cliIds=[...new Set(active.map(a=>a.client_id).filter(Boolean))];
+  let cliName={}; if(cliIds.length){ const {data:cl}=await sb.from('clients').select('id,full_name').in('id',cliIds); (cl||[]).forEach(c=>cliName[c.id]=c.full_name); }
+  rows.innerHTML='';
+  active.forEach(a=>{
+    const who=a.client_id?cliName[a.client_id]:(a.subject_name||'Unnamed');
+    const st=a.status||'assigned';
+    const pill=st==='complete'?'<span class="pill active">Complete</span>':st==='in_progress'?'<span class="pill enquiry">In progress</span>':'<span class="pill assessment">To do</span>';
+    const card=el(`<div class="row-card" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;gap:10px;align-items:center"><div class="row-name" style="flex:1">${escapeHtml(who)}</div>${pill}</div>
+      ${a.assessment_purpose?`<div class="row-sub" style="white-space:normal">${escapeHtml(a.assessment_purpose)}</div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
+        <button class="btn btn-primary btn-sm maOpen" data-id="${a.id}" style="width:auto">Open & assess</button>
+        ${st!=='declined'?`<button class="btn btn-ghost btn-sm maDecline" data-id="${a.id}" style="width:auto">Can't do this</button>`:''}
+      </div></div>`);
+    card.querySelector('.maOpen').onclick=async()=>{
+      if(st==='assigned'){ await sb.from('assessments').update({status:'in_progress'}).eq('id',a.id); a.status='in_progress'; }
+      SELECTED_ASSESSMENT=a; SELECTED_CHILD=a.client_id?{id:a.client_id,full_name:cliName[a.client_id]}:null; go('standalone_assessment');
+    };
+    const dc=card.querySelector('.maDecline'); if(dc) dc.onclick=async()=>{
+      const r=prompt('Let the director know why you can\u2019t take this assessment:'); if(r===null) return;
+      await sb.from('assessments').update({status:'declined',decline_reason:r||null}).eq('id',a.id);
+      toast('The director has been notified'); renderMyAssessments($('#view'));
+    };
+    rows.appendChild(card);
+  });
+}
+
+// STAFF: create a standalone assessment (person details, no child needed).
+function standaloneAssessmentForm(after){
+  const today=isoD(new Date());
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>New assessment</h3><div class="sub">For someone who is not (yet) a child record. You can turn it into a child later if that's the right step.</div>
+    <div class="form-row"><label>Name of person being assessed *</label><input id="sa_name" placeholder="Full name"/></div>
+    <div class="form-row two">
+      <div><label>Date of birth</label><input id="sa_dob" type="date"/></div>
+      <div><label>Sex</label><select id="sa_sex"><option value="">—</option><option>Female</option><option>Male</option></select></div>
+    </div>
+    <div class="form-row"><label>Caregiver / guardian</label><input id="sa_care" placeholder="e.g. mother's name"/></div>
+    <div class="form-row"><label>Contact</label><input id="sa_contact" placeholder="phone or email"/></div>
+    <div class="form-row"><label>Purpose of assessment</label><textarea id="sa_purpose" placeholder="Why is this assessment being done? (Not everyone assessed joins the child program.)"></textarea></div>
+    <div class="form-row"><label>Date</label><input id="sa_date" type="date" value="${today}"/></div>
+    <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="sa_consent" type="checkbox" style="width:auto"/> Consent to assess has been obtained</label></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="sa_cancel">Cancel</button><button class="btn btn-primary" id="sa_save">Create</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#sa_cancel').onclick=close;
+  m.querySelector('#sa_save').onclick=async()=>{
+    const name=m.querySelector('#sa_name').value.trim();
+    if(!name){ toast('Enter the name of the person being assessed.',true); return; }
+    const b=m.querySelector('#sa_save'); b.disabled=true; b.textContent='Creating…';
+    const {data,error}=await sb.from('assessments').insert({
+      client_id:null,
+      subject_name:name,
+      subject_dob:m.querySelector('#sa_dob').value||null,
+      subject_sex:m.querySelector('#sa_sex').value||null,
+      subject_caregiver:m.querySelector('#sa_care').value.trim()||null,
+      subject_contact:m.querySelector('#sa_contact').value.trim()||null,
+      assessment_purpose:m.querySelector('#sa_purpose').value.trim()||null,
+      assessment_date:m.querySelector('#sa_date').value||isoD(new Date()),
+      examiner_profile_id:ME.id, created_by:ME.id, status:'draft',
+      consent_obtained:m.querySelector('#sa_consent').checked
+    }).select().single();
+    if(error){ toast(error.message,true); b.disabled=false; b.textContent='Create'; return; }
+    // seed case history
+    try{ const hx=asProto('MND-HX-01'); if(hx) await sb.from('assessment_protocols').insert({
+      assessment_id:data.id, protocol_code:hx.code, protocol_title:hx.title, protocol_domain:hx.domain,
+      protocol_version:ASSESS_VERSION, administered_by:ME.id, administered_name:ME.full_name||null }); }catch(e){}
+    toast('Assessment created'); close(); if(after) after();
+  };
+}
+
+// STAFF: assign / reassign an assessment to a professional.
+async function assignAssessmentModal(a, after){
+  const {data:profs}=await sb.from('professionals').select('id,full_name,status').eq('status','active').order('full_name');
+  const opts=(profs||[]).map(p=>`<option value="${p.id}" ${a.assigned_to===p.id?'selected':''}>${escapeHtml(p.full_name||'—')}</option>`).join('');
+  const m=el(`<div class="modal-bg show"><div class="modal">
+    <h3>${a.assigned_to?'Reassign':'Assign'} assessment</h3>
+    <div class="sub">${escapeHtml(a.subject_name||'this assessment')}</div>
+    <div class="form-row"><label>Professional</label><select id="aa_prof"><option value="">— choose —</option>${opts}</select></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="aa_cancel">Cancel</button><button class="btn btn-primary" id="aa_save">Assign</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#aa_cancel').onclick=close;
+  m.querySelector('#aa_save').onclick=async()=>{
+    const pid=m.querySelector('#aa_prof').value;
+    if(!pid){ toast('Choose a professional.',true); return; }
+    const {error}=await sb.from('assessments').update({
+      assigned_to:pid, assigned_by:ME.id, assigned_at:new Date().toISOString(),
+      status:(a.status==='draft'||!a.status)?'assigned':a.status
+    }).eq('id',a.id);
+    if(error){ toast(error.message,true); return; }
+    toast('Assigned — the professional has been notified'); close(); if(after) after();
+  };
+}
+
+// STAFF: turn a standalone assessment into a child record (pre-fill, editable).
+function createChildFromAssessment(a){
+  openClientForm({
+    _prefillOnly:true,
+    full_name:a.subject_name||'',
+    dob:a.subject_dob||'',
+    sex:a.subject_sex||'',
+    parent_name:a.subject_caregiver||'',
+    _fromAssessment:a.id
+  });
+}
+
 async function renderChildAssessments(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
   const {data:list}=await sb.from('assessments').select('*')
@@ -10603,6 +10813,9 @@ function asNewForm(c){
 async function renderAssessment(v,a){
   if(!a){ go('child_assessments'); return; }
   const c=SELECTED_CHILD;
+  const standalone = !a.client_id;                 // no child attached
+  const backView = standalone ? (isStaff()?'assessments_hub':'my_assessments') : 'child_assessments';
+  const subjectLabel = c ? c.full_name : (a.subject_name || 'Assessment');
   const [{data:ps},{data:scores},{data:rep}]=await Promise.all([
     sb.from('assessment_protocols').select('*').eq('assessment_id',a.id).order('protocol_domain'),
     sb.from('standardized_scores').select('*').eq('assessment_id',a.id).order('created_at'),
@@ -10613,7 +10826,7 @@ async function renderAssessment(v,a){
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessments</button>
     <div class="welcome"><h1>Assessment — ${fmtDate(a.assessment_date)}</h1>
-      <p>${escapeHtml(c?c.full_name:'')} · ${escapeHtml(a.examiner_name||'—')}${asAgeStr(a)?' · '+asAgeStr(a):''}</p></div>
+      <p>${escapeHtml(subjectLabel)} · ${escapeHtml(a.examiner_name||'—')}${asAgeStr(a)?' · '+asAgeStr(a):''}</p></div>
 
     ${!a.consent_obtained?`<div class="as-flag">Consent has not been recorded for this assessment. Record it before the report is released.</div>`:''}
     ${flags.length?`<div class="as-flag">PRIORITY FINDINGS<br>${flags.map(f=>'· '+escapeHtml(f)).join('<br>')}</div>`:''}
@@ -10633,14 +10846,14 @@ async function renderAssessment(v,a){
       ${isStaff()?`<div class="row-card" id="delEp" style="border-color:#F3C9CB"><div class="row-main"><div class="row-name" style="color:var(--danger)">Delete this assessment</div><div class="row-sub">Removes all protocols, scores and the report</div></div></div>`:''}
     </div>`;
 
-  $('#backBtn').onclick=()=>{ SELECTED_CHILD=c; go('child_assessments'); };
+  $('#backBtn').onclick=()=>{ SELECTED_CHILD=c; go(backView); };
   $('#addProto').onclick=()=>asAddProtoModal(a,(ps||[]).map(p=>p.protocol_code),()=>renderAssessment($('#view'),a));
   $('#addScore').onclick=()=>asScoreForm(a,null,()=>renderAssessment($('#view'),a));
   $('#editEp').onclick=()=>asEditEpisode(a,()=>renderAssessment($('#view'),a));
   const de=$('#delEp'); if(de) de.onclick=async()=>{
     if(!confirm('Delete this entire assessment, including all protocols, scores and the report?')) return;
     await sb.from('assessments').delete().eq('id',a.id);
-    toast('Assessment deleted'); SELECTED_CHILD=c; go('child_assessments');
+    toast('Assessment deleted'); SELECTED_CHILD=c; go(backView);
   };
 
   // protocols
