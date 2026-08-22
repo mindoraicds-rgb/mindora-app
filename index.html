@@ -1084,6 +1084,109 @@ let COMPANY=null;
 const $=s=>document.querySelector(s);
 const el=(h)=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;};
 function toast(m,bad){const t=$('#toast');t.textContent=m;t.className=bad?'bad show':'show';setTimeout(()=>t.className='',2600);}
+
+/* =====================================================================
+   IN-APP TUTORIAL — role-specific welcome cards, in the Director's voice.
+   Auto-shows once on first login (remembered per device); reopenable any
+   time from Support. Simple swipe/click card slideshow — no coach-marks,
+   so it never breaks when a screen changes.
+   ===================================================================== */
+const MND_TUTORIAL={
+  professional:{
+    title:'Welcome to Mindora',
+    cards:[
+      {h:'You\u2019re part of the team',b:'Mindora brings the therapist, the parent and the school around one child, working from one shared plan. This app is where that happens. Here\u2019s how to find your way around \u2014 it takes two minutes.'},
+      {h:'Requests come to you',b:'When a child is assigned to you, it appears under <b>Requests</b>. Open it, read the note, and accept or decline. Accepting unlocks the full record so you can start work. You don\u2019t pick children off a list \u2014 Mindora matches them to you.'},
+      {h:'Your children live in one place',b:'Everyone you\u2019re working with sits under <b>My children</b>. Tap a child to see their plan, goals, history and the whole care team \u2014 including what other professionals have done.'},
+      {h:'Log every session',b:'After each session, open the child and tap <b>Log a session</b>. Record what you did, the goals you worked on, and a short summary. Add a home or school activity if there is one. This is also how your work is verified for payment \u2014 no record, no payment.'},
+      {h:'Show the progress',b:'Set clear <b>goals</b> and score progress over time. When something real happens \u2014 a first word, a breakthrough \u2014 mark it as a <b>milestone</b>. Parents treasure these, and it\u2019s how change becomes visible.'},
+      {h:'Talk to the team, not around it',b:'Use <b>Case discussions</b> to raise anything clinical with the whole team. Keep parent conversations inside the app. On fees or scope, always come through the Director.'},
+      {h:'That\u2019s it',b:'Fill in your profile fully so you\u2019re matched well, keep your records prompt and honest, and reach out any time through <b>Support</b>. Welcome aboard. \u{1F49C}'},
+    ]
+  },
+  parent:{
+    title:'Welcome to Mindora',
+    cards:[
+      {h:'This is your window in',b:'Everything about your child\u2019s support lives here \u2014 what the team is working on, how it\u2019s going, and what you can do at home. Here\u2019s a quick tour.'},
+      {h:'See how your child is doing',b:'Open your child from the home screen. At the top you\u2019ll find a plain-language summary of how they\u2019re doing \u2014 in real words, not jargon.'},
+      {h:'Follow the goals and sessions',b:'You\u2019ll see <b>what we\u2019re working on</b> and why it matters, plus a list of <b>recent sessions</b>. Tap any session to read the full note and see any home activities.'},
+      {h:'Celebrate the milestones',b:'When your child reaches a real moment \u2014 a first word, a breakthrough \u2014 it appears under <b>Milestones</b>, sometimes with a photo or clip. These are yours to keep.'},
+      {h:'You\u2019re part of the team',b:'You see your child in real life more than anyone. Use <b>Share something</b> to tell the team about a win at home or a worry \u2014 it genuinely helps them.'},
+      {h:'Ask any time',b:'Use <b>Ask the team</b> or the message thread on any session to ask a question. We\u2019re here. Welcome to Mindora. \u{1F49C}'},
+    ]
+  },
+  institution:{
+    title:'Welcome to Mindora',
+    cards:[
+      {h:'Welcome, partner',b:'This is where your partnership with Mindora lives \u2014 the children we support with you, and the shared work around them. A quick tour.'},
+      {h:'Your institution at a glance',b:'Open <b>My institution</b> to see your partnership details and the children being supported through it.'},
+      {h:'The Mindora team',b:'Under <b>Team profiles</b> you can see the professionals working with your setting \u2014 their disciplines and background.'},
+      {h:'Stay connected',b:'Use <b>Community</b> for updates and <b>Support</b> to reach us any time. We work best when the school and the team are talking. Welcome aboard. \u{1F49C}'},
+    ]
+  },
+  director:{
+    title:'Welcome to Mindora',
+    cards:[
+      {h:'This is your control room',b:'As Director you can see everything \u2014 children, professionals, institutions, assignments, finances and reports. A quick orientation.'},
+      {h:'The people',b:'<b>Children</b>, <b>Professionals</b> and <b>Institutions</b> hold your records. <b>Assignments</b> is where you match professionals to children from the pool.'},
+      {h:'Oversight',b:'<b>Reports</b>, <b>Program evaluation</b> and <b>Finances</b> give you the full picture. You can quietly see parent\u2013therapist threads for oversight without being a participant.'},
+      {h:'Access & settings',b:'Use <b>People & access</b> to set roles and onboard new logins, and <b>Settings</b> to tune the system. Everything runs through here.'},
+    ]
+  },
+  secretary:{
+    title:'Welcome to Mindora',
+    cards:[
+      {h:'Welcome',b:'You help keep Mindora running day to day. Here\u2019s a quick tour of what you can do.'},
+      {h:'The records',b:'You can work with <b>Children</b>, <b>Professionals</b> and <b>Institutions</b>, and help manage <b>Assignments</b>.'},
+      {h:'Keeping things moving',b:'Use <b>Support</b> to handle incoming questions, and the tabs the Director has enabled for you. Welcome aboard. \u{1F49C}'},
+    ]
+  }
+};
+
+function showTutorial(force){
+  const role=ME&&ME.role; if(!role) return;
+  const t=MND_TUTORIAL[role]||MND_TUTORIAL.professional;
+  let i=0;
+  const m=el(`<div class="modal-bg show" style="z-index:9999"><div class="modal" style="max-width:440px;text-align:center">
+    <div id="tut_body" style="min-height:190px"></div>
+    <div id="tut_dots" style="display:flex;gap:6px;justify-content:center;margin:16px 0"></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <button class="btn btn-ghost btn-sm" id="tut_skip" style="width:auto">Skip</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" id="tut_prev" style="width:auto">Back</button>
+        <button class="btn btn-primary btn-sm" id="tut_next" style="width:auto">Next</button>
+      </div>
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const body=m.querySelector('#tut_body'), dots=m.querySelector('#tut_dots');
+  const close=()=>{ try{ localStorage.setItem('mnd_tut_'+role,'1'); }catch(e){} m.remove(); };
+  const paint=()=>{
+    const c=t.cards[i];
+    body.innerHTML=`<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">${escapeHtml(t.title)}</div>
+      <h2 style="font-family:var(--serif,Georgia);color:var(--accent-deep);margin:0 0 12px;font-size:22px">${c.h}</h2>
+      <div style="font-size:15px;line-height:1.65;color:var(--ink,#1A1A2E)">${c.b}</div>`;
+    dots.innerHTML=t.cards.map((_,n)=>`<span style="width:8px;height:8px;border-radius:50%;background:${n===i?'var(--accent)':'var(--line,#ddd)'}"></span>`).join('');
+    m.querySelector('#tut_prev').style.visibility=i===0?'hidden':'visible';
+    m.querySelector('#tut_next').textContent=(i===t.cards.length-1)?'Done':'Next';
+  };
+  m.querySelector('#tut_next').onclick=()=>{ if(i<t.cards.length-1){i++;paint();} else close(); };
+  m.querySelector('#tut_prev').onclick=()=>{ if(i>0){i--;paint();} };
+  m.querySelector('#tut_skip').onclick=close;
+  m.addEventListener('click',e=>{ if(e.target===m) close(); });
+  // swipe on touch
+  let sx=0; m.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});
+  m.addEventListener('touchend',e=>{ const dx=e.changedTouches[0].clientX-sx; if(dx<-40&&i<t.cards.length-1){i++;paint();} else if(dx>40&&i>0){i--;paint();} });
+  paint();
+}
+
+function maybeShowTutorialOnLogin(){
+  try{
+    const role=ME&&ME.role; if(!role) return;
+    if(localStorage.getItem('mnd_tut_'+role)==='1') return;   // already seen on this device
+    setTimeout(()=>showTutorial(false), 700);                 // let the home screen render first
+  }catch(e){}
+}
 function initials(n){return (n||'M').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 function money(n){return 'UGX '+Number(n||0).toLocaleString();}
 function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
@@ -1154,6 +1257,7 @@ async function boot(){
   const landing = isStaff() ? 'dashboard' : (KNOWN.includes(ME.role) ? 'role_home' : 'pending');
   go(landing);
   NAV_HISTORY=[];
+  if(landing!=='pending') maybeShowTutorialOnLogin();
 }
 const isStaff=()=>['director','secretary'].includes(ME.role);
 const isDirector=()=>ME.role==='director';
@@ -4254,8 +4358,10 @@ async function renderRoleHome(v){
   const greet=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening';
   v.innerHTML=`
     <div class="welcome"><h1>${greet}, ${escapeHtml(firstName())}</h1><p>Welcome to your Mindora space. Choose where you would like to go.</p></div>
+    <div style="margin:-6px 0 14px"><button class="btn btn-ghost btn-sm" id="howtoBtn" style="width:auto">📖 How to use Mindora</button></div>
     <div id="engBanner"></div>
     <div class="dash-grid" id="dashGrid"></div>`;
+  { const hb=v.querySelector('#howtoBtn'); if(hb) hb.onclick=()=>showTutorial(true); }
 
   /* Professionals who have not yet submitted their details get a banner
      rather than a small icon. An icon is easy to miss; a banner says what
@@ -4315,6 +4421,7 @@ async function renderSupport(v){
   // Portal roles: contact form
   const {data:mine}=await sb.from('support_messages').select('*').eq('sender_id',ME.id).order('created_at',{ascending:false});
   v.innerHTML=`<div class="welcome"><h1>Support &amp; contact team</h1><p>Send a message straight to the Mindora director. We will get back to you.</p></div>
+    <div style="margin:-6px 0 16px"><button class="btn btn-ghost btn-sm" id="howtoBtn2" style="width:auto">📖 How to use Mindora</button></div>
     <div class="form-card" style="max-width:600px">
       <div class="form-row"><label>Subject</label><input id="sm_subj" placeholder="What is this about?"/></div>
       <div class="form-row"><label>Message *</label><textarea id="sm_body" style="min-height:130px" placeholder="How can we help?"></textarea></div>
@@ -4322,6 +4429,7 @@ async function renderSupport(v){
     </div>
     <div class="section-head" style="margin-top:24px"><h3>Your previous messages</h3></div>
     <div class="rows" id="smMine"></div>`;
+  { const hb=v.querySelector('#howtoBtn2'); if(hb) hb.onclick=()=>showTutorial(true); }
   $('#sm_send').onclick=async()=>{
     const body=$('#sm_body').value.trim();
     if(!body){toast('Write a message first.',true);return;}
