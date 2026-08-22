@@ -8939,6 +8939,289 @@ const ASSESS_PROTOCOLS = [
 },
 
 
+{
+  code:'MND-ADL-01', domain:'adaptive',
+  title:'Adaptive Behaviour & Daily Living Profile',
+  band:'All ages',
+  purpose:'Structured profile of how independently the child manages the practical demands of everyday life, across self-care, home, community, safety and self-direction. Adaptive functioning is required for a DSM-5 intellectual disability formulation and matters for support planning in its own right. Rated against age expectation, informed by caregiver report and direct observation where possible.',
+  sections:[
+    { s:'Self-care — eating & drinking', items:[
+      {c:'a1', t:'Feeds self with fingers / spoon / utensils for age', a:'', ty:'M'},
+      {c:'a2', t:'Drinks from an open cup independently', a:'', ty:'M'},
+      {c:'a3', t:'Manages a full meal without help for age', a:'', ty:'M'},
+    ]},
+    { s:'Self-care — dressing & hygiene', items:[
+      {c:'b1', t:'Undresses / dresses for age (including fastenings)', a:'', ty:'M'},
+      {c:'b2', t:'Toileting — independence for age (day and night)', a:'', ty:'M'},
+      {c:'b3', t:'Washing hands and face', a:'', ty:'M'},
+      {c:'b4', t:'Brushing teeth', a:'', ty:'M'},
+      {c:'b5', t:'Bathing / showering with expected level of help', a:'', ty:'M'},
+    ]},
+    { s:'Home living', items:[
+      {c:'c1', t:'Tidies up / puts things away when asked', a:'', ty:'M'},
+      {c:'c2', t:'Helps with simple household chores for age', a:'', ty:'M'},
+      {c:'c3', t:'Follows household routines (bedtime, mealtime)', a:'', ty:'M'},
+    ]},
+    { s:'Community & functional academics', items:[
+      {c:'d1', t:'Understands and uses money for age', a:'', ty:'M'},
+      {c:'d2', t:'Tells time / follows a daily schedule for age', a:'', ty:'M'},
+      {c:'d3', t:'Manages transitions and outings in the community', a:'', ty:'M'},
+      {c:'d4', t:'Uses the phone / asks for help appropriately', a:'', ty:'M'},
+    ]},
+    { s:'Safety & self-direction', items:[
+      {c:'e1', t:'Aware of everyday dangers (road, hot things, heights) for age', a:'', ty:'M'},
+      {c:'e2', t:'Follows safety rules with expected supervision', a:'', ty:'M'},
+      {c:'e3', t:'Makes simple choices and follows through', a:'', ty:'M'},
+      {c:'e4', t:'Manages own belongings / completes a task without constant prompting', a:'', ty:'M'},
+      {c:'e5', t:'Can be left with age-appropriate, expected supervision', a:'Report only — never test this directly', ty:'M'},
+    ]},
+    { s:'Overall & impact', items:[
+      {c:'f1', t:'Overall level of daily-living independence relative to same-age peers', a:'', ty:'C',
+        o:['Age-appropriate','Mildly below age','Moderately below age','Significantly below age','Requires support in almost all areas']},
+      {c:'f2', t:'Gap between what the child CAN do and what they are ALLOWED / asked to do', a:'Sometimes independence is limited by opportunity, not ability', ty:'T'},
+      {c:'f3', t:'Caregiver concern about daily-living independence', a:'', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Pattern of adaptive strengths and needs', a:'Which domains are relatively strong vs which need support', ty:'T'},
+      {c:'z2', t:'Source and validity (observed vs reported; opportunity effects)', a:'', ty:'T'},
+      {c:'z3', t:'Recommendations and priorities for building independence', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ FLUENCY / STAMMERING ============ */
+{
+  code:'MND-FLU-01', domain:'fluency',
+  title:'Fluency & Stammering Profile',
+  band:'All ages',
+  purpose:'Assessment of stuttering and cluttering across frequency, type, severity, physical concomitants and \u2014 crucially \u2014 impact on the person. Includes a stimulus-observe-record speech sample: the clinician elicits connected speech and records disfluency measures. Emotional impact matters as much as the counts.',
+  sections:[
+    { s:'Speech sample (elicit connected speech, then measure)', items:[
+      {c:'a1', t:'Percent syllables stuttered in a connected speech sample', a:'Collect ~300 syllables of conversation/narrative; record %SS', ty:'N', u:'%SS'},
+      {c:'a2', t:'Speech rate', a:'Syllables or words per minute', ty:'N', u:'spm'},
+      {c:'a3', t:'Typical duration of the three longest stutters', a:'Record seconds \u2014 longer blocks raise severity', ty:'N', u:'seconds'},
+      {c:'a4', t:'Sample contexts obtained', a:'Note which \u2014 conversation, narrative, reading, phone, etc.', ty:'T'},
+    ]},
+    { s:'Type of disfluency observed', items:[
+      {c:'b1', t:'Part-word repetitions (b-b-ball)', a:'', ty:'F'},
+      {c:'b2', t:'Whole-word repetitions (I-I-I want)', a:'', ty:'F'},
+      {c:'b3', t:'Prolongations (mmmmilk)', a:'', ty:'F'},
+      {c:'b4', t:'Blocks (silent, no airflow or voice)', a:'Blocks are often the most effortful', ty:'F'},
+      {c:'b5', t:'Cluttering features (rapid/irregular rate, telescoping)', a:'Different from stuttering; can co-occur', ty:'F'},
+    ]},
+    { s:'Physical concomitants / secondary behaviours', items:[
+      {c:'c1', t:'Visible tension (face, jaw, neck)', a:'', ty:'F'},
+      {c:'c2', t:'Eye blinking, head or limb movements', a:'', ty:'F'},
+      {c:'c3', t:'Avoidance behaviours (word/situation avoidance, circumlocution)', a:'Avoidance is a key sign the problem is affecting the person', ty:'F'},
+      {c:'c4', t:'Breathing pattern during disfluency', a:'', ty:'T'},
+    ]},
+    { s:'Reactions & impact (the person\u2019s experience)', items:[
+      {c:'d1', t:'The child\u2019s awareness of and feelings about their speech', a:'Frustration, embarrassment, indifference', ty:'T'},
+      {c:'d2', t:'Impact on participation (answering in class, phone, making friends)', a:'', ty:'V'},
+      {c:'d3', t:'Avoidance of speaking situations', a:'', ty:'V'},
+      {c:'d4', t:'Family/teacher responses to the stammer', a:'How others react shapes the child\u2019s experience', ty:'T'},
+      {c:'d5', t:'Overall severity impression', a:'', ty:'V'},
+    ]},
+    { s:'History & variability', items:[
+      {c:'e1', t:'Age at onset and pattern since (gradual/sudden, episodic)', a:'', ty:'T'},
+      {c:'e2', t:'Family history of stammering', a:'Strongly heritable', ty:'V'},
+      {c:'e3', t:'Situations that make it better or worse', a:'Singing, choral reading, stress, tiredness', ty:'T'},
+      {c:'e4', t:'Time since onset (relevant to natural recovery in young children)', a:'', ty:'T'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Overall pattern \u2014 stuttering, cluttering, or mixed; core vs secondary', a:'', ty:'T'},
+      {c:'z2', t:'Validity of this sample and variability across contexts', a:'', ty:'T'},
+      {c:'z3', t:'Recommendations \u2014 monitor, direct/indirect therapy, referral, urgency', a:'Consider onset recency for young children', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ PRAGMATICS / SOCIAL COMMUNICATION USE ============ */
+{
+  code:'MND-PRA-01', domain:'pragmatics',
+  title:'Pragmatic & Social Language Profile',
+  band:'All ages',
+  purpose:'The social USE of language \u2014 how the child communicates in interaction, distinct from what words and grammar they have. Complements the language and autism profiles. Best rated on observed interaction plus report across contexts.',
+  sections:[
+    { s:'Communicative functions', items:[
+      {c:'a1', t:'Uses language for a range of purposes (request, comment, protest, greet, question, narrate)', a:'A narrow range is a red flag', ty:'M'},
+      {c:'a2', t:'Requests information as well as objects/actions', a:'', ty:'M'},
+      {c:'a3', t:'Expresses feelings and opinions in words', a:'', ty:'M'},
+    ]},
+    { s:'Conversation skills', items:[
+      {c:'b1', t:'Initiates conversation appropriately', a:'', ty:'M'},
+      {c:'b2', t:'Takes turns \u2014 balanced back-and-forth', a:'Not monologuing or only responding', ty:'M'},
+      {c:'b3', t:'Introduces, maintains and changes topic appropriately', a:'', ty:'M'},
+      {c:'b4', t:'Stays on topic rather than drifting to own interests', a:'', ty:'M'},
+      {c:'b5', t:'Repairs breakdowns (clarifies when not understood)', a:'', ty:'M'},
+      {c:'b6', t:'Gives the listener enough \u2014 but not too much \u2014 information', a:'Presupposition: judging what the listener knows', ty:'M'},
+    ]},
+    { s:'Social rules & nonverbal use', items:[
+      {c:'c1', t:'Uses and reads eye contact, facial expression and gesture in interaction', a:'', ty:'M'},
+      {c:'c2', t:'Adjusts language to listener and situation (register / politeness)', a:'Talks differently to a baby vs an adult', ty:'M'},
+      {c:'c3', t:'Uses and interprets tone of voice', a:'', ty:'M'},
+      {c:'c4', t:'Respects personal space and social distance', a:'', ty:'M'},
+    ]},
+    { s:'Understanding social & non-literal language', items:[
+      {c:'d1', t:'Understands non-literal language (idioms, sarcasm, jokes) for age', a:'', ty:'M'},
+      {c:'d2', t:'Makes inferences about others\u2019 intentions and feelings', a:'', ty:'M'},
+      {c:'d3', t:'Understands and uses humour appropriately', a:'', ty:'M'},
+    ]},
+    { s:'Interaction with peers', items:[
+      {c:'e1', t:'Enters a group / joins play appropriately', a:'', ty:'M'},
+      {c:'e2', t:'Negotiates, compromises and resolves conflict in words', a:'', ty:'M'},
+      {c:'e3', t:'Sustains friendships', a:'', ty:'M'},
+      {c:'e4', t:'How pragmatic difficulty affects daily social life', a:'', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Profile of pragmatic strengths and needs', a:'And whether it fits a broader social-communication picture (cross-ref autism/language)', ty:'T'},
+      {c:'z2', t:'Validity \u2014 was this seen in real interaction or only reported', a:'Pragmatics must be observed in interaction where possible', ty:'T'},
+      {c:'z3', t:'Recommendations', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ FEEDING BEYOND SWALLOW (paediatric feeding) ============ */
+{
+  code:'MND-FDG-01', domain:'feeding',
+  title:'Paediatric Feeding & Mealtime Profile',
+  band:'All ages',
+  purpose:'Feeding beyond swallow safety \u2014 the sensory, behavioural, motor and nutritional picture of how a child eats. Covers food range and selectivity, mealtime behaviour and the family experience. For swallow safety and aspiration risk, use the dysphagia protocols alongside this.',
+  sections:[
+    { s:'Diet range & selectivity', items:[
+      {c:'a1', t:'Estimated number of foods accepted', a:'A very restricted range (e.g. <20 foods) is significant', ty:'N', u:'foods'},
+      {c:'a2', t:'Range across food groups', a:'Whether whole groups (e.g. all vegetables, all proteins) are refused', ty:'C',
+        o:['Eats across all groups','Missing one group','Missing two or more groups','Extremely limited (few foods total)']},
+      {c:'a3', t:'Selectivity by texture', a:'Refuses lumpy, mixed, wet, etc.', ty:'C',
+        o:['Accepts all textures','Selective by texture','Only smooth/pureed','Only dry/crunchy','Only specific textures']},
+      {c:'a4', t:'Selectivity by colour, brand, packaging or presentation', a:'Rigid non-nutritional rules about food', ty:'F'},
+      {c:'a5', t:'Loss of previously accepted foods over time', a:'Narrowing range is a red flag', ty:'V'},
+    ]},
+    { s:'Sensory response to food', items:[
+      {c:'b1', t:'Reaction to touching / messy foods', a:'', ty:'S'},
+      {c:'b2', t:'Reaction to food smells', a:'', ty:'S'},
+      {c:'b3', t:'Reaction to new foods (neophobia) \u2014 will they touch, smell, taste?', a:'', ty:'M'},
+      {c:'b4', t:'Gagging at the sight, smell or presence of food', a:'', ty:'F'},
+    ]},
+    { s:'Oral-motor & self-feeding (cross-ref oral-motor)', items:[
+      {c:'c1', t:'Manages age-appropriate textures (biting, chewing)', a:'', ty:'M'},
+      {c:'c2', t:'Self-feeds with fingers / utensils for age', a:'', ty:'M'},
+      {c:'c3', t:'Drinks from open cup / straw for age', a:'', ty:'M'},
+      {c:'c4', t:'Pace of eating (very fast / very slow / stuffing)', a:'', ty:'T'},
+    ]},
+    { s:'Mealtime behaviour & environment', items:[
+      {c:'d1', t:'Behaviour at mealtimes (refusal, distress, leaving the table, throwing)', a:'', ty:'F'},
+      {c:'d2', t:'Length of a typical meal', a:'Very long meals signal difficulty', ty:'N', u:'minutes'},
+      {c:'d3', t:'Strategies the family currently uses (distraction, pressure, grazing, separate meals)', a:'Some well-meant strategies maintain the problem', ty:'T'},
+      {c:'d4', t:'Where and how the child eats (at table, on the move, screen use)', a:'', ty:'T'},
+      {c:'d5', t:'Stress the difficulty causes the family', a:'The family experience matters and shapes the plan', ty:'V'},
+    ]},
+    { s:'Growth, nutrition & medical (report / refer)', items:[
+      {c:'e1', t:'Concern about weight, growth or hydration', a:'Refer to medical/dietetics if growth is affected', ty:'V'},
+      {c:'e2', t:'Reliance on supplements, tube feeds or specific drinks for intake', a:'', ty:'T'},
+      {c:'e3', t:'Reflux, vomiting, constipation, allergy or medical factors', a:'Medical drivers must be ruled in or out', ty:'T'},
+      {c:'e4', t:'Pattern consistent with avoidant/restrictive intake (ARFID)', a:'Extreme selectivity + nutritional/psychosocial impact \u2014 refer appropriately', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Main drivers \u2014 sensory, oral-motor, behavioural, medical, or mixed', a:'Determines who leads and what the plan is', ty:'T'},
+      {c:'z2', t:'Validity and source of information', a:'', ty:'T'},
+      {c:'z3', t:'Recommendations and onward referral (dietetics, paediatrics, psychology)', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ HEARING / LISTENING BEHAVIOUR (functional screen) ============ */
+{
+  code:'MND-HRG-01', domain:'hearing',
+  title:'Functional Listening & Hearing Behaviour Screen',
+  band:'All ages',
+  purpose:'A functional screen of how the child responds to and uses sound in everyday life \u2014 NOT a hearing test. Its purpose is to decide whether audiological referral is needed and to describe listening behaviour. Hearing must always be established before interpreting speech and language findings.',
+  sections:[
+    { s:'Response to sound (observe / report)', items:[
+      {c:'a1', t:'Responds to name when not looking', a:'', ty:'M'},
+      {c:'a2', t:'Turns to or locates everyday sounds', a:'', ty:'M'},
+      {c:'a3', t:'Startles or responds to sudden loud sounds', a:'', ty:'M'},
+      {c:'a4', t:'Wakes to / notices sound during quiet activity', a:'', ty:'M'},
+      {c:'a5', t:'Response is consistent, or seems to vary day to day', a:'Fluctuating response can indicate glue ear', ty:'C',
+        o:['Consistent response','Fluctuates (better some days)','Consistently reduced','Unclear']},
+    ]},
+    { s:'Listening in everyday contexts', items:[
+      {c:'b1', t:'Follows spoken instructions without visual cues', a:'', ty:'M'},
+      {c:'b2', t:'Understands speech in a quiet room', a:'', ty:'M'},
+      {c:'b3', t:'Understands speech in background noise (classroom, group)', a:'Difficulty here even with normal hearing suggests auditory processing', ty:'M'},
+      {c:'b4', t:'Watches faces / lips closely to understand', a:'Compensating behaviour worth noting', ty:'F'},
+      {c:'b5', t:'Asks for repetition or says \u201cwhat?\u201d frequently', a:'', ty:'F'},
+      {c:'b6', t:'Turns up volume / sits close to sound sources', a:'', ty:'F'},
+    ]},
+    { s:'Listening behaviour & attention to sound', items:[
+      {c:'c1', t:'Attends to a speaker for age-appropriate periods', a:'', ty:'M'},
+      {c:'c2', t:'Distinguishes similar-sounding words', a:'', ty:'M'},
+      {c:'c3', t:'Remembers and follows multi-step spoken information', a:'Auditory memory', ty:'M'},
+      {c:'c4', t:'Appears to \u201ctune out\u201d or mishear frequently', a:'', ty:'F'},
+    ]},
+    { s:'Risk factors & history', items:[
+      {c:'d1', t:'History of ear infections / glue ear / grommets', a:'The commonest cause of fluctuating childhood hearing loss', ty:'V'},
+      {c:'d2', t:'Family history of hearing loss', a:'', ty:'V'},
+      {c:'d3', t:'Last audiology / hearing test and result', a:'If none or old, referral is likely indicated', ty:'T'},
+      {c:'d4', t:'Caregiver or teacher concern about hearing', a:'Caregiver concern predicts real loss well', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Does the picture point to a possible hearing loss, an auditory processing difficulty, or neither?', a:'Be clear this is a functional screen, not a diagnosis', ty:'T'},
+      {c:'z2', t:'Is audiological referral indicated?', a:'When in doubt, refer \u2014 hearing underpins everything else', ty:'C',
+        o:['Refer to audiology \u2014 urgent','Refer to audiology \u2014 routine','Recent normal test, no referral needed','Monitor and review']},
+      {c:'z3', t:'How to interpret speech-language findings in light of this', a:'', ty:'T'},
+    ]},
+  ]
+},
+
+/* ============ EMOTIONAL / MENTAL-HEALTH SCREEN ============ */
+{
+  code:'MND-EMO-01', domain:'emotional',
+  title:'Emotional Wellbeing & Mental-Health Screen',
+  band:'All ages',
+  purpose:'A gentle screen of emotional wellbeing, regulation, anxiety and mood \u2014 to notice concerns and decide whether onward referral to psychology or mental-health services is needed. This is a screen and support-planning tool, NOT a psychiatric diagnosis. Anything raising safeguarding or risk concern follows the safeguarding policy immediately.',
+  sections:[
+    { s:'Emotional regulation', items:[
+      {c:'a1', t:'Manages frustration and disappointment for age', a:'', ty:'M'},
+      {c:'a2', t:'Recovers from being upset in a reasonable time', a:'', ty:'M'},
+      {c:'a3', t:'Frequency of emotional outbursts / meltdowns', a:'', ty:'F'},
+      {c:'a4', t:'Can name and talk about feelings for age', a:'Emotional literacy', ty:'M'},
+      {c:'a5', t:'Uses or accepts calming strategies', a:'', ty:'M'},
+    ]},
+    { s:'Anxiety', items:[
+      {c:'b1', t:'Excessive worry (about many things, hard to control)', a:'', ty:'F'},
+      {c:'b2', t:'Specific fears or avoidance beyond what\u2019s expected', a:'', ty:'F'},
+      {c:'b3', t:'Separation anxiety beyond age expectation', a:'', ty:'F'},
+      {c:'b4', t:'Physical signs of anxiety (tummy aches, headaches, sleep, restlessness)', a:'', ty:'F'},
+      {c:'b5', t:'Social anxiety / reluctance to speak in some settings', a:'Consider selective mutism if speech is situation-bound', ty:'F'},
+    ]},
+    { s:'Mood', items:[
+      {c:'c1', t:'Low mood or sadness that persists', a:'', ty:'F'},
+      {c:'c2', t:'Loss of interest / pleasure in usual activities', a:'', ty:'F'},
+      {c:'c3', t:'Irritability out of keeping with the situation', a:'Low mood in children often looks like irritability', ty:'F'},
+      {c:'c4', t:'Changes in sleep, appetite or energy', a:'', ty:'F'},
+      {c:'c5', t:'Expresses hopelessness or very negative self-talk', a:'Take seriously; follow up sensitively', ty:'V'},
+    ]},
+    { s:'Behaviour, relationships & function', items:[
+      {c:'d1', t:'Relationships with family members', a:'', ty:'T'},
+      {c:'d2', t:'Relationships with peers / friendships', a:'', ty:'T'},
+      {c:'d3', t:'Engagement and coping at school', a:'', ty:'T'},
+      {c:'d4', t:'Overall impact of emotional difficulties on daily life', a:'', ty:'V'},
+      {c:'d5', t:'Protective factors and sources of support in the child\u2019s life', a:'Strengths matter as much as difficulties', ty:'T'},
+    ]},
+    { s:'Context & safety', items:[
+      {c:'e1', t:'Recent stressors or changes (loss, moves, conflict, illness)', a:'', ty:'T'},
+      {c:'e2', t:'Any safeguarding or risk concern arising', a:'If yes, follow the safeguarding policy immediately \u2014 do not wait', ty:'V'},
+    ]},
+    { s:'Clinician synthesis', items:[
+      {c:'z1', t:'Summary of emotional wellbeing \u2014 areas of concern and of strength', a:'', ty:'T'},
+      {c:'z2', t:'This is a screen, not a diagnosis \u2014 state that plainly', a:'', ty:'T'},
+      {c:'z3', t:'Referral / next steps', a:'', ty:'C',
+        o:['No concern \u2014 no action','Monitor and review','Refer to psychology / counselling','Refer to child mental-health services','Urgent \u2014 follow safeguarding/risk pathway now']},
+    ]},
+  ]
+},
+
 /* ================= LANGUAGE — BAND A (0–36 months) ================= */
 {
   code:'MND-LNG-01', domain:'language',
@@ -9927,9 +10210,10 @@ const ASSESS_PROTOCOLS = [
 const AS_DOMAIN_LABEL = {
   case_history:'Case history', language:'Language', speech:'Speech', voice:'Voice', cognition:'Cognition',
   behavior:'Behaviour', sensory:'Sensory', oral_motor:'Oral motor', dysphagia:'Dysphagia',
-  learning:'Learning', motor:'Motor coordination', autism:'Social communication', adaptive:'Adaptive'
+  learning:'Learning', motor:'Motor coordination', autism:'Social communication', adaptive:'Adaptive',
+  fluency:'Fluency / stammering', pragmatics:'Pragmatics / social language', feeding:'Feeding & mealtime', hearing:'Hearing & listening', emotional:'Emotional wellbeing'
 };
-const AS_DOMAIN_ORDER = ['case_history','language','speech','voice','cognition','behavior','sensory','oral_motor','dysphagia','learning','motor','autism','adaptive'];
+const AS_DOMAIN_ORDER = ['case_history','language','pragmatics','speech','fluency','voice','hearing','cognition','behavior','emotional','sensory','oral_motor','feeding','dysphagia','learning','motor','autism','adaptive'];
 
 /* ---------------------------------------------------------------------
    HELPERS
@@ -10443,7 +10727,7 @@ function asAddProtoModal(a, already, after){
   const groups=AS_DOMAIN_ORDER.map(d=>({
     d, label:AS_DOMAIN_LABEL[d],
     items:ASSESS_PROTOCOLS.filter(p=>p.domain===d)
-  }));
+  })).filter(g=>g.items.length);
   const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
     <h3>Add protocols</h3><div class="sub">Tick every protocol you intend to administer in this episode.</div>
     <div style="max-height:56vh;overflow:auto;margin:10px 0">
