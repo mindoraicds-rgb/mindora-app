@@ -3499,6 +3499,29 @@ function missedSessionForm(c){
   };
 }
 
+// Shown when a professional tries to log a session older than the allowed
+// window. Lets them send the director a request to open a 24-hour window.
+function offerLateLogRequest(profId, child, sDate){
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:420px">
+    <h3>This session is too old to log</h3>
+    <div class="sub">Sessions should be logged promptly. This one is dated ${escapeHtml(fmtDate(sDate))}, which is outside the logging window. Ask the director to open a 24-hour window so you can enter it.</div>
+    <div class="form-row"><label>Note to the director (optional)</label><textarea id="lr_note" placeholder="e.g. I was off sick and couldn't log these on time."></textarea></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="lr_cancel">Cancel</button><button class="btn btn-primary" id="lr_send">Send request</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#lr_cancel').onclick=close;
+  m.querySelector('#lr_send').onclick=async()=>{
+    const b=m.querySelector('#lr_send'); b.disabled=true; b.textContent='Sending…';
+    const {error}=await sb.from('session_unlock_requests').insert({
+      professional_id:profId, client_id:child?child.id:null,
+      session_date:sDate||null, note:m.querySelector('#lr_note').value.trim()||null, status:'pending'
+    });
+    if(error){ toast(error.message,true); b.disabled=false; b.textContent='Send request'; return; }
+    toast('Request sent to the director'); close();
+  };
+}
+
 function sessionForm(c){
   const today=new Date().toISOString().slice(0,10);
   const m=el(`<div class="modal-bg show"><div class="modal">
@@ -3616,6 +3639,17 @@ function sessionForm(c){
     const chosenProf = isStaff() ? (m.querySelector('#s_prof')?m.querySelector('#s_prof').value||null:null) : MY_PROF_ID;
     if(isStaff() && !chosenProf){ toast('Select which professional this session is for.',true); return; }
     const btn=m.querySelector('#s_save');btn.disabled=true;btn.textContent='Saving…';
+    // Session-logging time-lock: block sessions older than the window unless
+    // an unlock window is open. Staff and in-window dates pass straight through.
+    const sDate=m.querySelector('#s_date').value||today;
+    try{
+      const {data:allowed}=await sb.rpc('mnd_can_log_session',{p_professional:chosenProf,p_date:sDate});
+      if(allowed===false){
+        btn.disabled=false; btn.textContent='Save session';
+        offerLateLogRequest(chosenProf, c, sDate);
+        return;
+      }
+    }catch(e){ /* if the check itself fails, let the DB trigger be the backstop */ }
     const sv=(sel)=>{ const e=m.querySelector(sel); return e?e.value.trim():''; };
     const sn=(sel)=>{ const v=sv(sel); if(v==='') return null; const n=parseInt(v,10); return isNaN(n)?null:n; };
     const picked=[...m.querySelectorAll('.ap-chk:checked')].map(x=>x.value);
@@ -3639,7 +3673,13 @@ function sessionForm(c){
       program_attachments:(ATTACH_STATE['sessProg']&&ATTACH_STATE['sessProg'].length)?ATTACH_STATE['sessProg']:null,
       visible_to_parent:m.querySelector('#s_vis').checked
     }).select().single();
-    if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save session';return;}
+    if(error){
+      if(String(error.message||'').includes('SESSION_LOCKED')){
+        btn.disabled=false; btn.textContent='Save session';
+        offerLateLogRequest(chosenProf, c, sDate); return;
+      }
+      toast(error.message,true);btn.disabled=false;btn.textContent='Save session';return;
+    }
     // link ticked goals to this session, and record any progress % against the graph
     const sessDate=m.querySelector('#s_date').value||today;
     const checked=[...m.querySelectorAll('.gp-chk')].filter(x=>x.checked);
@@ -5483,6 +5523,52 @@ function respondRequestForm(r,inst){
 }
 
 /* ===================== SETTINGS (director) ===================== */
+// Director panel: pending late-log requests + open/close 24h windows.
+async function renderUnlockRequests(){
+  const box=document.querySelector('#unlockPanel'); if(!box) return;
+  const [{data:reqs},{data:openU}]=await Promise.all([
+    sb.from('session_unlock_requests').select('*').eq('status','pending').order('created_at',{ascending:false}),
+    sb.from('session_unlocks').select('*').gt('expires_at',new Date().toISOString())
+  ]);
+  const pids=[...new Set([...(reqs||[]).map(r=>r.professional_id),...(openU||[]).map(u=>u.professional_id)].filter(Boolean))];
+  let nm={}; if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
+  let html='';
+  if(reqs && reqs.length){
+    html+=`<div class="section-head" style="margin-top:16px"><h3>Requests to log late</h3></div>`;
+    html+=reqs.map(r=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div class="row-name">${escapeHtml(nm[r.professional_id]||'A professional')}</div>
+      <div class="row-sub" style="white-space:normal">Session dated ${escapeHtml(fmtDate(r.session_date))}${r.note?' · "'+escapeHtml(r.note)+'"':''}</div>
+      <div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm urGrant" data-p="${r.professional_id}" data-r="${r.id}" style="width:auto">Open 24h window</button>
+      <button class="btn btn-ghost btn-sm urDecline" data-r="${r.id}" style="width:auto">Decline</button></div>
+    </div>`).join('');
+  }
+  if(openU && openU.length){
+    html+=`<div class="section-head" style="margin-top:16px"><h3>Open windows</h3></div>`;
+    html+=openU.map(u=>{
+      const mins=Math.max(0,Math.round((new Date(u.expires_at)-new Date())/60000));
+      const hrs=Math.floor(mins/60), rem=mins%60;
+      return `<div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">${escapeHtml(nm[u.professional_id]||'A professional')}</div>
+        <div class="row-sub">Closes in ${hrs}h ${rem}m</div></div>
+        <button class="btn btn-ghost btn-sm urClose" data-p="${u.professional_id}" style="width:auto;color:var(--danger)">Close now</button></div>`;
+    }).join('');
+  }
+  box.innerHTML=html;
+  box.querySelectorAll('.urGrant').forEach(b=>b.onclick=async()=>{
+    b.disabled=true; const {error}=await sb.rpc('mnd_grant_session_unlock',{p_professional:b.dataset.p,p_reason:null,p_request:b.dataset.r});
+    if(error){ toast(error.message,true); b.disabled=false; return; }
+    toast('24-hour window opened'); renderUnlockRequests();
+  });
+  box.querySelectorAll('.urDecline').forEach(b=>b.onclick=async()=>{
+    await sb.from('session_unlock_requests').update({status:'declined',handled_at:new Date().toISOString()}).eq('id',b.dataset.r);
+    toast('Request declined'); renderUnlockRequests();
+  });
+  box.querySelectorAll('.urClose').forEach(b=>b.onclick=async()=>{
+    const {error}=await sb.rpc('mnd_close_session_unlock',{p_professional:b.dataset.p});
+    if(error){ toast(error.message,true); return; }
+    toast('Window closed'); renderUnlockRequests();
+  });
+}
+
 async function renderSettings(v){
   if(!isDirector()){v.innerHTML=`<div class="coming"><h3>Settings</h3><p>Director only.</p></div>`;return;}
   const {data:cs}=await sb.from('company_settings').select('*').eq('id',1).single();
@@ -5501,13 +5587,21 @@ async function renderSettings(v){
    ${F('s_fb','Facebook',c.facebook)}
    ${F('s_ig','Instagram',c.instagram)}
    ${F('s_li','LinkedIn',c.linkedin)}
+   <div class="section-head" style="margin-top:18px"><h3>Session logging window</h3></div>
+   <p style="color:var(--muted);font-size:13px;margin:-4px 0 12px">Encourages prompt logging. Sessions older than the window can't be logged until you open a 24-hour window for that professional. This improves timeliness — it doesn't verify a session happened.</p>
+   <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="s_lockon" type="checkbox" ${(c.session_lock_enabled!==false)?'checked':''} style="width:auto"/> Enforce the logging window</label></div>
+   <div class="form-row" style="max-width:220px"><label>Days allowed to log a session</label><input id="s_lockdays" type="number" min="1" max="90" value="${c.session_lock_days!=null?c.session_lock_days:7}"/></div>
+   <div id="unlockPanel"></div>
    <button class="btn btn-primary" id="s_save" style="margin-top:14px">Save settings</button>`;
+  renderUnlockRequests();
   $('#s_save').onclick=async()=>{
     const btn=$('#s_save');btn.disabled=true;btn.textContent='Saving…';
     const payload={company_name:$('#s_name').value.trim()||null,tagline:$('#s_tag').value.trim()||null,
       email:$('#s_email').value.trim()||null,phone:$('#s_phone').value.trim()||null,address:$('#s_addr').value.trim()||null,
       reg_no:$('#s_reg').value.trim()||null,tin:$('#s_tin').value.trim()||null,website:$('#s_web').value.trim()||null,
-      logo_url:$('#s_logo').value.trim()||null,facebook:$('#s_fb').value.trim()||null,instagram:$('#s_ig').value.trim()||null,linkedin:$('#s_li').value.trim()||null};
+      logo_url:$('#s_logo').value.trim()||null,facebook:$('#s_fb').value.trim()||null,instagram:$('#s_ig').value.trim()||null,linkedin:$('#s_li').value.trim()||null,
+      session_lock_enabled:$('#s_lockon').checked,
+      session_lock_days:Math.max(1,parseInt($('#s_lockdays').value,10)||7)};
     const {error}=await sb.from('company_settings').update(payload).eq('id',1);
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save settings';return;}
     COMPANY=Object.assign(COMPANY||{},payload); toast('Settings saved'); btn.disabled=false; btn.textContent='Save settings';
