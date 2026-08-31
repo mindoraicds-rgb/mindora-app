@@ -1686,6 +1686,7 @@ function go(view){
   // per-tab help cards: auto-show once per device, then "?" button. Small
   // delay lets the async render paint before we attach to #view.
   if(MND_TAB_HELP[view]) setTimeout(()=>{ if(currentView===view) tabHelp(view, $('#view')); }, 400);
+  if(view==='my_engagement') setTimeout(()=>{ if(currentView==='my_engagement') paintMyPay(); }, 200);
 }
 
 /* ===================== DASHBOARD ===================== */
@@ -5613,13 +5614,14 @@ async function renderFinances(v){
   if(!isDirector()){ v.innerHTML=`<div class="coming"><h3>Finances</h3><p>This area is for the Director only.</p></div>`; return; }
   await loadAccounts();
   v.innerHTML=`<div class="searchbar" style="gap:8px;flex-wrap:wrap">
-      ${['overview','cash book','invoices','bills','quotations','rate cards','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
+      ${['overview','cash book','invoices','bills','pay approvals','quotations','rate cards','taxes'].map(t=>`<button class="btn ${FIN_TAB===t?'btn-primary':'btn-ghost'} btn-sm fintab" data-t="${t}" style="width:auto;text-transform:capitalize">${t}</button>`).join('')}
     </div><div id="finBody"><div class="loading"><div class="spin"></div> Loading…</div></div>`;
   document.querySelectorAll('.fintab').forEach(b=>b.onclick=()=>{FIN_TAB=b.dataset.t;renderFinances($('#view'));});
   const body=$('#finBody');
   if(FIN_TAB==='cash book')return finCashbook(body);
   if(FIN_TAB==='invoices')return finInvoices(body);
   if(FIN_TAB==='bills')return finBills(body);
+  if(FIN_TAB==='pay approvals')return finPayApprovals(body);
   if(FIN_TAB==='quotations')return finQuotations(body);
   if(FIN_TAB==='rate cards')return finRateCards(body);
   if(FIN_TAB==='taxes')return finTaxes(body);
@@ -6015,6 +6017,51 @@ const MND_QUOTE_SERVICES=[
 ];
 let QUOTE_LINES=[];
 
+// Director: approve or adjust professional pay through the approval chain.
+async function finPayApprovals(b){
+  const {data:pays}=await sb.from('prof_payables').select('*')
+    .in('status',['awaiting_prof','prof_approved','disputed'])
+    .order('period_month',{ascending:false});
+  const ids=[...new Set((pays||[]).map(p=>p.professional_id).filter(Boolean))];
+  let nm={}; if(ids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',ids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
+  if(!pays||!pays.length){ b.innerHTML='<div class="empty" style="padding:24px"><h4>Nothing awaiting approval</h4><p>Finalize a month to generate professional pay for approval.</p></div>'; return; }
+  b.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:10px">Professional pay awaiting action. You can approve to release for payment, or adjust a disputed amount. Your approval alone releases payment — you don't have to wait for the professional.</div><div class="rows" id="paRows"></div>`;
+  const rows=b.querySelector('#paRows');
+  rows.innerHTML='';
+  pays.forEach(p=>{
+    const st=p.status;
+    const pill = st==='prof_approved'?'<span class="pill active">Professional approved</span>'
+      : st==='disputed'?'<span class="pill exited">Disputed</span>'
+      : '<span class="pill assessment">Awaiting professional</span>';
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(nm[p.professional_id]||'Professional')}</div>${pill}</div>
+      <div class="row-sub">${escapeHtml(p.description||'')} — <b>UGX ${Number(p.amount||0).toLocaleString()}</b></div>
+      ${p.prof_dispute_note?`<div class="row-sub" style="color:var(--coral)">Dispute: ${escapeHtml(p.prof_dispute_note)}</div>`:''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
+        <button class="btn btn-primary btn-sm paApprove" data-id="${p.id}" style="width:auto">Approve for payment</button>
+        <button class="btn btn-ghost btn-sm paAdjust" data-id="${p.id}" data-amt="${Number(p.amount||0)}" style="width:auto">Adjust amount…</button>
+      </div></div>`);
+    card.querySelector('.paApprove').onclick=async()=>{
+      if(!confirm('Approve UGX '+Number(p.amount||0).toLocaleString()+' for payment to '+(nm[p.professional_id]||'this professional')+'?')) return;
+      const {error}=await sb.rpc('mnd_pay_dir_approve',{p_payable:p.id});
+      if(error){ toast(error.message,true); return; }
+      toast('Approved — released for billing'); finPayApprovals(b);
+    };
+    card.querySelector('.paAdjust').onclick=async()=>{
+      const cur=p.amount||0;
+      const v=prompt('New amount (UGX) for '+(nm[p.professional_id]||'this professional')+':', cur);
+      if(v===null) return;
+      const amt=parseInt(String(v).replace(/[^0-9]/g,''),10);
+      if(isNaN(amt)){ toast('Enter a valid number.',true); return; }
+      const note=prompt('Optional note on the adjustment (the professional will review it):')||null;
+      const {error}=await sb.rpc('mnd_pay_adjust',{p_payable:p.id,p_amount:amt,p_note:note});
+      if(error){ toast(error.message,true); return; }
+      toast('Adjusted — sent back to the professional to review'); finPayApprovals(b);
+    };
+    rows.appendChild(card);
+  });
+}
+
 function finQuotations(b){
   if(!QUOTE_LINES.length) QUOTE_LINES=[{service:'',desc:'',qty:1,unit:''}];
   const today=new Date().toISOString().slice(0,10);
@@ -6237,7 +6284,7 @@ async function finBills(b){
 
 // Roll pending professional payables into one bill per professional per month.
 async function generateProfBills(){
-  const {data:pend}=await sb.from('prof_payables').select('*').eq('status','pending');
+  const {data:pend}=await sb.from('prof_payables').select('*').eq('status','approved');
   const items=pend||[];
   if(!items.length){ toast('No pending professional pay to bill.'); return; }
   // group by professional + month
@@ -7095,7 +7142,7 @@ async function renderChildPlan(v,c){
         const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',finPeriod);
         const team=shares||[];
         // clear prior pending payables for this child+month to avoid duplicates on re-finalize
-        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('status','pending');
+        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).in('status',['awaiting_prof','disputed']);
         const paid=[]; const skipped=[];
         for(const sh of team){
           const amt=Math.round(childFee*Number(sh.share_fraction||0));
@@ -7118,7 +7165,7 @@ async function renderChildPlan(v,c){
           paid.push({
             professional_id:sh.professional_id, period_month:finPeriod, source:'child_units', client_id:c.id,
             description:`${c.full_name} — monthly service unit (${Math.round(Number(sh.share_fraction||0)*100)}% share)${sh.pay_exception?' [exception]':''} (${finLabel})`,
-            units:1, unit_rate:childFee, amount:amt, status:'pending', created_by:ME.id
+            units:1, unit_rate:childFee, amount:amt, status:'awaiting_prof', created_by:ME.id
           });
         }
         if(paid.length){ await sb.from('prof_payables').insert(paid); }
@@ -8328,6 +8375,53 @@ const MND_CONSENT_VERSION = { professional:'PROF-v1', family:'FAM-v1' };
    Separate from "My profile", which is the public team-page entry. This
    is the engagement record and it feeds the Director's view only.
    ===================================================================== */
+
+// Professional's pay approvals — injected at the top of "My details".
+async function paintMyPay(){
+  if(!MY_PROF_ID) return;
+  const view=$('#view'); if(!view || document.getElementById('myPayBox')) return;
+  const {data:pays}=await sb.from('prof_payables').select('*')
+    .eq('professional_id',MY_PROF_ID)
+    .in('status',['awaiting_prof','disputed','prof_approved'])
+    .order('period_month',{ascending:false});
+  if(!pays||!pays.length) return;
+  const wrap=el('<div id="myPayBox" style="margin:0 0 18px"></div>');
+  const needsAction=pays.filter(p=>p.status==='awaiting_prof');
+  wrap.innerHTML=`<div class="section-head"><h3>My pay${needsAction.length?` <span class="pill assessment">${needsAction.length} to review</span>`:''}</h3></div>
+    <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Check each amount and approve it, or flag it if something looks wrong. Approving confirms the amount is correct.</div>
+    <div class="rows" id="myPayRows"></div>`;
+  view.insertBefore(wrap, view.firstChild?view.firstChild.nextSibling:null);
+  const rows=wrap.querySelector('#myPayRows');
+  rows.innerHTML='';
+  pays.forEach(p=>{
+    const st=p.status;
+    const pill = st==='awaiting_prof'?'<span class="pill assessment">Awaiting your approval</span>'
+      : st==='prof_approved'?'<span class="pill active">You approved — with director</span>'
+      : '<span class="pill exited">Disputed — with director</span>';
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(p.description||'Monthly service unit')}</div>${pill}</div>
+      <div class="row-sub">UGX ${Number(p.amount||0).toLocaleString()}</div>
+      ${st==='awaiting_prof'?`<div style="display:flex;gap:8px;margin-top:2px">
+        <button class="btn btn-primary btn-sm mpApprove" data-id="${p.id}" style="width:auto">Approve amount</button>
+        <button class="btn btn-ghost btn-sm mpDispute" data-id="${p.id}" style="width:auto">Something's wrong</button></div>`:''}
+      ${p.prof_dispute_note?`<div class="row-sub" style="color:var(--coral)">Your note: ${escapeHtml(p.prof_dispute_note)}</div>`:''}
+    </div>`);
+    const ap=card.querySelector('.mpApprove'); if(ap) ap.onclick=async()=>{
+      ap.disabled=true; const {error}=await sb.rpc('mnd_pay_approve',{p_payable:p.id});
+      if(error){ toast(error.message,true); ap.disabled=false; return; }
+      toast('Approved — sent to the director'); paintMyPayRefresh();
+    };
+    const dp=card.querySelector('.mpDispute'); if(dp) dp.onclick=async()=>{
+      const note=prompt('What looks wrong? The director will see this and adjust:');
+      if(note===null) return;
+      const {error}=await sb.rpc('mnd_pay_dispute',{p_payable:p.id,p_note:note.trim()||null});
+      if(error){ toast(error.message,true); return; }
+      toast('Sent to the director'); paintMyPayRefresh();
+    };
+    rows.appendChild(card);
+  });
+}
+function paintMyPayRefresh(){ const b=document.getElementById('myPayBox'); if(b) b.remove(); paintMyPay(); }
 
 async function renderMyEngagement(v){
   if(!MY_PROF_ID){
