@@ -6771,13 +6771,42 @@ async function renderShareSummary(c){
   const {data:pros}=await sb.from('professionals').select('id,full_name').in('id',ids);
   const nm={}; (pros||[]).forEach(p=>nm[p.id]=p.full_name);
   const fee=Number(c.prof_unit_rate||0);
-  const parts=team.map(s=>{
+  const threshold=Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
+  const parts=await Promise.all(team.map(async s=>{
     const amt=Math.round(fee*Number(s.share_fraction||0));
     const pct=Math.round(Number(s.share_fraction||0)*100);
-    const tick=s.fulfilled?'<span style="color:var(--teal)">✓ fulfilled</span>':'<span style="color:var(--warn)">not yet fulfilled</span>';
-    return `${escapeHtml(nm[s.professional_id]||'Professional')} — ${pct}% · UGX ${amt.toLocaleString()} · ${tick}`;
-  });
-  box.innerHTML=`This month (${monthLabel(period)}): `+parts.join('<br>');
+    // live fulfilment against this professional's own targets
+    let fpct=null;
+    try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:s.professional_id,p_month:period}); if(q&&q.length){ fpct=q[0].fulfilment; } }catch(e){}
+    const meets=(fpct!=null && fpct>=threshold);
+    const qualifies=meets || s.pay_exception===true;
+    let status;
+    if(fpct==null) status='<span style="color:var(--muted)">no target set</span>';
+    else if(qualifies) status=`<span style="color:var(--teal)">✓ ${fpct}% — payable</span>`+(s.pay_exception&&!meets?' <span style="color:var(--accent)">(exception)</span>':'');
+    else status=`<span style="color:var(--coral)">${fpct}% — below ${threshold}%, not payable</span>`;
+    const excBtn=(canEditPlan() && fpct!=null && !meets)
+      ? ` <button class="btn btn-ghost btn-sm excBtn" data-id="${s.id}" data-p="${escapeHtml(nm[s.professional_id]||'')}" style="width:auto;padding:2px 8px;font-size:12px">${s.pay_exception?'Remove exception':'Pay anyway…'}</button>` : '';
+    return `<div style="padding:4px 0">${escapeHtml(nm[s.professional_id]||'Professional')} — ${pct}% · UGX ${amt.toLocaleString()} · ${status}${excBtn}</div>`;
+  }));
+  box.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:4px">This month (${monthLabel(period)}) — pay depends on each professional completing at least ${threshold}% of their own target activities:</div>`+parts.join('');
+  box.querySelectorAll('.excBtn').forEach(b=>b.onclick=()=>togglePayException(b.dataset.id,b.dataset.p,c));
+}
+
+// Director-only: grant or remove the shortfall exception (addendum) for a
+// professional who fell below the threshold through no fault of their own.
+async function togglePayException(shareId, profName, c){
+  const {data:sh}=await sb.from('child_prof_shares').select('*').eq('id',shareId).single();
+  if(!sh) return;
+  if(sh.pay_exception){
+    if(!confirm('Remove the pay exception for '+profName+'? They will not be paid this month unless they reach the threshold.')) return;
+    await sb.from('child_prof_shares').update({pay_exception:false,exception_reason:null}).eq('id',shareId);
+    toast('Exception removed'); if(c) renderChildPlan($('#view'),c); return;
+  }
+  const reason=prompt('This professional is below the threshold. Record why the shortfall was NOT solely their fault (required to pay them anyway):');
+  if(reason===null) return;
+  if(!reason.trim()){ toast('A reason is required to grant an exception.',true); return; }
+  await sb.from('child_prof_shares').update({pay_exception:true,exception_reason:reason.trim(),updated_by:ME.id}).eq('id',shareId);
+  toast('Exception recorded — this professional will be paid this month'); if(c) renderChildPlan($('#view'),c);
 }
 
 // ---- Director/secretary editor: split the child's monthly fee across the care team ----
@@ -7070,18 +7099,30 @@ async function renderChildPlan(v,c){
         const paid=[]; const skipped=[];
         for(const sh of team){
           const amt=Math.round(childFee*Number(sh.share_fraction||0));
-          // stamp the computed amount + finalized status on the share row
-          await sb.from('child_prof_shares').update({amount:amt,status:'finalized',updated_by:ME.id,updated_at:new Date().toISOString()}).eq('id',sh.id);
-          if(!sh.fulfilled){ skipped.push(sh); continue; }   // bundle not fulfilled → no pay this month
+          // 60% RULE: compute this professional's fulfilment of THEIR OWN target
+          // activities this month. Pays if >= threshold, OR the director recorded
+          // a shortfall exception. Activity-count based, per their portion.
+          let pct=null;
+          try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:sh.professional_id,p_month:finPeriod}); if(q&&q.length){ pct=q[0].fulfilment; } }catch(e){}
+          const threshold = Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
+          const meets = (pct!=null && pct>=threshold);
+          const qualifies = meets || sh.pay_exception===true;
+          // stamp computed amount, %, and status on the share row
+          await sb.from('child_prof_shares').update({
+            amount:amt, fulfil_pct:pct,
+            status: qualifies?'finalized':'incomplete',
+            updated_by:ME.id, updated_at:new Date().toISOString()
+          }).eq('id',sh.id);
+          if(!qualifies){ skipped.push({sh,pct}); continue; }   // below 60% and no exception → not payable
           if(amt<=0){ continue; }
           paid.push({
             professional_id:sh.professional_id, period_month:finPeriod, source:'child_units', client_id:c.id,
-            description:`${c.full_name} — monthly service unit (${Math.round(Number(sh.share_fraction||0)*100)}% share) (${finLabel})`,
+            description:`${c.full_name} — monthly service unit (${Math.round(Number(sh.share_fraction||0)*100)}% share)${sh.pay_exception?' [exception]':''} (${finLabel})`,
             units:1, unit_rate:childFee, amount:amt, status:'pending', created_by:ME.id
           });
         }
         if(paid.length){ await sb.from('prof_payables').insert(paid); }
-        payMsg = ` — ${paid.length} professional${paid.length===1?'':'s'} paid`+(skipped.length?`, ${skipped.length} not fulfilled (skipped)`:'');
+        payMsg = ` — ${paid.length} payable`+(skipped.length?`, ${skipped.length} below ${Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60)}% (not payable)`:'');
       }
       toast(`${finLabel} finalized${payMsg}`);
       fb.textContent='✓ Finalized';
