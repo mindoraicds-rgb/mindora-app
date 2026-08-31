@@ -236,7 +236,7 @@ a{color:var(--purple)}
 .form-row.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .form-row label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
 .form-row input,.form-row select,.form-row textarea{width:100%;padding:13px 15px;border:1.5px solid var(--line);border-radius:11px;background:#FCFBFD}
-.form-row textarea{resize:vertical;min-height:150px;line-height:1.6;font-size:15px;overflow:hidden;white-space:pre-wrap;word-wrap:break-word}
+.form-row textarea{resize:vertical;min-height:150px;line-height:1.6;font-size:15px;overflow:auto;white-space:pre-wrap;word-wrap:break-word}
 .form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 4px rgba(142,68,173,.1)}
 .form-row textarea:focus{background:#fff}
 /* Collapsible clinical block */
@@ -5733,7 +5733,7 @@ function txnForm(t,preset){
       <div id="t_taxprev" class="row-sub" style="margin-top:10px;line-height:1.6"></div>
     </div>
     <div class="form-row"><label>Who / party</label><input id="t_party" value="${edit?escapeHtml(t.party||''):''}" placeholder="Who paid you / who you paid"/></div>
-    <div class="form-row"><label>Description</label><input id="t_desc" value="${edit?escapeHtml(t.description||''):''}"/></div>
+    <div class="form-row"><label>Description</label><textarea id="t_desc" rows="3">${edit?escapeHtml(t.description||''):''}</textarea></div>
     <div class="form-row"><label>Reference (optional)</label><input id="t_ref" value="${edit?escapeHtml(t.reference||''):''}" placeholder="receipt / voucher no."/></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="t_cancel">Cancel</button><button class="btn btn-primary" id="t_save">${edit?'Save changes':'Save'}</button></div>
     ${edit?'<button class="btn" id="t_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this transaction</button>':''}
@@ -5832,7 +5832,7 @@ function invoiceForm(i){
     <div class="form-row"><label>Client / payer name</label><input id="i_client" value="${edit?escapeHtml(i.client_name||''):''}"/></div>
     <div class="form-row"><label>Link to child (so the parent can see it)</label><select id="i_child"><option value="">— none —</option></select></div>
     <div class="form-row"><label>Link to institution (so the school sees it)</label><select id="i_inst"><option value="">— none —</option></select></div>
-    <div class="form-row"><label>Description</label><input id="i_desc" value="${edit?escapeHtml(i.description||''):''}" placeholder="e.g. June program fee"/></div>
+    <div class="form-row"><label>Description</label><textarea id="i_desc" rows="3" placeholder="e.g. June program fee">${edit?escapeHtml(i.description||''):''}</textarea></div>
     <div class="form-row two">
       <div><label>Amount (UGX)</label><input id="i_amt" type="number" value="${edit?(i.amount??''):''}"/></div>
       <div><label>Income account</label><select id="i_acct">${acctOptions(['income'],edit?i.income_account_code:'4010')}</select></div>
@@ -6323,7 +6323,7 @@ function billForm(bl){
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit bill':'New bill'}</h3><div class="sub">Money Mindora owes.</div>
     <div class="form-row"><label>Payee</label><input id="b_payee" value="${edit?escapeHtml(bl.payee||''):''}"/></div>
-    <div class="form-row"><label>Description</label><input id="b_desc" value="${edit?escapeHtml(bl.description||''):''}"/></div>
+    <div class="form-row"><label>Description</label><textarea id="b_desc" rows="3">${edit?escapeHtml(bl.description||''):''}</textarea></div>
     <div class="form-row two">
       <div><label>Amount (UGX)</label><input id="b_amt" type="number" value="${edit?(bl.amount??''):''}"/></div>
       <div><label>Expense account</label><select id="b_acct">${acctOptions(['expense'],edit?bl.expense_account_code:'6900')}</select></div>
@@ -7335,7 +7335,7 @@ function scheduleForm(c,period){
       <div><label>Time / format</label><input id="sc_time" placeholder="e.g. 10:00, 60 min"/></div></div>
     <div class="form-row two"><div><label>Specific date (optional)</label><input id="sc_date" type="date"/></div>
       <div><label>Location</label><select id="sc_loc"><option value="">—</option><option>Home</option><option>School</option><option>Clinic</option><option>Online</option></select></div></div>
-    <div class="form-row"><label>Note</label><input id="sc_note" placeholder="optional"/></div>
+    <div class="form-row"><label>Note</label><textarea id="sc_note" rows="3" placeholder="optional"></textarea></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="sc_cancel">Cancel</button><button class="btn btn-primary" id="sc_save">Add slot</button></div>
   </div></div>`);
   document.body.appendChild(m);
@@ -7630,7 +7630,7 @@ async function renderReportEdit(v,r){
 function reportMetaForm(r){
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Background &amp; recommendations</h3><div class="sub">Shared context that appears once at the top and bottom of the report.</div>
-    <div class="form-row"><label>Referral reason</label><textarea id="rm_ref" style="min-height:70px">${escapeHtml(r.referral_reason||'')}</textarea></div>
+    <div class="form-row"><label>Referral reason</label><textarea id="rm_ref">${escapeHtml(r.referral_reason||'')}</textarea></div>
     <div class="form-row"><label>Background / history</label><textarea id="rm_bg" style="min-height:110px">${escapeHtml(r.background||'')}</textarea></div>
     <div class="form-row"><label>Overall recommendations</label><textarea id="rm_rec" style="min-height:110px">${escapeHtml(r.overall_recommendations||'')}</textarea></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="rm_cancel">Cancel</button><button class="btn btn-primary" id="rm_save">Save</button></div>
@@ -7650,15 +7650,15 @@ function reportMetaForm(r){
 function editSectionForm(s,r){
   const isSoap=(r.template==='soap');
   const fields = isSoap
-    ? `<div class="form-row"><label>S — Subjective <span class="row-sub">(caregiver/child report)</span></label><textarea id="f_soap_s" style="min-height:70px">${escapeHtml(s.soap_s||'')}</textarea></div>
+    ? `<div class="form-row"><label>S — Subjective <span class="row-sub">(caregiver/child report)</span></label><textarea id="f_soap_s">${escapeHtml(s.soap_s||'')}</textarea></div>
        <div class="form-row"><label>O — Objective <span class="row-sub">(what you observed/measured)</span></label><textarea id="f_soap_o" style="min-height:90px">${escapeHtml(s.soap_o||'')}</textarea></div>
        <div class="form-row"><label>A — Assessment <span class="row-sub">(clinical impression)</span></label><textarea id="f_soap_a" style="min-height:90px">${escapeHtml(s.soap_a||'')}</textarea></div>
-       <div class="form-row"><label>P — Plan</label><textarea id="f_soap_p" style="min-height:70px">${escapeHtml(s.soap_p||'')}</textarea></div>`
+       <div class="form-row"><label>P — Plan</label><textarea id="f_soap_p">${escapeHtml(s.soap_p||'')}</textarea></div>`
     : `<div class="form-row"><label>Assessment &amp; clinical impressions</label><textarea id="f_assessment" style="min-height:100px">${escapeHtml(s.assessment||'')}</textarea></div>
        <div class="form-row"><label>Goals &amp; progress <span class="row-sub">(pre-filled from tracked goals)</span></label><textarea id="f_goals" style="min-height:100px">${escapeHtml(s.goals_progress||'')}</textarea></div>
        <div class="form-row"><label>Plan of care</label><textarea id="f_plan" style="min-height:80px">${escapeHtml(s.plan||'')}</textarea></div>
        <div class="form-row"><label>Recommendations</label><textarea id="f_rec" style="min-height:80px">${escapeHtml(s.recommendations||'')}</textarea></div>
-       <div class="form-row"><label>Additional notes <span class="row-sub">(optional)</span></label><textarea id="f_body" style="min-height:70px">${escapeHtml(s.body||'')}</textarea></div>`;
+       <div class="form-row"><label>Additional notes <span class="row-sub">(optional)</span></label><textarea id="f_body">${escapeHtml(s.body||'')}</textarea></div>`;
   const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
     <h3>${escapeHtml(s.heading)}</h3><div class="sub">${isSoap?'SOAP note format.':'Complete the clinical section for this discipline.'} Pre-filled from your notes — edit freely.</div>
     ${fields}
