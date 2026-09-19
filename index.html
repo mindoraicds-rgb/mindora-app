@@ -6620,6 +6620,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaDocs">${icon('schedule')} Documents</div>
       <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
+      <div class="qa" id="qaCaseReport">${icon('schedule')} Case report</div>
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
     </div>
 
@@ -6655,6 +6656,7 @@ async function renderStaffChild(v,c){
   $('#qaReports').onclick=()=>{SELECTED_CHILD=c;go('child_reports');};
   { const _qa=$('#qaAssess'); if(_qa) _qa.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
   { const _sar=$('#qaSAR'); if(_sar) _sar.onclick=()=>subjectAccessPack(c); }
+  { const _cr=$('#qaCaseReport'); if(_cr) _cr.onclick=()=>generateCaseReport(c); }
   { const _dc=$('#qaDocs'); if(_dc) _dc.onclick=()=>docsModal('client',c.id,c.full_name); }
   // consent panel — staff only
   { const host=document.createElement('div');
@@ -12534,6 +12536,253 @@ function childRates(c){
 /* ---------------------------------------------------------------------
    SUBJECT ACCESS PACK
 --------------------------------------------------------------------- */
+/* =====================================================================
+   CASE REPORT GENERATOR
+   Pulls together the full clinical picture for a child into one
+   printable, branded document: background, history, assessment
+   findings, goals, progress, sessions summary, care team, and
+   recommendations. Staff-only. App-only — no SQL needed.
+   ===================================================================== */
+async function generateCaseReport(c){
+  if(!c){ toast('No child selected.',true); return; }
+  const btn=document.querySelector('#qaCaseReport');
+  if(btn){ btn.textContent='Building…'; btn.style.pointerEvents='none'; }
+  const restore=()=>{ if(btn){ btn.textContent=`${icon('schedule')} Case report`; btn.style.pointerEvents=''; } };
+
+  try{
+    // Fetch everything in parallel
+    const [
+      {data:goals},
+      {data:progress},
+      {data:sessions},
+      {data:assmts},
+      {data:assigns},
+      {data:milestones}
+    ] = await Promise.all([
+      sb.from('goals').select('*').eq('client_id',c.id).order('started_on',{ascending:true}),
+      sb.from('goal_progress').select('goal_id,score,recorded_on,note').eq('client_id',c.id).order('recorded_on',{ascending:true}),
+      sb.from('session_logs').select('session_date,activity_key,duration_minutes,body,soap_s,soap_p,professional_id').eq('client_id',c.id).order('session_date',{ascending:false}).limit(20),
+      sb.from('assessments').select('id,assessment_date,examiner_name,examiner_discipline,reason_for_referral').eq('client_id',c.id).order('assessment_date',{ascending:false}),
+      sb.from('assignments').select('professional_id,status,discipline').eq('client_id',c.id).eq('status','accepted'),
+      sb.from('milestones').select('title,detail,achieved_on').eq('client_id',c.id).order('achieved_on',{ascending:false}).limit(10)
+    ]);
+
+    // Resolve professional names for the care team
+    const profIds=[...new Set([
+      ...(assigns||[]).map(a=>a.professional_id),
+      ...(sessions||[]).map(s=>s.professional_id)
+    ].filter(Boolean))];
+    let nm={};
+    if(profIds.length){
+      const {data:pf}=await sb.from('professionals').select('id,full_name,discipline').in('id',profIds);
+      (pf||[]).forEach(p=>nm[p.id]={name:p.full_name,disc:p.discipline});
+    }
+
+    // Build progress map: goal_id → {scores, latest, trend}
+    const progMap={};
+    (progress||[]).forEach(p=>{
+      if(!progMap[p.goal_id]) progMap[p.goal_id]={scores:[],latest:null};
+      progMap[p.goal_id].scores.push({date:p.recorded_on,score:p.score,note:p.note});
+      progMap[p.goal_id].latest=p.score;
+    });
+
+    const ACTLBL={direct_session:'Direct session',caregiver:'Caregiver guidance',school_checkin:'School/teacher liaison',coordination:'Inter-professional meeting',documentation:'Documentation'};
+    const fmtMins=m=>{ if(!m) return ''; const h=Math.floor(m/60),mn=m%60; return h?`${h}h ${mn}m`:`${mn}m`; };
+
+    // Session summary: total sessions, hours, breakdown
+    const totalSess=(sessions||[]).length;
+    const totalMins=(sessions||[]).reduce((s,x)=>s+Number(x.duration_minutes||0),0);
+    const actBreak={};
+    (sessions||[]).forEach(s=>{ const k=s.activity_key||'direct_session'; actBreak[k]=(actBreak[k]||0)+Number(s.duration_minutes||0); });
+
+    // Goals summary
+    const activeGoals=(goals||[]).filter(g=>g.status==='active'||g.status==='in_progress');
+    const achievedGoals=(goals||[]).filter(g=>g.status==='achieved');
+
+    const today=localISO(new Date());
+    const reportedBy=ME.full_name||'Mindora Clinician';
+
+    const w=window.open('','_blank');
+    if(!w){ toast('Could not open print window. Please allow pop-ups for this site.',true); restore(); return; }
+
+    // CSS
+    const css=`
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Plus Jakarta Sans',Arial,sans-serif;font-size:13.5px;color:#1A1A2E;line-height:1.7;padding:30px 40px;}
+      h1{font-family:Georgia,serif;font-size:22px;color:#6C3483;margin-bottom:4px;}
+      h2{font-family:Georgia,serif;font-size:15px;color:#6C3483;margin:22px 0 6px;border-bottom:1.5px solid #6C3483;padding-bottom:3px;}
+      h3{font-size:13px;font-weight:700;margin:10px 0 2px;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:12px;border-bottom:3px solid #6C3483;}
+      .logo-block .org{font-size:18px;font-weight:700;color:#6C3483;}
+      .logo-block .tagline{font-size:11px;color:#16B69A;letter-spacing:.06em;}
+      .meta{font-size:11px;color:#666;text-align:right;}
+      .flag{display:flex;height:6px;margin-bottom:16px;}
+      .flag div{flex:1;}
+      .flag .b{background:#000;} .flag .y{background:#FCD116;} .flag .r{background:#CE1126;}
+      .ident{background:#F8F4FB;border-radius:8px;padding:12px 16px;margin-bottom:6px;display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;}
+      .ident .item{font-size:12.5px;} .ident .lbl{font-weight:600;color:#6C3483;}
+      table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12.5px;}
+      th{background:#6C3483;color:#fff;padding:5px 8px;text-align:left;font-weight:600;}
+      td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top;}
+      tr:nth-child(even) td{background:#F8F4FB;}
+      .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+      .achieved{background:#E6F5F0;color:#0F6E56;} .active{background:#EDE0F5;color:#6C3483;}
+      .progress-bar-wrap{background:#eee;border-radius:4px;height:7px;width:80px;display:inline-block;vertical-align:middle;margin-left:6px;}
+      .progress-bar{height:100%;border-radius:4px;background:#6C3483;}
+      .disclaimer{margin-top:28px;padding:10px 14px;border:1px solid #ddd;border-radius:6px;font-size:11px;color:#888;line-height:1.5;}
+      .footer{margin-top:20px;padding-top:10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:11px;color:#999;}
+      p{margin:4px 0;}
+      .empty{color:#999;font-style:italic;font-size:12px;}
+      @media print{body{padding:18px 24px;} .no-print{display:none;}}
+    `;
+
+    // Helper: a labelled item in the identity block
+    const ident=(lbl,val)=>val?`<div class="item"><span class="lbl">${lbl}:</span> ${escapeHtml(String(val))}</div>`:'';
+
+    // Goals table
+    const goalRows=(goals||[]).map(g=>{
+      const pm=progMap[g.id];
+      const latest=pm?pm.latest:null;
+      const bar=latest!=null?`<div class="progress-bar-wrap"><div class="progress-bar" style="width:${Math.min(100,latest)}%"></div></div> ${latest}%`:'—';
+      const trend=pm&&pm.scores.length>1?(pm.scores[pm.scores.length-1].score>pm.scores[0].score?'↑ Improving':pm.scores[pm.scores.length-1].score<pm.scores[0].score?'↓ Declined':'→ Stable'):'—';
+      const stPill=g.status==='achieved'?`<span class="pill achieved">Achieved</span>`:`<span class="pill active">${g.status||'Active'}</span>`;
+      return `<tr>
+        <td>${escapeHtml(g.goal||'—')}</td>
+        <td>${escapeHtml(g.domain||'—')}</td>
+        <td>${escapeHtml(g.baseline||'—')}</td>
+        <td>${escapeHtml(g.target||'—')}</td>
+        <td>${bar}</td>
+        <td>${trend}</td>
+        <td>${stPill}</td>
+      </tr>`;
+    }).join('');
+
+    // Session summary rows (last 10 shown in detail)
+    const sessRows=(sessions||[]).slice(0,10).map(s=>`<tr>
+      <td>${escapeHtml(fmtDate(s.session_date))}</td>
+      <td>${escapeHtml(ACTLBL[s.activity_key]||s.activity_key||'—')}</td>
+      <td>${fmtMins(s.duration_minutes)}</td>
+      <td>${escapeHtml(nm[s.professional_id]?nm[s.professional_id].name:'—')}</td>
+      <td style="max-width:220px">${escapeHtml((s.body||s.soap_s||'').slice(0,120))}${((s.body||s.soap_s||'').length>120)?'…':''}</td>
+    </tr>`).join('');
+
+    // Care team rows
+    const teamRows=(assigns||[]).map(a=>`<tr>
+      <td>${escapeHtml(nm[a.professional_id]?nm[a.professional_id].name:'—')}</td>
+      <td>${escapeHtml(nm[a.professional_id]?nm[a.professional_id].disc||a.discipline||'—':a.discipline||'—')}</td>
+      <td>${escapeHtml(a.status||'—')}</td>
+    </tr>`).join('');
+
+    // Milestones
+    const mileRows=(milestones||[]).map(m=>`<tr>
+      <td>${escapeHtml(fmtDate(m.achieved_on))}</td>
+      <td>${escapeHtml(m.title||'—')}</td>
+      <td>${escapeHtml(m.detail||'')}</td>
+    </tr>`).join('');
+
+    // Activity breakdown
+    const actRows=Object.keys(actBreak).map(k=>`<tr>
+      <td>${escapeHtml(ACTLBL[k]||k)}</td>
+      <td>${fmtMins(actBreak[k])}</td>
+    </tr>`).join('');
+
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8">
+      <title>Case Report — ${escapeHtml(c.full_name)}</title>
+      <style>${css}</style></head><body>
+
+      <div class="header">
+        <div class="logo-block">
+          <div class="org">Mindora</div>
+          <div class="tagline">INCLUSIVE CHILD DEVELOPMENT SERVICES</div>
+          <div style="font-size:11px;color:#999;margin-top:2px">mindoraicds.com · mindoraicds@gmail.com</div>
+        </div>
+        <div class="meta">
+          <div style="font-size:15px;font-weight:700;color:#6C3483">Clinical Case Report</div>
+          <div>File: ${escapeHtml(c.child_no||'—')}</div>
+          <div>Generated: ${escapeHtml(today)}</div>
+          <div>Prepared by: ${escapeHtml(reportedBy)}</div>
+        </div>
+      </div>
+
+      <div class="flag"><div class="b"></div><div class="y"></div><div class="r"></div></div>
+
+      <h2>1. Client identification</h2>
+      <div class="ident">
+        ${ident('Full name',c.full_name)}
+        ${ident('File number',c.child_no)}
+        ${ident('Date of birth',c.dob?fmtDate(c.dob):'Not recorded')}
+        ${ident('Sex',c.sex)}
+        ${ident('Intake date',c.intake_date?fmtDate(c.intake_date):'Not recorded')}
+        ${ident('Service band',c.assessed_band?'Band '+c.assessed_band:null)}
+        ${ident('Delivery channel',c.delivery_channel)}
+        ${ident('Current status',c.status)}
+        ${ident('Parent / caregiver',c.parent_name)}
+        ${ident('Contact',c.parent_phone||c.parent_email)}
+        ${ident('School',c.school_name)}
+        ${ident('Class teacher',c.class_teacher)}
+      </div>
+
+      <h2>2. Presenting concern</h2>
+      <p>${escapeHtml(c.concern||'Not recorded.')}</p>
+      ${c.presenting_needs?`<h3>Presenting needs (intake)</h3><p>${escapeHtml(c.presenting_needs)}</p>`:''}
+
+      <h2>3. Developmental and relevant history</h2>
+      <p>${escapeHtml(c.developmental_history||'Not recorded.')}</p>
+
+      <h2>4. Clinical diagnosis / classification</h2>
+      <p>${escapeHtml(c.clinical_diagnosis||'Not formally recorded.')}</p>
+
+      <h2>5. Clinical impressions</h2>
+      <p>${escapeHtml(c.clinical_impressions||'Not recorded.')}</p>
+
+      <h2>6. Care team</h2>
+      ${teamRows?`<table><thead><tr><th>Professional</th><th>Discipline</th><th>Status</th></tr></thead><tbody>${teamRows}</tbody></table>`:'<p class="empty">No care team recorded.</p>'}
+
+      <h2>7. Assessment history</h2>
+      ${(assmts&&assmts.length)?`<table><thead><tr><th>Date</th><th>Examiner</th><th>Discipline</th><th>Purpose</th></tr></thead><tbody>
+        ${assmts.map(a=>`<tr><td>${escapeHtml(fmtDate(a.assessment_date))}</td><td>${escapeHtml(a.examiner_name||'—')}</td><td>${escapeHtml(a.examiner_discipline||'—')}</td><td>${escapeHtml(a.reason_for_referral||'—')}</td></tr>`).join('')}
+      </tbody></table>`:'<p class="empty">No assessments recorded.</p>'}
+
+      <h2>8. Therapy goals and progress</h2>
+      ${goalRows?`<table><thead><tr><th>Goal</th><th>Domain</th><th>Baseline</th><th>Target</th><th>Current</th><th>Trend</th><th>Status</th></tr></thead><tbody>${goalRows}</tbody></table>`:'<p class="empty">No goals recorded.</p>'}
+      <p style="font-size:11px;color:#999;margin-top:4px">Progress shown as percentage of target achieved. Trend based on first vs most recent recorded score.</p>
+
+      <h2>9. Milestones achieved</h2>
+      ${mileRows?`<table><thead><tr><th>Date</th><th>Milestone</th><th>Detail</th></tr></thead><tbody>${mileRows}</tbody></table>`:'<p class="empty">No milestones recorded.</p>'}
+
+      <h2>10. Session and activity summary</h2>
+      <div class="ident" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:10px">
+        <div class="item"><span class="lbl">Total sessions (record):</span> ${totalSess}</div>
+        <div class="item"><span class="lbl">Total time logged:</span> ${fmtMins(totalMins)||'—'}</div>
+        <div class="item"><span class="lbl">Active goals:</span> ${activeGoals.length} · Achieved: ${achievedGoals.length}</div>
+      </div>
+      ${actRows?`<table><thead><tr><th>Activity type</th><th>Total time</th></tr></thead><tbody>${actRows}</tbody></table><br>`:''}
+      <p style="font-size:12px;font-weight:600;margin-bottom:4px">Most recent sessions (last 10):</p>
+      ${sessRows?`<table><thead><tr><th>Date</th><th>Activity</th><th>Duration</th><th>Clinician</th><th>Summary</th></tr></thead><tbody>${sessRows}</tbody></table>`:'<p class="empty">No sessions recorded.</p>'}
+
+      <h2>11. Clinical recommendations</h2>
+      <p>${escapeHtml(c.clinical_recommendations||'Not recorded.')}</p>
+
+      <div class="disclaimer">
+        <strong>Confidentiality notice:</strong> This report contains clinical and personal information pertaining to the named client and is intended solely for the named recipient(s) and authorised members of the care team. It must not be shared, copied, or disclosed without the consent of the parent/caregiver and the Programme Director. Data is held under the Data Protection and Privacy Act (Uganda, 2019). For queries contact mindoraicds@gmail.com.
+      </div>
+
+      <div class="footer">
+        <span>Mindora Inclusive Child Development Services Co. Ltd · Reg. 80034948359720 · Kampala, Uganda</span>
+        <span>Report generated ${escapeHtml(today)} by ${escapeHtml(reportedBy)}</span>
+      </div>
+
+      <div class="no-print" style="margin-top:20px;text-align:center">
+        <button onclick="window.print()" style="padding:10px 28px;background:#6C3483;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">Print / Save as PDF</button>
+      </div>
+    </body></html>`);
+    w.document.close();
+  } catch(e){
+    toast('Could not generate report: '+e.message, true);
+  }
+  restore();
+}
+
 async function subjectAccessPack(c){
   if(!c){ toast('No child selected',true); return; }
   toast('Building the pack…');
