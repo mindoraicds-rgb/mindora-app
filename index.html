@@ -332,6 +332,15 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 
 /* quick action chips on child detail */
 .qa-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 20px}
+.period-group{border:1px solid var(--line);border-radius:14px;margin:0 0 10px;background:var(--card);overflow:hidden}
+.period-group>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;list-style:none;font-weight:700}
+.period-group>summary::-webkit-details-marker{display:none}
+.period-group>summary::before{content:'▸';color:var(--accent);transition:transform .15s}
+.period-group[open]>summary::before{transform:rotate(90deg)}
+.period-group .pg-label{flex:0 1 auto}
+.period-group .pg-sub{font-weight:500;font-size:12.5px;color:var(--muted);flex:1}
+.period-group .pg-count{margin-left:auto}
+.period-group .pg-rows{padding:0 10px 10px}
 .qa-group-h{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:14px 2px 6px}
 #childTiles .qa-row{margin:0 0 8px}
 #childTiles{margin-bottom:18px}
@@ -3122,6 +3131,41 @@ async function renderProChildren(v){
     });
   }
 }
+/* ---------------------------------------------------------------------
+   Group dated items (sessions, home programs) by MONTH — or by TERM for a
+   termly child whose terms the viewer can read. Newest group first; the
+   newest group opens, older ones are collapsed with a count.
+--------------------------------------------------------------------- */
+function mndPeriodGroups(items, dateOf, terms){
+  const groups={};
+  (items||[]).forEach(it=>{
+    const d=String(dateOf(it)||'').slice(0,10); if(!d) return;
+    const month=d.slice(0,7)+'-01';
+    let key, label, sub='', order;
+    const t=(terms&&terms.length)?termsInMonth(terms, month)[0]:null;
+    if(t){ key='T:'+t.id; label=t.label; sub=termRange(t); order=String(t.start_date).slice(0,10); }
+    else if(terms&&terms.length){ key='H:'+month; label=monthLabel(month); sub='School holiday'; order=month; }
+    else { key='M:'+month; label=monthLabel(month); order=month; }
+    (groups[key]=groups[key]||{key,label,sub,order,items:[]}).items.push(it);
+  });
+  return Object.values(groups).sort((a,b)=>b.order.localeCompare(a.order));
+}
+function mndRenderGrouped(box, groups, renderItem, noun){
+  box.innerHTML='';
+  groups.forEach((g,i)=>{
+    const det=document.createElement('details');
+    det.className='period-group'; if(i===0) det.open=true;
+    det.innerHTML=`<summary><span class="pg-label">${escapeHtml(g.label)}</span>${g.sub?`<span class="pg-sub">${escapeHtml(g.sub)}</span>`:''}<span class="pill band pg-count">${g.items.length} ${noun==='activit'?(g.items.length===1?'activity':'activities'):noun+(g.items.length===1?'':'s')}</span></summary><div class="rows pg-rows"></div>`;
+    const rows=det.querySelector('.pg-rows');
+    g.items.forEach(it=>rows.appendChild(renderItem(it)));
+    box.appendChild(det);
+  });
+}
+async function mndTermsForGrouping(c){
+  if(!c || c.billing_cycle!=='termly') return null;
+  try{ const r=await loadChildTerms(c); return r.error?null:r.terms; }catch(e){ return null; }
+}
+
 async function renderProChild(v,c){
   if(!c){ go('pro_children'); return; }
   const [{data:sessions},{data:programs},{data:reports}]=await Promise.all([
@@ -3138,14 +3182,20 @@ async function renderProChild(v,c){
 
     <div class="clin" id="proClin"></div>
 
-    <div class="qa-row">
-      <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
-      <div class="qa" id="qaSched">${icon('schedule')} Schedule</div>
-      <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
-      <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
-      <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
-      <div class="qa" id="qaAssessP">${icon('plan')} Assessments</div>
-      <div class="qa" id="qaReview">${icon('assign')} Monthly review</div>
+    <div id="childTiles">
+      <div class="qa-group-h">Plan &amp; progress</div>
+      <div class="qa-row">
+        <div class="qa" id="qaPlan">${icon('plan')} Service plan${c.billing_cycle==='termly'?' (termly)':''} &amp; my pay</div>
+        <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
+        <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
+        <div class="qa" id="qaAssessP">${icon('plan')} Assessments</div>
+      </div>
+      <div class="qa-group-h">Team &amp; records</div>
+      <div class="qa-row">
+        <div class="qa" id="qaSched">${icon('schedule')} Schedule</div>
+        <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
+        <div class="qa" id="qaReview">${icon('assign')} Monthly clinical review</div>
+      </div>
     </div>
 
     <div class="section-head"><h3>Sessions</h3><div style="display:flex;gap:8px">
@@ -3168,9 +3218,10 @@ async function renderProChild(v,c){
   $('#qaReview').onclick=()=>opFormModal('review',{client_id:c.id,client_name:c.full_name,professional_id:MY_PROF_ID,after:()=>toast('Review saved')});
   { const _qap=$('#qaAssessP'); if(_qap) _qap.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
 
+  const terms=await mndTermsForGrouping(c);
   const sr=$('#sessRows');
   sr.innerHTML=(sessions&&sessions.length)?'':`<div class="empty" style="padding:26px"><h4>No sessions yet</h4><p>Log your first session — it replaces the paper summary.</p></div>`;
-  (sessions||[]).forEach(s=>{
+  const sessCard=(s)=>{
     const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
       <div style="display:flex;align-items:center;gap:10px">
         <div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div>
@@ -3181,11 +3232,12 @@ async function renderProChild(v,c){
       ${s.visible_to_parent?'<div class="row-sub" style="color:var(--teal)">Shared with parent</div>':'<div class="row-sub">Private to team</div>'}
     </div>`);
     card.onclick=()=>sessionDetail(s,c);
-    sr.appendChild(card);
-  });
+    return card;
+  };
+  if(sessions&&sessions.length) mndRenderGrouped(sr, mndPeriodGroups(sessions, x=>x.session_date, terms), sessCard, 'session');
   const hr=$('#hpRows');
   hr.innerHTML=(programs&&programs.length)?'':`<div class="empty" style="padding:26px"><h4>No home programs yet</h4><p>Create guidance for the family to use at home.</p></div>`;
-  (programs||[]).forEach(p=>{
+  const hpCard=(p)=>{
     const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
       <div class="row-name">${escapeHtml(p.title||'Home program')}</div>
       ${p.instructions?`<div class="row-sub" style="white-space:normal">${escapeHtml(p.instructions)}</div>`:''}
@@ -3193,8 +3245,9 @@ async function renderProChild(v,c){
       <div class="row-sub">${fmtDate(p.issued_date)}${p.visible_to_parent?' · shared with parent':''}</div>
     </div>`);
     card.onclick=()=>homeProgramDetail(p,c);
-    hr.appendChild(card);
-  });
+    return card;
+  };
+  if(programs&&programs.length) mndRenderGrouped(hr, mndPeriodGroups(programs, x=>x.issued_date, terms), hpCard, 'program');
 }
 /* =====================================================================
    WHAT WAS DONE — intervention vocabularies
@@ -4354,14 +4407,13 @@ async function renderParentChild(v,c){
   (async function paintSessions(){
     const box=$('#sessBox'); if(!box) return;
     const {data:sess,error:sErr}=await sb.from('session_logs').select('*').eq('client_id',c.id)
-      .eq('visible_to_parent',true).order('session_date',{ascending:false}).limit(15);
+      .eq('visible_to_parent',true).order('session_date',{ascending:false}).limit(300);
     if(sErr){ box.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:10px">Couldn't load sessions: ${escapeHtml(sErr.message)}</div>`; return; }
     if(!sess||!sess.length){
       box.innerHTML='<div class="empty" style="padding:22px"><h4>No sessions yet</h4><p>Session updates will appear here after each visit that the team shares with you.</p></div>';
       return;
     }
-    box.innerHTML='';
-    sess.forEach(s=>{
+    const one=(s)=>{
       const hasProg = !!(s.home_program||s.school_program);
       const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:5px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -4372,8 +4424,9 @@ async function renderParentChild(v,c){
         <div style="display:flex;gap:8px;flex-wrap:wrap">${hasProg?'<span class="pill enquiry">Home/school program</span>':''}<span style="font-size:12px;color:var(--accent);font-weight:600">Open →</span></div>
       </div>`);
       card.onclick=()=>sessionDetail(s,c);
-      box.appendChild(card);
-    });
+      return card;
+    };
+    mndRenderGrouped(box, mndPeriodGroups(sess, x=>x.session_date, null), one, 'session');
   })();
 
   // --- #3 parent contributes what they see at home ---
@@ -4436,8 +4489,7 @@ async function renderParentActivities(v,c){
     r.innerHTML=`<div class="empty" style="padding:30px"><h4>No home activities yet</h4><p>Activities to practise at home will appear here once the team shares them — either on their own, or as part of a session.</p></div>`;
     return;
   }
-  r.innerHTML='';
-  items.forEach(it=>{
+  const one=(it)=>{
     const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:5px">
       <div style="display:flex;gap:10px;align-items:center">
         <div class="row-name" style="flex:1">${escapeHtml(it.title)}</div>
@@ -4447,8 +4499,9 @@ async function renderParentActivities(v,c){
       <div class="row-sub">${fmtDate(it.date)}</div>
     </div>`);
     card.onclick=()=> it.kind==='program' ? homeProgramDetail(it._p,c) : sessionDetail(it._s,c);
-    r.appendChild(card);
-  });
+    return card;
+  };
+  mndRenderGrouped(r, mndPeriodGroups(items, x=>x.date, null), one, 'activit');
 }
 
 /* Parent logs a win / concern / note from home (#3). */
@@ -6675,7 +6728,7 @@ async function renderStaffChild(v,c){
       <div class="qa" data-form="safeguard" style="color:var(--danger);border-color:#F3C9CB">Safeguarding incident</div>
     </div>
 
-    <div class="section-head" style="margin-top:8px"><h3>Recent sessions</h3></div>
+    <div class="section-head" style="margin-top:8px"><h3>Latest sessions</h3><span class="row-sub">Every session, month by month, is in the Service plan</span></div>
     <div class="rows" id="recentSess"></div>
 
     <div class="section-head" style="margin-top:22px"><h3>Submitted forms</h3></div>
@@ -8326,8 +8379,7 @@ async function paintMyPay(){
     <div class="rows" id="myPayRows"></div>`;
   view.insertBefore(wrap, view.firstChild?view.firstChild.nextSibling:null);
   const rows=wrap.querySelector('#myPayRows');
-  rows.innerHTML='';
-  pays.forEach(p=>{
+  const one=(p)=>{
     const st=p.status;
     const pill = st==='awaiting_prof'?'<span class="pill assessment">Awaiting your approval</span>'
       : st==='approved'?'<span class="pill active">Approved by director — to be paid</span>'
@@ -8353,8 +8405,9 @@ async function paintMyPay(){
       if(error){ toast(error.message,true); return; }
       toast('Sent to the director'); paintMyPayRefresh();
     };
-    rows.appendChild(card);
-  });
+    return card;
+  };
+  mndRenderGrouped(rows, mndPeriodGroups(pays, x=>x.period_month, null), one, 'pay line');
 }
 function paintMyPayRefresh(){ const b=document.getElementById('myPayBox'); if(b) b.remove(); paintMyPay(); }
 
