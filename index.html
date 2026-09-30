@@ -332,6 +332,9 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 
 /* quick action chips on child detail */
 .qa-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 20px}
+.qa-group-h{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:14px 2px 6px}
+#childTiles .qa-row{margin:0 0 8px}
+#childTiles{margin-bottom:18px}
 .biodata{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:2px 0 18px}
 .bio-item{background:var(--card);padding:12px 14px}
 .bio-k{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:3px}
@@ -1604,7 +1607,7 @@ $('#topBellBtn').addEventListener('click',()=>{ closeSide(); go('notifications')
 function closeSide(){ $('#side').classList.remove('open'); $('#scrim').classList.remove('show'); }
 $('#scrim').addEventListener('click',closeSide);
 
-const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',my_engagement:'My details',person_profile:'Profile',child_plan:'Service plan & progress',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',research:'Research extracts',program_eval_doc:'Evaluation',assessments_hub:'Assessments',my_assessments:'My assessments',standalone_assessment:'Assessment'};
+const TITLES={dashboard:'Dashboard',clients:'Children',professionals:'Professionals',institutions:'Institutions',assignments:'Assignments',finances:'Finances',reports:'Reports',community:'Community',access:'People & access',settings:'Settings',portal:'Welcome',pro_requests:'Requests',pro_children:'My children',pro_child:'Child',parent_home:'My child',parent_child:'Progress',parent_community:'Community',parent_billing:'Billing',inst_home:'My institution',inst_community:'Community',institution_detail:'Institution',programs:'Programs',team:'Team profiles',my_profile:'My profile',my_engagement:'My details',person_profile:'Profile',child_plan:'Service plan & progress',child_review:'Director review',child_schedule:'Monthly schedule',child_chat:'Care team chat',staff_child:'Child',pro_program:'Program & CPD',pro_community:'Community',role_home:'Home',support:'Support',case_discussions:'Case discussions',discussion_view:'Discussion',child_reports:'Reports',report_edit:'Edit report',pro_reports:'Report tasks',child_goals:'Goals',notifications:'Notifications',waitlist:'Waitlist',child_progress:'Progress graphs',pending:'Welcome',parent_activities:'Home activities',child_assessments:'Assessments',assessment:'Assessment',assess_protocol:'Protocol',assessment_report:'Assessment report',data_safety:'Data & audit',program_eval:'Program evaluation',research:'Research extracts',program_eval_doc:'Evaluation',assessments_hub:'Assessments',my_assessments:'My assessments',standalone_assessment:'Assessment'};
 function homeView(){ return isStaff()?'dashboard':'role_home'; }
 function updateNavButtons(){
   const back=$('#topBackBtn'), home=$('#topHomeBtn');
@@ -1664,6 +1667,7 @@ function go(view){
    programs:renderPrograms, team:renderTeam, my_profile:renderMyProfile, my_engagement:renderMyEngagement,
    person_profile:(vv)=>renderPersonProfile(vv,SELECTED_PERSON),
    child_plan:(vv)=>renderChildPlan(vv,SELECTED_CHILD),
+   child_review:(vv)=>renderChildReview(vv,SELECTED_CHILD),
    child_schedule:(vv)=>renderChildSchedule(vv,SELECTED_CHILD),
    child_chat:(vv)=>renderChildChat(vv,SELECTED_CHILD),
    staff_child:(vv)=>renderStaffChild(vv,SELECTED_CHILD),
@@ -3131,7 +3135,6 @@ async function renderProChild(v,c){
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to my children</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)}</h1>
       <p>${c.dob?calcAge(c.dob)+' · ':''}${c.assessed_band?'Band '+c.assessed_band+' · ':''}${c.status?escapeHtml(c.status.replace('_',' ')):''}</p></div>
-    ${c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main"><div class="row-name">Monthly service unit for this child</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per month for the full assigned bundle. Where more than one professional is on the case, this is shared. Your share is earned once your assigned tasks for the month are fulfilled.</div></div></div>`:''}
 
     <div class="clin" id="proClin"></div>
 
@@ -6020,46 +6023,58 @@ let QUOTE_LINES=[];
 // Director: approve or adjust professional pay through the approval chain.
 async function finPayApprovals(b){
   const {data:pays}=await sb.from('prof_payables').select('*')
-    .in('status',['awaiting_prof','prof_approved','disputed'])
+    .in('status',['awaiting_prof','prof_approved','disputed','approved'])
     .order('period_month',{ascending:false});
   const ids=[...new Set((pays||[]).map(p=>p.professional_id).filter(Boolean))];
   let nm={}; if(ids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',ids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
-  if(!pays||!pays.length){ b.innerHTML='<div class="empty" style="padding:24px"><h4>Nothing awaiting approval</h4><p>Finalize a month to generate professional pay for approval.</p></div>'; return; }
-  b.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:10px">Professional pay awaiting action. You can approve to release for payment, or adjust a disputed amount. Your approval alone releases payment — you don't have to wait for the professional.</div><div class="rows" id="paRows"></div>`;
-  const rows=b.querySelector('#paRows');
-  rows.innerHTML='';
-  pays.forEach(p=>{
+  if(!pays||!pays.length){ b.innerHTML='<div class="empty" style="padding:24px"><h4>No unpaid professional pay</h4><p>Close a month in a child\'s Director review to approve pay.</p></div>'; return; }
+  const waiting=pays.filter(p=>p.status!=='approved'), approved=pays.filter(p=>p.status==='approved');
+  b.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:10px">Every amount here can be edited by the director until it goes on a pay bill. Approved lines are picked up by "Bill professional pay".</div>
+    ${waiting.length?'<div class="section-head"><h3>Waiting for approval</h3></div><div class="rows" id="paWait"></div>':''}
+    ${approved.length?'<div class="section-head" style="margin-top:14px"><h3>Approved — not yet on a pay bill</h3></div><div class="rows" id="paApp"></div>':''}`;
+  const card=(p)=>{
     const st=p.status;
-    const pill = st==='prof_approved'?'<span class="pill active">Professional approved</span>'
+    const pill = st==='approved'?'<span class="pill active">Approved</span>'
+      : st==='prof_approved'?'<span class="pill active">Professional approved</span>'
       : st==='disputed'?'<span class="pill exited">Disputed</span>'
       : '<span class="pill assessment">Awaiting professional</span>';
-    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
-      <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(nm[p.professional_id]||'Professional')}</div>${pill}</div>
-      <div class="row-sub">${escapeHtml(p.description||'')} — <b${Number(p.amount||0)<0?' style="color:var(--coral)"':''}>${Number(p.amount||0)<0?'Deduction: UGX '+Math.abs(Number(p.amount)).toLocaleString():'UGX '+Number(p.amount||0).toLocaleString()}</b></div>
-      ${p.prof_dispute_note?`<div class="row-sub" style="color:var(--coral)">Dispute: ${escapeHtml(p.prof_dispute_note)}</div>`:''}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
-        <button class="btn btn-primary btn-sm paApprove" data-id="${p.id}" style="width:auto">Approve for payment</button>
-        <button class="btn btn-ghost btn-sm paAdjust" data-id="${p.id}" data-amt="${Number(p.amount||0)}" style="width:auto">Adjust amount…</button>
-      </div></div>`);
-    card.querySelector('.paApprove').onclick=async()=>{
+    const neg=Number(p.amount||0)<0;
+    const c=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(nm[p.professional_id]||'Professional')} · ${monthLabel(p.period_month)}</div>${pill}</div>
+      <div class="row-sub" style="white-space:normal">${escapeHtml(p.description||'')} — <b${neg?' style="color:var(--coral)"':''}>${neg?'Deduction: UGX '+Math.abs(Number(p.amount)).toLocaleString():'UGX '+Number(p.amount||0).toLocaleString()}</b></div>
+      ${p.prof_dispute_note?`<div class="row-sub" style="color:var(--coral)">Professional's note: ${escapeHtml(p.prof_dispute_note)}</div>`:''}
+      ${isDirector()?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
+        ${st!=='approved'?'<button class="btn btn-primary btn-sm paApprove" style="width:auto">Approve for payment</button>':''}
+        <button class="btn btn-ghost btn-sm paEdit" style="width:auto">Edit amount…</button>
+        ${st==='disputed'?'<button class="btn btn-ghost btn-sm paBack" style="width:auto">Change &amp; send back to professional…</button>':''}
+      </div>`:''}</div>`);
+    const ap=c.querySelector('.paApprove'); if(ap) ap.onclick=async()=>{
       if(!confirm('Approve UGX '+Number(p.amount||0).toLocaleString()+' for payment to '+(nm[p.professional_id]||'this professional')+'?')) return;
       const {error}=await sb.rpc('mnd_pay_dir_approve',{p_payable:p.id});
       if(error){ toast(error.message,true); return; }
       toast('Approved — released for billing'); finPayApprovals(b);
     };
-    card.querySelector('.paAdjust').onclick=async()=>{
-      const cur=p.amount||0;
-      const v=prompt('New amount (UGX) for '+(nm[p.professional_id]||'this professional')+':', cur);
-      if(v===null) return;
-      const raw=String(v).trim(); const amt=parseInt(raw.replace(/[^0-9]/g,''),10)*(/^[-−]/.test(raw)?-1:1);   // keep a leading minus: term deductions are negative
-      if(isNaN(amt)){ toast('Enter a valid number.',true); return; }
-      const note=prompt('Optional note on the adjustment (the professional will review it):')||null;
+    const readAmt=(cur)=>{ const v=prompt('Amount (UGX) for '+(nm[p.professional_id]||'this professional')+':', cur); if(v===null) return null;
+      const raw=String(v).trim(); const amt=parseInt(raw.replace(/[^0-9]/g,''),10)*(/^[-−]/.test(raw)?-1:1);
+      if(isNaN(amt)){ toast('Enter a valid number.',true); return null; } return amt; };
+    const ed=c.querySelector('.paEdit'); if(ed) ed.onclick=async()=>{
+      const amt=readAmt(p.amount||0); if(amt===null) return;
+      const note=prompt('Reason for the change (kept on the pay line):')||'';
+      const {error}=await sb.from('prof_payables').update({amount:amt, unit_rate:amt, description:(p.description||'')+` · amount edited to UGX ${amt.toLocaleString()} by director${note?': '+note:''}`}).eq('id',p.id);
+      if(error){ toast(error.message,true); return; }
+      toast('Amount updated'); finPayApprovals(b);
+    };
+    const bk=c.querySelector('.paBack'); if(bk) bk.onclick=async()=>{
+      const amt=readAmt(p.amount||0); if(amt===null) return;
+      const note=prompt('Note for the professional:')||null;
       const {error}=await sb.rpc('mnd_pay_adjust',{p_payable:p.id,p_amount:amt,p_note:note});
       if(error){ toast(error.message,true); return; }
-      toast('Adjusted — sent back to the professional to review'); finPayApprovals(b);
+      toast('Sent back to the professional to review'); finPayApprovals(b);
     };
-    rows.appendChild(card);
-  });
+    return c;
+  };
+  const w=b.querySelector('#paWait'); if(w) waiting.forEach(p=>w.appendChild(card(p)));
+  const a=b.querySelector('#paApp'); if(a) approved.forEach(p=>a.appendChild(card(p)));
 }
 
 function finQuotations(b){
@@ -6614,29 +6629,30 @@ async function renderStaffChild(v,c){
       ${childFeeStripHtml(c)}</div>
     </div>
 
-    ${!canSeeMoney()?'':(c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="row-main"><div class="row-name">Monthly service-unit fee</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per month · one fee for the whole assigned bundle · split across the care team</div></div>
-        <button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit band &amp; fees</button>
-        <button class="btn btn-ghost btn-sm" id="qaSplit" style="width:auto">Manage split</button>
+    <div id="childTiles">
+      <div class="qa-group-h">Care &amp; progress</div>
+      <div class="qa-row">
+        <div class="qa" id="qaPlan">${icon('plan')} Service plan${c.billing_cycle==='termly'?' (termly)':''}</div>
+        <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
+        <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
+        <div class="qa" id="qaSched">${icon('schedule')} Monthly schedule</div>
+        <div class="qa" id="qaAssess">${icon('plan')} Assessments</div>
+        <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
       </div>
-      <div id="shareSummary" class="row-sub" style="white-space:normal"></div>
-    </div>`:`<div class="row-card" style="cursor:pointer;border:1px dashed var(--line)" id="setRateCard"><div class="row-main"><div class="row-name" style="color:var(--muted)">No monthly service-unit fee set for this child</div><div class="row-sub">Set the monthly fee so pay can be split across the care team and released on finalizing the month.</div></div><span style="color:var(--accent)">Set fee ›</span></div>`)}
-
-    <div class="qa-row">
-      <div class="qa" id="qaPlan">${icon('plan')} Service plan & progress</div>
-      <div class="qa" id="qaSched">${icon('schedule')} Monthly schedule</div>
-      <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
-      <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
-      <div class="qa" id="qaAssess">${icon('plan')} Assessments</div>
-      <div class="qa" id="qaSAR">${icon('profile')} Subject access pack</div>
-      <div class="qa" id="qaDocs">${icon('schedule')} Documents</div>
-      <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
-      <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
-      <div class="qa" id="qaCaseReport">${icon('schedule')} Case report</div>
-      ${canSeeMoney()?`<div class="qa" id="qaBandFees">${icon('plan')} Band &amp; fees</div>`:''}
-      ${c.billing_cycle==='termly'?`<div class="qa" id="qaTerms">${icon('schedule')} Terms</div>`:''}
-      <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
+      ${canSeeMoney()?`<div class="qa-group-h">Director — work, pay &amp; fees</div>
+      <div class="qa-row">
+        <div class="qa" id="qaReview" style="border-color:var(--accent)">${icon('schedule')} Director review — work &amp; pay${(!c.prof_unit_rate&&!c.monthly_fee)?' <span class="pill assessment" style="margin-left:4px">fees not set</span>':''}</div>
+        <div class="qa" id="qaBandFees">${icon('plan')} Band &amp; fees</div>
+        ${c.billing_cycle==='termly'?`<div class="qa" id="qaTerms">${icon('schedule')} Terms</div>`:''}
+      </div>`:(c.billing_cycle==='termly'&&canEditPlan()?`<div class="qa-group-h">Terms</div><div class="qa-row"><div class="qa" id="qaTerms">${icon('schedule')} Terms</div></div>`:'')}
+      <div class="qa-group-h">Reports &amp; records</div>
+      <div class="qa-row">
+        <div class="qa" id="qaReports">${icon('schedule')} Reports</div>
+        <div class="qa" id="qaCaseReport">${icon('schedule')} Case report</div>
+        <div class="qa" id="qaDocs">${icon('schedule')} Documents</div>
+        <div class="qa" id="qaSAR">${icon('profile')} Subject access pack</div>
+        <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
+      </div>
     </div>
 
     ${(c.school_name||c.class_teacher)?`<div class="section-head"><h3>School & class</h3></div>
@@ -6654,7 +6670,7 @@ async function renderStaffChild(v,c){
       <div class="qa" data-form="intake">Intake & referral</div>
       <div class="qa" data-form="eligibility">Eligibility & scope</div>
       <div class="qa" data-form="band_alloc">Band allocation</div>
-      <div class="qa" data-form="review">Monthly review</div>
+      <div class="qa" data-form="review">Monthly clinical review</div>
       <div class="qa" data-form="exit">Case exit</div>
       <div class="qa" data-form="safeguard" style="color:var(--danger);border-color:#F3C9CB">Safeguarding incident</div>
     </div>
@@ -6676,7 +6692,7 @@ async function renderStaffChild(v,c){
   // consent panel — staff only
   { const host=document.createElement('div');
     host.innerHTML=consentPanelHtml(c);
-    const anchor=v.querySelector('.qa-row');
+    const anchor=v.querySelector('#childTiles');
     if(anchor && host.firstElementChild){
       anchor.parentNode.insertBefore(host.firstElementChild, anchor);
       const ce=$('#consEdit');
@@ -6686,11 +6702,9 @@ async function renderStaffChild(v,c){
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
   { const _refresh=(fresh)=>renderStaffChild($('#view'),fresh||c);
-    const er=$('#qaEditRate'); if(er) er.onclick=()=>childFeeEditor(c,_refresh); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>childFeeEditor(c,_refresh);
     const bf=$('#qaBandFees'); if(bf) bf.onclick=()=>childFeeEditor(c,_refresh);
     const qt=$('#qaTerms'); if(qt) qt.onclick=()=>childTermsEditor(c,_refresh);
-    const sp=$('#qaSplit'); if(sp) sp.onclick=()=>editProfShares(c);
-    if(c.prof_unit_rate && canSeeMoney()){ renderShareSummary(c); } }
+    const rv=$('#qaReview'); if(rv) rv.onclick=()=>{ SELECTED_CHILD=c; REVIEW_MONTH=null; go('child_review'); }; }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
   // --- Care team: active + past professionals, with end / reactivate ---
@@ -6826,57 +6840,6 @@ async function ensureProfShares(c, periodISO){
   if(toAdd.length){ await sb.from('child_prof_shares').insert(toAdd); }
 }
 
-// ---- Inline summary of this month's pay split, shown on the staff child page ----
-async function renderShareSummary(c){
-  const box=document.getElementById('shareSummary'); if(!box) return;
-  const period=thisMonthISO();
-  await ensureProfShares(c, period);
-  const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',period);
-  const team=shares||[];
-  if(!team.length){ box.innerHTML='No professionals are on this case yet — assign the care team, then the fee will split automatically.'; return; }
-  const ids=team.map(s=>s.professional_id);
-  const {data:pros}=await sb.from('professionals').select('id,full_name').in('id',ids);
-  const nm={}; (pros||[]).forEach(p=>nm[p.id]=p.full_name);
-  const fee=Number(c.prof_unit_rate||0);
-  const threshold=Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
-  const parts=await Promise.all(team.map(async s=>{
-    const amt=Math.round(fee*Number(s.share_fraction||0));
-    const pct=Math.round(Number(s.share_fraction||0)*100);
-    // live fulfilment against this professional's own targets
-    let fpct=null;
-    try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:s.professional_id,p_month:period}); if(q&&q.length){ fpct=q[0].fulfilment; } }catch(e){}
-    const meets=(fpct!=null && fpct>=threshold);
-    const qualifies=meets || s.pay_exception===true;
-    let status;
-    if(fpct==null) status='<span style="color:var(--muted)">no target set</span>';
-    else if(qualifies) status=`<span style="color:var(--teal)">✓ ${fpct}% — payable</span>`+(s.pay_exception&&!meets?' <span style="color:var(--accent)">(exception)</span>':'');
-    else status=`<span style="color:var(--coral)">${fpct}% — below ${threshold}%, not payable</span>`;
-    const excBtn=(canEditPlan() && fpct!=null && !meets)
-      ? ` <button class="btn btn-ghost btn-sm excBtn" data-id="${s.id}" data-p="${escapeHtml(nm[s.professional_id]||'')}" style="width:auto;padding:2px 8px;font-size:12px">${s.pay_exception?'Remove exception':'Pay anyway…'}</button>` : '';
-    return `<div style="padding:4px 0">${escapeHtml(nm[s.professional_id]||'Professional')} — ${pct}% · UGX ${amt.toLocaleString()} · ${status}${excBtn}</div>`;
-  }));
-  box.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:4px">This month (${monthLabel(period)}) — pay depends on each professional completing at least ${threshold}% of their own target activities:</div>`+parts.join('');
-  box.querySelectorAll('.excBtn').forEach(b=>b.onclick=()=>togglePayException(b.dataset.id,b.dataset.p,c));
-}
-
-// Director-only: grant or remove the shortfall exception (addendum) for a
-// professional who fell below the threshold through no fault of their own.
-async function togglePayException(shareId, profName, c){
-  const {data:sh}=await sb.from('child_prof_shares').select('*').eq('id',shareId).single();
-  if(!sh) return;
-  if(sh.pay_exception){
-    if(!confirm('Remove the pay exception for '+profName+'? They will not be paid this month unless they reach the threshold.')) return;
-    await sb.from('child_prof_shares').update({pay_exception:false,exception_reason:null}).eq('id',shareId);
-    toast('Exception removed'); if(c) renderChildPlan($('#view'),c); return;
-  }
-  const reason=prompt('This professional is below the threshold. Record why the shortfall was NOT solely their fault (required to pay them anyway):');
-  if(reason===null) return;
-  if(!reason.trim()){ toast('A reason is required to grant an exception.',true); return; }
-  await sb.from('child_prof_shares').update({pay_exception:true,exception_reason:reason.trim(),updated_by:ME.id}).eq('id',shareId);
-  toast('Exception recorded — this professional will be paid this month'); if(c) renderChildPlan($('#view'),c);
-}
-
-// ---- Director/secretary editor: split the child's monthly fee across the care team ----
 async function editProfShares(c){
   const period=thisMonthISO();
   await ensureProfShares(c, period);
@@ -6904,7 +6867,7 @@ async function editProfShares(c){
   };
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Service unit &amp; split</h3>
-    <div class="sub">${escapeHtml(c.full_name)} · ${monthLabel(period)}. The monthly fee of UGX ${fee.toLocaleString()} is one service unit for the whole assigned bundle. It splits across the care team below; a professional is only paid when their bundle is marked fulfilled for the month.</div>
+    <div class="sub">${escapeHtml(c.full_name)} · ${monthLabel(period)}. The monthly fee of UGX ${fee.toLocaleString()} is one service unit for the whole assigned bundle. It splits across the care team below. The director sets and approves each month's actual pay in the Director review.</div>
     ${team.length?team.map(rowHtml).join(''):'<div class="empty" style="padding:20px"><h4>No care team yet</h4><p>Assign professionals to this child, then split the fee here.</p></div>'}
     ${team.length?'<div class="row-sub" id="shTotal" style="margin:4px 0 10px"></div>':''}
     <div class="modal-actions">
@@ -6944,13 +6907,13 @@ async function editProfShares(c){
         .eq('client_id',c.id).eq('professional_id',pid).eq('period_month',period);
       if(error){ toast(error.message,true); sv.disabled=false; sv.textContent='Save split'; return; }
     }
-    toast('Split saved'); close(); renderShareSummary(c);
+    toast('Split saved'); close(); if(document.getElementById('planFeeMonth')) renderChildPlan($('#view'),c);
   };
 }
 
-const TERM_DAYS_PER_MONTH = 30.44;
 let PLAN_MODE = null;   // 'month' | 'term' for termly children; null = default ('term' for termly)
 let PLAN_TERM = null;   // id of the term the term view is showing
+let REVIEW_MONTH = null; // month the Director review is showing
 let PLAN_PERIOD=null;   // YYYY-MM-01 the plan view is showing; null = current month
 async function renderChildPlan(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
@@ -7006,21 +6969,21 @@ async function renderChildPlan(v,c){
     <div class="section-head" style="margin-top:26px"><h3>Hours coverage — ${monthLabel(period)}</h3></div>
     <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Actual time logged toward this child's monthly bundle, per professional and activity type, against the Band ${c.assigned_band||c.assessed_band||'—'} target${mndBandTargetHours(c.assigned_band||c.assessed_band)?' of '+mndBandTargetHours(c.assigned_band||c.assessed_band)+' hours':''}. Hours are built from direct sessions, caregiver guidance, school liaison, coordination and documentation.</div>
     <div id="hoursCoverage"><div class="row-sub" style="color:var(--muted);padding:8px">Loading hours…</div></div>
+    ${(ME.role==='professional'&&!termly)?`<div class="section-head" style="margin-top:26px"><h3>Your pay — ${monthLabel(period)}</h3></div><div id="proPayBox"></div>`:''}
     ${canSeeMoney()?`<div class="section-head" style="margin-top:26px"><h3>Monthly service-unit fee — ${monthLabel(period)}</h3></div>
     <div class="row-sub" style="color:var(--muted);margin-bottom:8px">What this child's bundle is worth this month, how it is split across the care team, and what has actually been invoiced to the family in ${monthLabel(period)}. Use this to check the invoice you send matches the fee on record.</div>
     <div id="planFeeMonth"><div class="row-sub" style="color:var(--muted);padding:8px">Loading fee…</div></div>`:''}
     <div class="section-head" style="margin-top:26px"><h3>Session summaries</h3></div>
     <div class="rows" id="planSessions"></div>
-    ${canEditPlan()&&c.assessed_band?`<div class="finalize-card" id="finalizeCard">
-      <div style="flex:1"><div class="row-name">Finalize a month for billing &amp; pay</div>
-      <div class="row-sub" style="white-space:normal;margin-top:4px">Locks the chosen month as the basis for the child's invoice, and releases the monthly service-unit fee to the care team according to the saved split. Only professionals whose bundle is marked fulfilled are paid. You can finalize a past month even after a new one has started.</div>
-      <div style="margin-top:10px"><label style="font-size:12px;color:var(--muted);font-weight:600">Month to finalize</label><br>
-        <select id="finMonth" style="margin-top:4px;max-width:220px">${recentMonthOptions(period)}</select></div>
-      </div>
-      <button class="btn btn-primary" id="finalizeBtn" style="width:auto;white-space:nowrap">Finalize month</button>
+    ${canSeeMoney()?`<div class="finalize-card" id="finalizeCard">
+      <div style="flex:1"><div class="row-name">Close ${monthLabel(period)} — Director review</div>
+      <div class="row-sub" style="white-space:normal;margin-top:4px">The director reviews the month's work, sets what each professional is paid (any amount, with a reason where needed) and closes the month. Low activity is flagged, never deducted.</div></div>
+      <button class="btn btn-primary" id="goReview" style="width:auto;white-space:nowrap">Open Director review</button>
     </div>`:''}`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
   { const sel=$('#planMonth'); if(sel) sel.onchange=()=>{ PLAN_PERIOD=sel.value; renderChildPlan($('#view'),c); }; }
+  if(ME.role==='professional'&&!termly) paintProMonthPay(c, period);
+  { const gr=$('#goReview'); if(gr) gr.onclick=()=>{ SELECTED_CHILD=c; REVIEW_MONTH=period; go('child_review'); }; }
   if(termly){ const pt=$('#pmTerm'); if(pt) pt.onclick=()=>{ PLAN_MODE='term'; renderChildPlan($('#view'),c); }; paintTermBanner(c, period); }
 
   // Finalization status for the shown month: finalized, or pending with the
@@ -7031,28 +6994,13 @@ async function renderChildPlan(v,c){
       .eq('client_id',c.id).eq('kind','svc_units').eq('period_month',period).eq('status','finalized').maybeSingle();
     if(fin){
       box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--teal-soft,#E6F5F0);border:1px solid var(--teal)">
-        <div class="row-main"><div class="row-name" style="color:var(--teal-deep,#0F6E56)">✓ ${monthLabel(period)} finalized</div>
-        <div class="row-sub">Locked for billing and pay on ${fmtDate(fin.created_at)}.</div></div></div>`;
+        <div class="row-main"><div class="row-name" style="color:var(--teal-deep,#0F6E56)">✓ ${monthLabel(period)} closed</div>
+        <div class="row-sub">Reviewed and closed by the director on ${fmtDate(fin.created_at)}${fin.data&&fin.data.reason?' · '+escapeHtml(fin.data.reason):''}.</div></div></div>`;
       return;
     }
-    // pending — work out what's missing
-    const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',period);
-    let missing='';
-    if(shares && shares.length){
-      const unfulfilled=shares.filter(s=>!s.fulfilled);
-      if(unfulfilled.length){
-        const pids=unfulfilled.map(s=>s.professional_id).filter(Boolean);
-        let nm={};
-        if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
-        missing=`<div class="row-sub" style="white-space:normal;margin-top:6px"><b>Not yet ready to finalize.</b> Bundle not marked fulfilled for: ${unfulfilled.map(s=>escapeHtml(nm[s.professional_id]||'a professional')).join(', ')}.</div>`;
-      } else {
-        missing=`<div class="row-sub" style="margin-top:6px">All professionals' bundles are marked fulfilled — this month is ready to finalize.</div>`;
-      }
-    } else {
-      missing=`<div class="row-sub" style="margin-top:6px">No care-team shares recorded for this month yet.</div>`;
-    }
     box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)">
-      <div class="row-main"><div class="row-name">${monthLabel(period)} — pending</div>${missing}</div></div>`;
+      <div class="row-main"><div class="row-name">${monthLabel(period)} — open</div>
+      <div class="row-sub">Not yet reviewed. The director closes the month in the Director review.</div></div></div>`;
   })();
   // Hours coverage — actual minutes logged this month per professional & activity,
   // against the band's target hours. Shows the director real-time coverage.
@@ -7160,106 +7108,6 @@ async function renderChildPlan(v,c){
       };
     });
     const et=$('#editTargets'); if(et) et.onclick=()=>editTargetsForm(c,list);
-    const fb=$('#finalizeBtn'); if(fb) fb.onclick=async()=>{
-      const finPeriod = ($('#finMonth')&&$('#finMonth').value) ? $('#finMonth').value : period;
-      const finLabel = monthLabel(finPeriod);
-      fb.disabled=true; fb.textContent='Finalizing…';
-      // recompute done-counts for the CHOSEN month (may differ from the view's current month)
-      const mStart=finPeriod, mEnd=(()=>{ const d=mndDate(finPeriod); return localMonthISO(new Date(d.getFullYear(),d.getMonth()+1,1)); })();
-      // Termly child: only months inside a term can be finalized (holidays: no service, no pay).
-      let finTerms=[];
-      if(c.billing_cycle==='termly'){
-        const {terms:allT,error:tErr}=await loadChildTerms(c);
-        if(tErr){ toast('Run stage52.sql to enable termly plans.',true); fb.disabled=false; fb.textContent='Finalize month'; return; }
-        finTerms=termsInMonth(allT, finPeriod);
-        if(!finTerms.length){ toast(finLabel+' is outside every term for this child — school holiday, nothing to finalize or pay.',true); fb.disabled=false; fb.textContent='Finalize month'; return; }
-      }
-      const {data:monthSess}=await sb.from('session_logs').select('activity_key,service_units,professional_id').eq('client_id',c.id).gte('session_date',mStart).lt('session_date',mEnd);
-      const doneBy={}; (monthSess||[]).forEach(s=>{ const k=s.activity_key||'direct_session'; doneBy[k]=(doneBy[k]||0)+1; });
-      const acts=list.map(r=>({key:r.activity_key,label:r.label,done:doneBy[r.activity_key]||0,target:Number(r.target_count||0)}));
-      const summary={ month:finLabel, band:c.assessed_band,
-        total_done:acts.reduce((a,x)=>a+x.done,0), total_target:acts.reduce((a,x)=>a+x.target,0), activities:acts };
-      let profId=null;
-      const {data:asg}=await sb.from('assignments').select('professional_id').eq('client_id',c.id).eq('status','accepted').limit(1).maybeSingle();
-      if(asg) profId=asg.professional_id;
-      const {error}=await sb.from('op_forms').insert({
-        kind:'svc_units', client_id:c.id, professional_id:profId, period_month:finPeriod,
-        title:`Service units — ${finLabel}`, data:summary, created_by:ME.id, status:'finalized' });
-      if(error){toast(error.message,true);fb.disabled=false;fb.textContent='Finalize month';return;}
-      // ---- PROFESSIONAL PAY: one monthly fee per child, split across the care team ----
-      // The service unit is ONE monthly fee for the whole assigned bundle, NOT per session.
-      // Each professional earns their share_fraction of that fee, but ONLY if their bundle
-      // was marked fulfilled for the month. Shares default to an equal split (1/N) and are
-      // director-editable via the "Service unit & split" editor.
-      let payMsg='';
-      if(c.billing_cycle==='termly'){
-        // ---- TERMLY: pay each open term's SLICE for this month as an advance ----
-        // Slice = term service unit x (term days in this month / term days).
-        // No monthly 60% gate: the rule is judged over the whole term at settlement.
-        await ensureProfShares(c, finPeriod);
-        const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',finPeriod);
-        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('source','term_slice').in('status',['awaiting_prof','disputed','pending']);
-        const lines=[]; const skippedTerms=[];
-        for(const t of finTerms){
-          if(t.status==='finalized'){ skippedTerms.push(t.label); continue; }
-          const slice=termSliceTotal(t, finPeriod);
-          if(!(slice>0)){ skippedTerms.push(t.label+' (no term service unit set)'); continue; }
-          const dIn=termDaysInMonth(t,finPeriod), dTot=termDays(t);
-          for(const sh of (shares||[])){
-            const amt=Math.round(slice*Number(sh.share_fraction||0));
-            if(amt<=0) continue;
-            lines.push({ professional_id:sh.professional_id, period_month:finPeriod, source:'term_slice', client_id:c.id, term_id:t.id,
-              description:`${c.full_name} — ${t.label} slice, ${finLabel}: ${dIn}/${dTot} term days, ${Math.round(Number(sh.share_fraction||0)*100)}% share (advance; settled at term end)`,
-              units:1, unit_rate:Math.round(slice), amount:amt, status:'awaiting_prof', created_by:ME.id });
-          }
-        }
-        for(const sh of (shares||[])){
-          let pct=null; try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:sh.professional_id,p_month:finPeriod}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
-          await sb.from('child_prof_shares').update({ fulfil_pct:pct, status:'finalized', updated_by:ME.id, updated_at:new Date().toISOString() }).eq('id',sh.id);
-        }
-        if(lines.length){ const {error:pe}=await sb.from('prof_payables').insert(lines); if(pe){ toast(pe.message,true); } }
-        payMsg=` — ${lines.length} term slice${lines.length===1?'':'s'}`+(skippedTerms.length?` (skipped: ${skippedTerms.join(', ')})`:'');
-      } else {
-      const childFee = Number(c.prof_unit_rate||0);
-      if(childFee>0){
-        // ensure share rows exist for the accepted care team this month (equal default split)
-        await ensureProfShares(c, finPeriod);
-        const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',finPeriod);
-        const team=shares||[];
-        // clear prior pending payables for this child+month to avoid duplicates on re-finalize
-        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('source','child_units').in('status',['awaiting_prof','disputed']);
-        const paid=[]; const skipped=[];
-        for(const sh of team){
-          const amt=Math.round(childFee*Number(sh.share_fraction||0));
-          // 60% RULE: compute this professional's fulfilment of THEIR OWN target
-          // activities this month. Pays if >= threshold, OR the director recorded
-          // a shortfall exception. Activity-count based, per their portion.
-          let pct=null;
-          try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:sh.professional_id,p_month:finPeriod}); if(q&&q.length){ pct=q[0].fulfilment; } }catch(e){}
-          const threshold = Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
-          const meets = (pct!=null && pct>=threshold);
-          const qualifies = meets || sh.pay_exception===true;
-          // stamp computed amount, %, and status on the share row
-          await sb.from('child_prof_shares').update({
-            amount:amt, fulfil_pct:pct,
-            status: qualifies?'finalized':'incomplete',
-            updated_by:ME.id, updated_at:new Date().toISOString()
-          }).eq('id',sh.id);
-          if(!qualifies){ skipped.push({sh,pct}); continue; }   // below 60% and no exception → not payable
-          if(amt<=0){ continue; }
-          paid.push({
-            professional_id:sh.professional_id, period_month:finPeriod, source:'child_units', client_id:c.id,
-            description:`${c.full_name} — monthly service unit (${Math.round(Number(sh.share_fraction||0)*100)}% share)${sh.pay_exception?' [exception]':''} (${finLabel})`,
-            units:1, unit_rate:childFee, amount:amt, status:'awaiting_prof', created_by:ME.id
-          });
-        }
-        if(paid.length){ await sb.from('prof_payables').insert(paid); }
-        payMsg = ` — ${paid.length} payable`+(skipped.length?`, ${skipped.length} below ${Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60)}% (not payable)`:'');
-      }
-      }
-      toast(`${finLabel} finalized${payMsg}`);
-      fb.textContent='✓ Finalized';
-    };
   }
 }
 async function editTargetsForm(c,list){
@@ -8468,13 +8316,13 @@ async function paintMyPay(){
   const view=$('#view'); if(!view || document.getElementById('myPayBox')) return;
   const {data:pays}=await sb.from('prof_payables').select('*')
     .eq('professional_id',MY_PROF_ID)
-    .in('status',['awaiting_prof','disputed','prof_approved'])
+    .in('status',['awaiting_prof','disputed','prof_approved','approved'])
     .order('period_month',{ascending:false});
   if(!pays||!pays.length) return;
   const wrap=el('<div id="myPayBox" style="margin:0 0 18px"></div>');
   const needsAction=pays.filter(p=>p.status==='awaiting_prof');
   wrap.innerHTML=`<div class="section-head"><h3>My pay${needsAction.length?` <span class="pill assessment">${needsAction.length} to review</span>`:''}</h3></div>
-    <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Check each amount and approve it, or flag it if something looks wrong. Approving confirms the amount is correct.</div>
+    <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Pay the director has approved, and anything waiting for your check. If an amount looks wrong, tell the director.</div>
     <div class="rows" id="myPayRows"></div>`;
   view.insertBefore(wrap, view.firstChild?view.firstChild.nextSibling:null);
   const rows=wrap.querySelector('#myPayRows');
@@ -8482,6 +8330,7 @@ async function paintMyPay(){
   pays.forEach(p=>{
     const st=p.status;
     const pill = st==='awaiting_prof'?'<span class="pill assessment">Awaiting your approval</span>'
+      : st==='approved'?'<span class="pill active">Approved by director — to be paid</span>'
       : st==='prof_approved'?'<span class="pill active">You approved — with director</span>'
       : '<span class="pill exited">Disputed — with director</span>';
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
@@ -12596,8 +12445,6 @@ function childFeeStripHtml(c){
   if(c.monthly_fee!=null) bits.push(`<div class="fee-chip">Family — monthly<b>${money(c.monthly_fee)}</b></div>`);
   if(c.billing_cycle==='termly' && c.term_fee!=null)
     bits.push(`<div class="fee-chip">Family — per term<b>${money(c.term_fee)}</b></div>`);
-  if(c.prof_unit_rate!=null)
-    bits.push(`<div class="fee-chip">Service unit / month<b>${money(c.prof_unit_rate)}</b></div>`);
   if(isLegacyContext(c.pricing_context))
     bits.push(`<div class="fee-chip" style="border-color:#F3C9CB;background:#FDEEEF"><b style="color:#8E2226">Legacy context — reselect</b></div>`);
   if(!bits.length) return '';
@@ -12770,214 +12617,163 @@ async function childFeeEditor(c, after){
 
 /* =====================================================================
    MONTHLY SERVICE-UNIT FEE PANEL (service plan, month-filtered)
-   For the selected month: the fee on record, how it splits across the
-   care team (with each professional's fulfilment and pay status), and
-   what was actually invoiced to the family in that month — with a
-   clear match / mismatch check against the fee on record.
+   The fee on record, the care-team split for the selected month, what the
+   director approved for each professional, and what was invoiced.
+   Fulfilment below the flag level is shown — it never changes an amount.
    ===================================================================== */
 async function paintPlanFee(c, period){
   const box=document.getElementById('planFeeMonth'); if(!box) return;
   if(!canSeeMoney()){ box.innerHTML=''; return; }
-  const money=v=>v==null?'—':'UGX '+Math.round(Number(v)).toLocaleString();
-  const ym=String(period).slice(0,7);
-  const monthStart=ym+'-01';
-  const d0=new Date(monthStart+'T00:00:00');
+  const money=mndMoney;
+  const ym=String(period).slice(0,7), monthStart=ym+'-01';
+  const d0=mndDate(monthStart);
   const next=localMonthISO(new Date(d0.getFullYear(),d0.getMonth()+1,1));
-  const isPast = monthStart < thisMonthISO();
-  const threshold=Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
-
-  const [shR, payR, invR, finR]=await Promise.all([
+  const isPast=monthStart<thisMonthISO();
+  const thr=flagThreshold();
+  if(!isPast && monthStart===thisMonthISO()) await ensureProfShares(c, monthStart);
+  const [shR,payR,invR,finR]=await Promise.all([
     sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',monthStart),
     sb.from('prof_payables').select('*').eq('client_id',c.id).eq('period_month',monthStart),
     sb.from('invoices').select('*').eq('client_id',c.id).gte('invoice_date',monthStart).lt('invoice_date',next).order('invoice_date',{ascending:true}),
     sb.from('op_forms').select('id').eq('client_id',c.id).eq('kind','svc_units').eq('period_month',monthStart).eq('status','finalized').maybeSingle()
   ]);
-  const shares=shR.data||[], pays=payR.data||[];
-  // belt-and-braces month match on invoices whatever the date format
+  const shares=shR.data||[], pays=(payR.data||[]).filter(p=>p.source!=='event');
   const invs=(invR.data||[]).filter(i=>i.invoice_date && String(i.invoice_date).slice(0,7)===ym);
-  const finalized=!!finR.data;
-
+  const closed=!!finR.data;
   const ids=[...new Set([...shares.map(s=>s.professional_id),...pays.map(p=>p.professional_id)].filter(Boolean))];
-  const nm={};
-  if(ids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',ids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
-  const payBy={}; pays.forEach(p=>{ (payBy[p.professional_id]=payBy[p.professional_id]||[]).push(p); });
-
-  const PAYLBL={pending:'Pending',awaiting_prof:'Awaiting professional',prof_approved:'Professional approved',disputed:'Disputed',approved:'Approved for pay',billed:'Billed',paid:'Paid'};
+  const nm={}; if(ids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',ids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
   const unit=c.prof_unit_rate!=null?Number(c.prof_unit_rate):null;
-  // What the month's split is worked out from: the monthly unit, or — for a termly
-  // child — the slice of each term that falls in this month (nil in a holiday month).
-  let basis=unit, basisNote='';
-  if(c.billing_cycle==='termly'){
-    const {terms}=await loadChildTerms(c);
-    const here=termsInMonth(terms, monthStart);
-    basis=Math.round(here.reduce((a,t)=>a+termSliceTotal(t,monthStart),0));
-    basisNote=here.length
-      ? `Termly child — this month's basis is the term slice: ${here.map(t=>escapeHtml(t.label)+' '+termDaysInMonth(t,monthStart)+'/'+termDays(t)+' days = '+money(termSliceTotal(t,monthStart))).join('; ')}.`
-      : 'Termly child — school holiday, no term in this month, so nothing is due.';
-  }
+  const termly=c.billing_cycle==='termly';
+  let term=null, holiday=false;
+  if(termly){ const {terms}=await loadChildTerms(c); term=termsInMonth(terms,monthStart)[0]||null; holiday=!term; }
 
-  // ---- 1. Fee on record
   const band=c.assigned_band&&String(c.assigned_band)!==String(c.assessed_band)
     ? `Band ${c.assigned_band} <span style="color:var(--muted)">(assessed Band ${c.assessed_band||'—'})</span>`
     : (c.assessed_band?`Band ${c.assessed_band}`:'<span style="color:var(--warn)">No band set</span>');
   const recHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="row-main"><div class="row-name">Fee on record</div>
-        <div class="row-sub">${band} · Context ${escapeHtml(c.pricing_context||'—')} · ${c.billing_cycle==='termly'?'Termly':'Monthly'} billing${c.fee_basis==='model_b'?' · Model B':''}</div></div>
+        <div class="row-sub">${band} · Context ${escapeHtml(c.pricing_context||'—')} · ${termly?'Termly':'Monthly'} billing${c.fee_basis==='model_b'?' · Model B':''}</div></div>
       <button class="btn btn-ghost btn-sm" id="pfEdit" style="width:auto">Edit band &amp; fees</button>
+      <button class="btn btn-ghost btn-sm" id="pfSplit" style="width:auto">Manage split</button>
     </div>
     <div class="fee-strip" style="margin:0">
-      <div class="fee-chip">Family — monthly<b>${money(c.monthly_fee)}</b></div>
-      ${c.billing_cycle==='termly'?`<div class="fee-chip">Family — per term<b>${money(c.term_fee)}</b></div>`:''}
+      ${termly?`<div class="fee-chip">Family — per term<b>${money(term?term.term_fee:c.term_fee)}</b></div>`:`<div class="fee-chip">Family — monthly<b>${money(c.monthly_fee)}</b></div>`}
       <div class="fee-chip">Service unit / month<b>${money(unit)}</b></div>
+      ${term?`<div class="fee-chip">${escapeHtml(term.label)} service unit<b>${money(term.term_unit_fee)}</b></div>`:''}
     </div>
-    ${isPast?`<div class="row-sub" style="white-space:normal;color:var(--muted)">These are today's figures. Amounts already finalized or invoiced for ${monthLabel(period)} are shown below exactly as they were recorded.</div>`:''}
+    ${term?`<div class="row-sub" style="white-space:normal;color:var(--accent)">${escapeHtml(term.label)} — month ${termMonthIndex(term,monthStart)+1} of ${termMonthCount(term)}. Professionals are paid their term share in instalments set in the Director review.</div>`:''}
+    ${holiday?`<div class="row-sub" style="white-space:normal;color:var(--accent)">Termly child — school holiday, no term this month, so nothing is due.</div>`:''}
+    ${isPast?`<div class="row-sub" style="white-space:normal;color:var(--muted)">These are today's fee figures. Amounts approved for ${monthLabel(period)} are shown below exactly as approved.</div>`:''}
   </div>`;
 
-  // ---- 2. Split & pay for this month
   let splitHtml;
   if(!shares.length && !pays.length){
-    splitHtml=`<div class="empty" style="padding:16px"><h4>No split recorded for ${monthLabel(period)}</h4><p>${isPast?'No care-team split was saved for this month.':'The split is created automatically once professionals are assigned and the child page is opened.'}</p></div>`;
+    splitHtml=`<div class="empty" style="padding:16px"><h4>No split recorded for ${monthLabel(period)}</h4><p>The split is created automatically once professionals are assigned.</p></div>`;
   } else {
-    const profIds=ids.length?ids:[];
-    let totExpected=0, totPayable=0;
-    const rows=profIds.map(pid=>{
+    let totSug=0, totApp=0;
+    const STL={approved:'Approved',billed:'On pay bill',paid:'Paid',awaiting_prof:'With professional',prof_approved:'With director',disputed:'Disputed',pending:'Pending'};
+    const rows=ids.map(pid=>{
       const s=shares.find(x=>x.professional_id===pid);
       const frac=s?Number(s.share_fraction||0):null;
-      const expected=(basis!=null&&frac!=null)?Math.round(basis*frac):null;
-      if(expected!=null) totExpected+=expected;
-      const pp=payBy[pid]||[];
-      const payAmt=pp.reduce((a,p)=>a+Number(p.amount||0),0);
-      totPayable+=payAmt;
-      const payStat=pp.length?pp.map(p=>PAYLBL[p.status]||p.status).join(', '):(finalized?'<span style="color:var(--coral)">Not payable</span>':'<span style="color:var(--muted)">Not finalized</span>');
+      const sug=(!holiday && frac!=null)?Math.round((term?Number(term.term_unit_fee||0)/termMonthCount(term):(unit||0))*frac):null;
+      if(sug!=null) totSug+=sug;
+      const pp=pays.filter(p=>p.professional_id===pid);
+      const app=pp.reduce((a,p)=>a+Number(p.amount||0),0); totApp+=app;
       const fp=(s&&s.fulfil_pct!=null)?Math.round(Number(s.fulfil_pct)):null;
-      const fpHtml=fp==null?'—':`<span style="color:${fp>=threshold||(s&&s.pay_exception)?'var(--teal)':'var(--coral)'}">${fp}%</span>${s&&s.pay_exception?' <span style="color:var(--accent)">(exception)</span>':''}`;
+      const fpHtml=fp==null?'—':`<span style="color:${fp>=thr?'var(--teal)':'var(--warn)'}">${fp}%${fp<thr?' ⚑':''}</span>`;
       return `<tr>
         <td style="padding:6px 8px">${escapeHtml(nm[pid]||'Professional')}</td>
         <td style="padding:6px 8px;text-align:right">${frac!=null?Math.round(frac*100)+'%':'—'}</td>
-        <td style="padding:6px 8px;text-align:right">${money(expected)}</td>
+        <td style="padding:6px 8px;text-align:right">${money(sug)}</td>
         <td style="padding:6px 8px;text-align:right">${fpHtml}</td>
-        <td style="padding:6px 8px;text-align:right">${pp.length?money(payAmt):'—'}</td>
-        <td style="padding:6px 8px">${payStat}</td>
-      </tr>`;
+        <td style="padding:6px 8px;text-align:right">${pp.length?money(app):'—'}</td>
+        <td style="padding:6px 8px">${pp.length?pp.map(p=>STL[p.status]||p.status).join(', '):(closed?'No pay':'<span style="color:var(--muted)">Not reviewed</span>')}</td></tr>`;
     }).join('');
     splitHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
-      <div class="row-name">Care-team split — ${monthLabel(period)} ${finalized?'<span class="pill active" style="margin-left:6px">Finalized</span>':'<span class="pill band" style="margin-left:6px">Not finalized</span>'}</div>
+      <div class="row-name">Care-team split — ${monthLabel(period)} ${closed?'<span class="pill active" style="margin-left:6px">Closed</span>':'<span class="pill band" style="margin-left:6px">Open</span>'}</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
-        <thead><tr style="color:var(--muted);text-align:left;font-size:12px">
-          <th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Share</th><th style="padding:6px 8px;text-align:right">Share of fee</th><th style="padding:6px 8px;text-align:right">Fulfilment</th><th style="padding:6px 8px;text-align:right">Pay recorded</th><th style="padding:6px 8px">Pay status</th>
-        </tr></thead>
+        <thead><tr style="color:var(--muted);text-align:left;font-size:12px"><th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Share</th><th style="padding:6px 8px;text-align:right">${term?'Even monthly part':'Share of fee'}</th><th style="padding:6px 8px;text-align:right">Fulfilment</th><th style="padding:6px 8px;text-align:right">Approved</th><th style="padding:6px 8px">Status</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)">
-          <td style="padding:6px 8px">Total</td><td></td>
-          <td style="padding:6px 8px;text-align:right">${basis!=null?money(totExpected):'—'}</td><td></td>
-          <td style="padding:6px 8px;text-align:right">${pays.length?money(totPayable):'—'}</td><td></td>
-        </tr></tfoot>
+        <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)"><td style="padding:6px 8px">Total</td><td></td><td style="padding:6px 8px;text-align:right">${money(totSug)}</td><td></td><td style="padding:6px 8px;text-align:right">${pays.length?money(totApp):'—'}</td><td></td></tr></tfoot>
       </table>
-      ${basisNote?`<div class="row-sub" style="white-space:normal;color:var(--accent)">${basisNote}</div>`:''}
-      <div class="row-sub" style="white-space:normal;color:var(--muted)">"Share of fee" uses the service-unit fee on record. "Pay recorded" is what was actually released when the month was finalized — a professional below ${threshold}% of their targets is not paid unless the director grants an exception.</div>
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">⚑ marks fulfilment below ${thr}% of targets — for the director's attention only; it does not change any amount. The director sets and approves the actual pay in the Director review.</div>
     </div>`;
   }
 
-  // ---- 3. Invoiced to the family this month + match check
   const invTotal=invs.reduce((a,i)=>a+Number(i.amount||0),0);
-  const invRows=invs.map(i=>`<tr>
-    <td style="padding:6px 8px">${escapeHtml(i.invoice_no||'—')}</td>
-    <td style="padding:6px 8px">${escapeHtml(fmtDate(i.invoice_date))}</td>
-    <td style="padding:6px 8px;white-space:normal">${escapeHtml(i.description||'')}</td>
-    <td style="padding:6px 8px;text-align:right">${money(i.amount)}</td>
-    <td style="padding:6px 8px">${escapeHtml(String(i.status||'').replace('_',' '))}</td>
-  </tr>`).join('');
   let check='';
-  if(c.billing_cycle==='termly'){
-    check=`<div class="row-sub" style="white-space:normal;color:var(--muted)">Termly billing — the family is invoiced per term, so a month may have no invoice. Invoices dated in ${monthLabel(period)} are listed for reference; the term fee check is in <b>Term view</b>.</div>`;
-  } else if(c.monthly_fee==null){
-    check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No monthly family fee is on record, so the invoice can't be checked. Use "Edit band &amp; fees" to set it.</div>`;
-  } else if(!invs.length){
-    check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No invoice dated in ${monthLabel(period)} yet. Expected: ${money(c.monthly_fee)}.</div>`;
-  } else if(Math.round(invTotal)===Math.round(Number(c.monthly_fee))){
-    check=`<div class="row-sub" style="white-space:normal;color:var(--teal)">✓ Invoiced ${money(invTotal)} — matches the monthly fee on record.</div>`;
-  } else {
-    const diff=invTotal-Number(c.monthly_fee);
-    check=`<div class="row-sub" style="white-space:normal;color:var(--coral)">Invoiced ${money(invTotal)} but the fee on record is ${money(c.monthly_fee)} — ${diff>0?'over':'under'} by ${money(Math.abs(diff))}. Correct the fee here, or the invoice in Finances, so they agree.</div>`;
-  }
+  if(termly) check=`<div class="row-sub" style="white-space:normal;color:var(--muted)">Termly billing — the family is invoiced per term, so a month may have no invoice. The term fee check is in <b>Term view</b>.</div>`;
+  else if(c.monthly_fee==null) check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No monthly family fee is on record, so the invoice can't be checked.</div>`;
+  else if(!invs.length) check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No invoice dated in ${monthLabel(period)} yet. Expected: ${money(c.monthly_fee)}.</div>`;
+  else if(Math.round(invTotal)===Math.round(Number(c.monthly_fee))) check=`<div class="row-sub" style="white-space:normal;color:var(--teal)">✓ Invoiced ${money(invTotal)} — matches the monthly fee on record.</div>`;
+  else { const diff=invTotal-Number(c.monthly_fee); check=`<div class="row-sub" style="white-space:normal;color:var(--coral)">Invoiced ${money(invTotal)} but the fee on record is ${money(c.monthly_fee)} — ${diff>0?'over':'under'} by ${money(Math.abs(diff))}. Correct the fee here, or the invoice in Finances, so they agree.</div>`; }
   const invHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
     <div class="row-name">Invoiced to the family — ${monthLabel(period)}</div>
     ${invs.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px">
       <thead><tr style="color:var(--muted);text-align:left;font-size:12px"><th style="padding:6px 8px">Invoice</th><th style="padding:6px 8px">Date</th><th style="padding:6px 8px">Description</th><th style="padding:6px 8px;text-align:right">Amount</th><th style="padding:6px 8px">Status</th></tr></thead>
-      <tbody>${invRows}</tbody>
+      <tbody>${invs.map(i=>`<tr><td style="padding:6px 8px">${escapeHtml(i.invoice_no||'—')}</td><td style="padding:6px 8px">${escapeHtml(fmtDate(i.invoice_date))}</td><td style="padding:6px 8px;white-space:normal">${escapeHtml(i.description||'')}</td><td style="padding:6px 8px;text-align:right">${money(i.amount)}</td><td style="padding:6px 8px">${escapeHtml(String(i.status||'').replace('_',' '))}</td></tr>`).join('')}</tbody>
       <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)"><td style="padding:6px 8px" colspan="3">Total invoiced</td><td style="padding:6px 8px;text-align:right">${money(invTotal)}</td><td></td></tr></tfoot>
     </table>`:''}
-    ${check}
-  </div>`;
+    ${check}</div>`;
 
   box.innerHTML=`<div class="rows">${recHtml}${splitHtml}${invHtml}</div>`;
-  const eb=document.getElementById('pfEdit');
-  if(eb) eb.onclick=()=>childFeeEditor(c,()=>renderChildPlan($('#view'),c));
+  const eb=document.getElementById('pfEdit'); if(eb) eb.onclick=()=>childFeeEditor(c,()=>renderChildPlan($('#view'),c));
+  const sp=document.getElementById('pfSplit'); if(sp) sp.onclick=()=>editProfShares(c);
 }
 
 /* =====================================================================
-   TERMLY SERVICE PLANS  (stage 52)
+   TERMLY SERVICE PLANS + DIRECTOR REVIEW  (stage 53)
    ---------------------------------------------------------------------
-   For children billed per term. Each termly child has their own terms.
-   * Every month a term touches pays the care team a SLICE of the term
-     service unit, sized by the term days that fall in that month.
-     Slices are advances, paid whatever that month's activity.
-   * At the end of term the 60% rule is judged over the WHOLE term and a
-     settlement line tops up, or recovers, the difference.
-   * Months outside every term (school holidays): no service, no pay.
+   * A term is a run of WHOLE calendar months (e.g. Sep–Nov). The school's
+     actual first/last days are kept for reference only. Targets and pay
+     then follow ordinary months — no broken day-fractions.
+   * Term service unit = monthly service unit x months in the term.
+     Each professional's term total = term service unit x their share.
+   * Professionals are paid in instalments decided by the director in the
+     monthly Director review. The review suggests an even instalment
+     (rounded to UGX 1,000) and puts the remainder on the term's last month,
+     and always shows the term total, what is approved so far and the balance.
+   * The 60% fulfilment level is a FLAG only. It never changes an amount.
+   * Months outside every term (school holidays): nothing due.
    ===================================================================== */
 
 function mndDate(iso){ return new Date(String(iso).slice(0,10)+'T00:00:00'); }
-function termDays(t){ return Math.round((mndDate(t.end_date)-mndDate(t.start_date))/86400000)+1; }
-function termMonthsEquiv(t){ return termDays(t)/TERM_DAYS_PER_MONTH; }
-function termDaysInMonth(t, monthISO){
-  const ms=mndDate(String(monthISO).slice(0,7)+'-01');
-  const me=new Date(ms.getFullYear(), ms.getMonth()+1, 0);
-  const s=mndDate(t.start_date), e=mndDate(t.end_date);
-  const a=s>ms?s:ms, b=e<me?e:me;
-  return b<a?0:Math.round((b-a)/86400000)+1;
-}
-/* Every calendar month (YYYY-MM-01) the term touches, in order. */
+function ymOf(iso){ return String(iso).slice(0,7); }
+function monthEndISO(monthISO){ const d=mndDate(String(monthISO).slice(0,7)+'-01'); return localISO(new Date(d.getFullYear(),d.getMonth()+1,0)); }
 function termMonths(t){
   const out=[]; const s=mndDate(t.start_date), e=mndDate(t.end_date);
   let d=new Date(s.getFullYear(), s.getMonth(), 1);
   while(d<=e){ out.push(localMonthISO(d)); d=new Date(d.getFullYear(), d.getMonth()+1, 1); }
   return out;
 }
-function termsInMonth(terms, monthISO){ return (terms||[]).filter(t=>termDaysInMonth(t,monthISO)>0); }
-/* Whole-team slice of the term service unit for one month. */
-function termSliceTotal(t, monthISO){
-  const unit=Number(t.term_unit_fee||0); if(!unit) return 0;
-  return unit*termDaysInMonth(t,monthISO)/termDays(t);
-}
-/* Default term service unit = monthly unit x term length, to the nearest 100. */
-function autoTermUnit(c, start, end){
-  if(!c.prof_unit_rate || !start || !end) return null;
-  const days=termDays({start_date:start,end_date:end});
-  if(!(days>0)) return null;
-  return Math.round(Number(c.prof_unit_rate)*days/TERM_DAYS_PER_MONTH/100)*100;
-}
-function termRange(t){ return `${fmtDate(t.start_date)} – ${fmtDate(t.end_date)}`; }
+function termMonthCount(t){ return termMonths(t).length; }
+function termsInMonth(terms, monthISO){ const ym=ymOf(monthISO); return (terms||[]).filter(t=>termMonths(t).some(m=>ymOf(m)===ym)); }
+function termMonthIndex(t, monthISO){ return termMonths(t).findIndex(m=>ymOf(m)===ymOf(monthISO)); }
+function autoTermUnit(c, months){ return (c.prof_unit_rate && months>0) ? Math.round(Number(c.prof_unit_rate)*months) : null; }
+function termRange(t){ const ms=termMonths(t); return ms.length?`${monthLabel(ms[0])} – ${monthLabel(ms[ms.length-1])}`:''; }
+function round1000(v){ return Math.round(Number(v||0)/1000)*1000; }
+function mndMoney(v){ return v==null||v===''?'—':'UGX '+Math.round(Number(v)).toLocaleString(); }
 async function loadChildTerms(c){
   const {data,error}=await sb.from('child_terms').select('*').eq('client_id',c.id).order('start_date',{ascending:true});
-  if(error){ return {terms:[], error}; }
+  if(error) return {terms:[], error};
   return {terms:data||[], error:null};
 }
 function termLoadError(error){
-  const missing=/child_terms|does not exist|schema cache/i.test(error&&error.message||'');
-  return `<div class="empty" style="padding:20px"><h4>Termly plans aren't switched on yet</h4><p>${missing?'Run <b>stage52.sql</b> in the Supabase SQL Editor, then reload.':escapeHtml(error.message)}</p></div>`;
+  const missing=/child_terms|does not exist|schema cache|column/i.test(error&&error.message||'');
+  return `<div class="empty" style="padding:20px"><h4>Termly plans aren't switched on yet</h4><p>${missing?'Run <b>stage53.sql</b> in the Supabase SQL Editor, then reload.':escapeHtml(error.message)}</p></div>`;
 }
+function flagThreshold(){ return Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60); }
 
 /* ---------------------------------------------------------------------
-   Terms editor — add / edit / delete a child's terms.
+   Terms editor
 --------------------------------------------------------------------- */
 async function childTermsEditor(c, after){
   if(!canEditPlan()){ toast('Only Mindora staff can set terms.',true); return; }
   const {terms, error}=await loadChildTerms(c);
-  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:620px">
     <h3>Terms</h3>
-    <div class="sub">${escapeHtml(c.full_name)} is billed per term. Set each term's dates here. Each month a term touches pays the care team a slice of the term service unit, sized by the term days in that month. Months outside every term are holidays — no service, no pay.</div>
+    <div class="sub">${escapeHtml(c.full_name)} is billed per term. A term runs over whole months — for example September to November — so targets and pay follow ordinary months. Months outside every term are holidays: nothing is due.</div>
     <div id="tmList"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="tmClose">Close</button>
@@ -12990,16 +12786,13 @@ async function childTermsEditor(c, after){
   m.querySelector('#tmClose').onclick=close;
   const listBox=m.querySelector('#tmList');
   if(error){ listBox.innerHTML=termLoadError(error); m.querySelector('#tmAdd').style.display='none'; return; }
-  const money=v=>v==null?'—':'UGX '+Math.round(Number(v)).toLocaleString();
   const paintList=(ts)=>{
-    listBox.innerHTML=ts.length?ts.map(t=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div class="row-main"><div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Finalized</span>':''}</div>
-          <div class="row-sub">${termRange(t)} · ${termDays(t)} days (${(Math.round(termMonthsEquiv(t)*10)/10)} months)</div>
-          ${canSeeMoney()?`<div class="row-sub">Family term fee ${money(t.term_fee)} · Term service unit ${money(t.term_unit_fee)}</div>`:''}</div>
-        <button class="btn btn-ghost btn-sm tmEdit" data-id="${t.id}" style="width:auto">${t.status==='finalized'?'View':'Edit'}</button>
-      </div></div>`).join('')
-      :'<div class="empty" style="padding:18px"><h4>No terms yet</h4><p>Add this child\'s first term to start the termly plan.</p></div>';
+    listBox.innerHTML=ts.length?ts.map(t=>`<div class="row-card" style="cursor:default;margin-bottom:8px">
+        <div class="row-main"><div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Closed</span>':''}</div>
+          <div class="row-sub">${termRange(t)} · ${termMonthCount(t)} month${termMonthCount(t)===1?'':'s'}${t.school_start?` · school days ${fmtDate(t.school_start)} – ${fmtDate(t.school_end)}`:''}</div>
+          ${canSeeMoney()?`<div class="row-sub">Family term fee ${mndMoney(t.term_fee)} · Term service unit ${mndMoney(t.term_unit_fee)}</div>`:''}</div>
+        <button class="btn btn-ghost btn-sm tmEdit" data-id="${t.id}" style="width:auto">${t.status==='finalized'?'View':'Edit'}</button></div>`).join('')
+      :'<div class="empty" style="padding:18px"><h4>No terms yet</h4><p>Add this child\'s first term.</p></div>';
     listBox.querySelectorAll('.tmEdit').forEach(b=>b.onclick=()=>termForm(c, ts.find(x=>x.id===b.dataset.id), refresh));
   };
   const refresh=async()=>{ const r=await loadChildTerms(c); paintList(r.terms); };
@@ -13008,20 +12801,23 @@ async function childTermsEditor(c, after){
 }
 
 async function termForm(c, t, onSaved){
-  const edit=!!t, locked=edit&&t.status==='finalized';
-  const money=canSeeMoney();
-  const S={ term_fee: edit?(t.term_fee??null):(c.term_fee??null), term_unit_fee: edit?(t.term_unit_fee??null):null, unitTouched: edit };
-  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:560px">
-    <h3>${edit?(locked?'Term (finalized)':'Edit term'):'Add a term'}</h3>
-    <div class="sub">${escapeHtml(c.full_name)}${locked?' — this term has been finalized and settled, so it can no longer be changed.':''}</div>
+  const edit=!!t, locked=edit&&t.status==='finalized', money=canSeeMoney();
+  const S={ term_fee: edit?(t.term_fee??null):(c.term_fee??null), unit: edit?(t.term_unit_fee??null):null, unitTouched: edit };
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:540px">
+    <h3>${edit?(locked?'Term (closed)':'Edit term'):'Add a term'}</h3>
+    <div class="sub">${escapeHtml(c.full_name)}${locked?' — this term is closed and can no longer be changed.':''}</div>
     <div class="form-row"><label>Term name</label><input id="tf_label" value="${escapeHtml(edit?t.label:'')}" placeholder="e.g. Term 3 2026" ${locked?'disabled':''}/></div>
     <div class="form-row two">
-      <div><label>First day of term</label><input type="date" id="tf_start" value="${edit?String(t.start_date).slice(0,10):''}" ${locked?'disabled':''}/></div>
-      <div><label>Last day of term</label><input type="date" id="tf_end" value="${edit?String(t.end_date).slice(0,10):''}" ${locked?'disabled':''}/></div>
+      <div><label>First month</label><input type="month" id="tf_m1" value="${edit?ymOf(t.start_date):''}" ${locked?'disabled':''}/></div>
+      <div><label>Last month</label><input type="month" id="tf_m2" value="${edit?ymOf(t.end_date):''}" ${locked?'disabled':''}/></div>
+    </div>
+    <div class="form-row two">
+      <div><label>School opens <span style="color:var(--muted);font-weight:400">(optional, reference)</span></label><input type="date" id="tf_s1" value="${edit&&t.school_start?String(t.school_start).slice(0,10):''}" ${locked?'disabled':''}/></div>
+      <div><label>School closes <span style="color:var(--muted);font-weight:400">(optional)</span></label><input type="date" id="tf_s2" value="${edit&&t.school_end?String(t.school_end).slice(0,10):''}" ${locked?'disabled':''}/></div>
     </div>
     ${money?`<div class="form-row two">
       <div><label>Family term fee (UGX)</label><input type="number" min="0" id="tf_fee" value="${S.term_fee??''}" ${locked?'disabled':''}/></div>
-      <div><label>Term service unit (UGX) <span style="color:var(--muted);font-weight:400">— for the whole team</span></label><input type="number" min="0" id="tf_unit" value="${S.term_unit_fee??''}" ${locked?'disabled':''}/></div>
+      <div><label>Term service unit (UGX) <span style="color:var(--muted);font-weight:400">— whole team</span></label><input type="number" min="0" id="tf_unit" value="${S.unit??''}" ${locked?'disabled':''}/></div>
     </div>`:''}
     <div id="tf_prev" class="row-sub" style="white-space:normal;margin:4px 0 10px"></div>
     <div class="form-row"><label>Notes</label><textarea id="tf_notes" style="min-height:70px" ${locked?'disabled':''}>${escapeHtml(edit?(t.notes||''):'')}</textarea></div>
@@ -13035,318 +12831,525 @@ async function termForm(c, t, onSaved){
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   const q=s=>m.querySelector(s);
   q('#tf_cancel').onclick=close;
-  const fmtM=v=>'UGX '+Math.round(Number(v)).toLocaleString();
+  const range=()=>{ const a=q('#tf_m1').value, b=q('#tf_m2').value; if(!a||!b||b<a) return null; return {start_date:a+'-01', end_date:monthEndISO(b+'-01')}; };
   const paintPrev=()=>{
-    const s=q('#tf_start').value, e=q('#tf_end').value;
-    if(!s||!e){ q('#tf_prev').innerHTML=''; return; }
-    if(e<s){ q('#tf_prev').innerHTML='<span style="color:var(--coral)">The last day is before the first day.</span>'; return; }
-    const tt={start_date:s,end_date:e,term_unit_fee:S.term_unit_fee};
-    if(money && !S.unitTouched){
-      const auto=autoTermUnit(c,s,e);
-      if(auto!=null){ S.term_unit_fee=auto; tt.term_unit_fee=auto; q('#tf_unit').value=auto; }
-    }
-    const months=termMonths(tt).map(mo=>{
-      const d=termDaysInMonth(tt,mo);
-      return `<div style="display:flex;justify-content:space-between;gap:10px"><span>${monthLabel(mo)} — ${d} day${d===1?'':'s'}</span>${money&&tt.term_unit_fee?`<span>slice ${fmtM(termSliceTotal(tt,mo))}</span>`:''}</div>`;
-    }).join('');
+    const r=range();
+    if(!r){ q('#tf_prev').innerHTML=(q('#tf_m1').value&&q('#tf_m2').value)?'<span style="color:var(--coral)">The last month is before the first month.</span>':''; return; }
+    const n=termMonthCount(r);
+    if(money && !S.unitTouched){ const a=autoTermUnit(c,n); if(a!=null){ S.unit=a; q('#tf_unit').value=a; } }
     q('#tf_prev').innerHTML=`<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">
-      <div style="font-weight:600;margin-bottom:4px">${termDays(tt)} days · ${(Math.round(termMonthsEquiv(tt)*10)/10)} months${money&&c.prof_unit_rate?` · auto term unit = monthly unit ${fmtM(c.prof_unit_rate)} × ${(Math.round(termMonthsEquiv(tt)*100)/100)}`:''}</div>
-      ${months}
-      <div style="color:var(--muted);margin-top:6px">Each month's slice is paid to the care team as an advance when that month is finalized. The balance is settled when the term is finalized.</div></div>`;
+      <b>${n} month${n===1?'':'s'}:</b> ${termMonths(r).map(monthLabel).join(', ')}
+      ${money&&c.prof_unit_rate?`<div style="margin-top:4px">Term service unit = monthly unit ${mndMoney(c.prof_unit_rate)} × ${n} = <b>${mndMoney(autoTermUnit(c,n))}</b> (you can change it).</div>`:''}
+      <div style="color:var(--muted);margin-top:4px">Professionals are paid their share of this in instalments you approve in the Director review each month.</div></div>`;
   };
   if(!locked){
-    ['#tf_start','#tf_end'].forEach(s=>q(s).addEventListener('change',paintPrev));
+    ['#tf_m1','#tf_m2'].forEach(s=>q(s).addEventListener('change',paintPrev));
     if(money){
-      q('#tf_unit').addEventListener('input',()=>{ S.unitTouched=true; S.term_unit_fee=q('#tf_unit').value===''?null:Number(q('#tf_unit').value); paintPrev(); });
+      q('#tf_unit').addEventListener('input',()=>{ S.unitTouched=true; S.unit=q('#tf_unit').value===''?null:Number(q('#tf_unit').value); });
       q('#tf_fee').addEventListener('input',()=>{ S.term_fee=q('#tf_fee').value===''?null:Number(q('#tf_fee').value); });
     }
   }
   paintPrev();
   if(locked) return;
-
   if(edit){ q('#tf_del').onclick=async()=>{
     const {count}=await sb.from('prof_payables').select('id',{count:'exact',head:true}).eq('term_id',t.id);
-    if(count){ toast('Pay has already been recorded against this term, so it cannot be deleted. Change its dates instead.',true); return; }
+    if(count){ toast('Pay has already been approved against this term, so it cannot be deleted. Change its months instead.',true); return; }
     if(!confirm('Delete '+t.label+'?')) return;
     const {error}=await sb.from('child_terms').delete().eq('id',t.id);
     if(error){ toast(error.message,true); return; }
     toast('Term deleted'); close(); if(onSaved) onSaved();
   }; }
-
   q('#tf_save').onclick=async()=>{
-    const label=q('#tf_label').value.trim(), s=q('#tf_start').value, e=q('#tf_end').value;
-    if(!label||!s||!e){ toast('Give the term a name, a first day and a last day.',true); return; }
-    if(e<s){ toast('The last day is before the first day.',true); return; }
-    const payload={ label, start_date:s, end_date:e, notes:q('#tf_notes').value.trim()||null };
-    if(money){ payload.term_fee=S.term_fee; payload.term_unit_fee=S.term_unit_fee; }
-    else if(!edit){ payload.term_unit_fee=autoTermUnit(c,s,e); payload.term_fee=c.term_fee??null; }
+    const label=q('#tf_label').value.trim(), r=range();
+    if(!label||!r){ toast('Give the term a name, a first month and a last month (last on or after first).',true); return; }
+    const s1=q('#tf_s1').value||null, s2=q('#tf_s2').value||null;
+    if(s1&&s2&&s2<s1){ toast('School closes before it opens — check the dates.',true); return; }
+    const payload={ label, start_date:r.start_date, end_date:r.end_date, school_start:s1, school_end:s2, notes:q('#tf_notes').value.trim()||null };
+    if(money){ payload.term_fee=S.term_fee; payload.term_unit_fee=S.unit; }
+    else if(!edit){ payload.term_unit_fee=autoTermUnit(c,termMonthCount(r)); payload.term_fee=c.term_fee??null; }
     const btn=q('#tf_save'); btn.disabled=true; btn.textContent='Saving…';
     let res;
     if(edit) res=await sb.from('child_terms').update(payload).eq('id',t.id);
     else { payload.client_id=c.id; payload.created_by=ME.id; res=await sb.from('child_terms').insert(payload); }
     if(res.error){
-      const msg=/TERM_OVERLAP/.test(res.error.message)?'These dates overlap another term for this child.':res.error.message;
-      toast(msg,true); btn.disabled=false; btn.textContent=edit?'Save term':'Add term'; return;
+      toast(/TERM_OVERLAP/.test(res.error.message)?'Those months overlap another term for this child.':res.error.message,true);
+      btn.disabled=false; btn.textContent=edit?'Save term':'Add term'; return;
     }
     toast(edit?'Term saved':'Term added'); close(); if(onSaved) onSaved();
   };
 }
 
 /* ---------------------------------------------------------------------
-   Month view banner for a termly child: which term(s) this month falls
-   in and the size of the slice — or that it's a holiday month.
+   Term pay picture: per professional, term total / approved so far / balance.
+--------------------------------------------------------------------- */
+async function termPayPicture(c, t){
+  const months=termMonths(t);
+  const [{data:shares},{data:pays}]=await Promise.all([
+    sb.from('child_prof_shares').select('*').eq('client_id',c.id).in('period_month',months),
+    sb.from('prof_payables').select('*').eq('term_id',t.id)
+  ]);
+  const unit=Number(t.term_unit_fee||0);
+  const pids=[...new Set([...(shares||[]).map(s=>s.professional_id),...(pays||[]).map(p=>p.professional_id)].filter(Boolean))];
+  const nm={}; if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
+  const people=pids.map(pid=>{
+    // share = the latest month in the term that has a share row for them
+    const rows=(shares||[]).filter(s=>s.professional_id===pid).sort((a,b)=>String(a.period_month).localeCompare(String(b.period_month)));
+    const share=rows.length?Number(rows[rows.length-1].share_fraction||0):0;
+    const total=Math.round(unit*share);
+    const mine=(pays||[]).filter(p=>p.professional_id===pid);
+    const approved=Math.round(mine.reduce((a,p)=>a+Number(p.amount||0),0));
+    const paid=Math.round(mine.filter(p=>p.status==='paid').reduce((a,p)=>a+Number(p.amount||0),0));
+    return {pid, name:nm[pid]||'Professional', share, total, approved, paid, balance:total-approved, lines:mine};
+  });
+  return {months, people, unit};
+}
+
+/* Suggested instalment for a professional in one month of a term:
+   the balance spread evenly over the months left (rounded to UGX 1,000),
+   with the whole remaining balance on the term's last month.            */
+function suggestInstalment(t, monthISO, total, approvedBefore){
+  const months=termMonths(t); const i=months.findIndex(m=>ymOf(m)===ymOf(monthISO));
+  const bal=total-approvedBefore; if(i<0||bal<=0) return 0;
+  const left=months.length-i;
+  return left<=1 ? Math.round(bal) : Math.min(Math.round(bal), round1000(bal/left));
+}
+
+/* ---------------------------------------------------------------------
+   Month-view banner for a termly child
 --------------------------------------------------------------------- */
 async function paintTermBanner(c, period){
   const box=document.getElementById('termBanner'); if(!box) return;
   const {terms, error}=await loadChildTerms(c);
   if(error){ box.innerHTML=termLoadError(error); return; }
   const here=termsInMonth(terms, period);
-  const money=v=>'UGX '+Math.round(Number(v)).toLocaleString();
-  const edit=canEditPlan()?`<button class="btn btn-ghost btn-sm" id="tbTerms" style="width:auto">Manage terms</button>`:'';
-  if(!terms.length){
-    box.innerHTML=`<div class="row-card" style="cursor:default;border:1px dashed var(--warn)"><div class="row-main"><div class="row-name">Termly child — no terms set</div><div class="row-sub" style="white-space:normal">Add this child's term dates so the plan, pay slices and settlement can be worked out.</div></div>${edit}</div>`;
-  } else if(!here.length){
-    box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">School holiday — no term in ${monthLabel(period)}</div><div class="row-sub" style="white-space:normal">This child is billed per term. No term falls in this month, so there is no service due and nothing to pay.</div></div>${edit}</div>`;
-  } else {
-    box.innerHTML=here.map(t=>{
-      const d=termDaysInMonth(t,period), tot=termDays(t);
-      return `<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main">
-        <div class="row-name">${escapeHtml(t.label)} — ${d} of ${tot} term days fall in ${monthLabel(period)} (${Math.round(d/tot*100)}%)</div>
-        <div class="row-sub" style="white-space:normal">${termRange(t)}${canSeeMoney()&&t.term_unit_fee?` · this month's slice of the term service unit: ${money(termSliceTotal(t,period))}`:''}${t.status==='finalized'?' · term finalized':''}</div></div>${edit}</div>`;
-    }).join('');
-  }
-  box.querySelectorAll('#tbTerms').forEach(b=>b.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c)));
+  const edit=canEditPlan()?`<button class="btn btn-ghost btn-sm tbTerms" style="width:auto">Manage terms</button>`:'';
+  if(!terms.length) box.innerHTML=`<div class="row-card" style="cursor:default;border:1px dashed var(--warn)"><div class="row-main"><div class="row-name">Termly child — no terms set</div><div class="row-sub" style="white-space:normal">Add this child's terms so the plan and instalments can be worked out.</div></div>${edit}</div>`;
+  else if(!here.length) box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">School holiday — no term in ${monthLabel(period)}</div><div class="row-sub">No service is due and nothing is paid this month.</div></div>${edit}</div>`;
+  else box.innerHTML=here.map(t=>`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main">
+      <div class="row-name">${escapeHtml(t.label)} — month ${termMonthIndex(t,period)+1} of ${termMonthCount(t)}</div>
+      <div class="row-sub">${termRange(t)}${t.school_start?` · school ${fmtDate(t.school_start)} – ${fmtDate(t.school_end)}`:''}${t.status==='finalized'?' · term closed':''}</div></div>${edit}</div>`).join('');
+  box.querySelectorAll('.tbTerms').forEach(b=>b.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c)));
 }
 
 /* ---------------------------------------------------------------------
-   Term view of the service plan.
+   Term view of the service plan
 --------------------------------------------------------------------- */
 async function renderChildTermPlan(v, c){
   const {terms, error}=await loadChildTerms(c);
-  const toggle=`<div style="display:flex;gap:6px;margin:0 0 12px">
-      <button class="btn btn-ghost btn-sm" id="pmMonth" style="width:auto">Month view</button>
-      <button class="btn btn-primary btn-sm" style="width:auto;cursor:default">Term view</button></div>`;
   const head=`<button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
-    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1><p>${c.assessed_band?'Band '+(c.assigned_band||c.assessed_band)+' · ':''}Billed per term.</p></div>${toggle}`;
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1><p>${c.assessed_band?'Band '+(c.assigned_band||c.assessed_band)+' · ':''}Billed per term.</p></div>
+    <div style="display:flex;gap:6px;margin:0 0 12px"><button class="btn btn-ghost btn-sm" id="pmMonth" style="width:auto">Month view</button><button class="btn btn-primary btn-sm" style="width:auto;cursor:default">Term view</button></div>`;
   const wireTop=()=>{
-    $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
+    $('#backBtn').onclick=()=>go(isStaff()?'staff_child':'pro_children');
     $('#pmMonth').onclick=()=>{ PLAN_MODE='month'; renderChildPlan($('#view'),c); };
-    const tb=$('#tpTerms'); if(tb) tb.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c));
+    v.querySelectorAll('.tpTerms').forEach(b=>b.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c)));
   };
   if(error){ v.innerHTML=head+termLoadError(error); wireTop(); return; }
   if(!terms.length){
-    v.innerHTML=head+`<div class="empty" style="padding:26px"><h4>No terms set for this child</h4><p>${canEditPlan()?'Add the term dates to start the termly plan.':'Mindora has not set this child\'s terms yet.'}</p>${canEditPlan()?'<button class="btn btn-primary" id="tpTerms" style="width:auto;margin-top:10px">Add a term</button>':''}</div>`;
+    v.innerHTML=head+`<div class="empty" style="padding:26px"><h4>No terms set for this child</h4><p>${canEditPlan()?'Add the terms to start the termly plan.':'Mindora has not set this child\'s terms yet.'}</p>${canEditPlan()?'<button class="btn btn-primary tpTerms" style="width:auto;margin-top:10px">Add a term</button>':''}</div>`;
     wireTop(); return;
   }
-  const today=localISO(new Date());
-  let t=terms.find(x=>x.id===PLAN_TERM)
-     || terms.find(x=>String(x.start_date)<=today && String(x.end_date)>=today)
-     || [...terms].reverse().find(x=>String(x.start_date)<=today)
-     || terms[0];
+  const todayYM=ymOf(localISO(new Date()));
+  let t=terms.find(x=>x.id===PLAN_TERM) || terms.find(x=>termMonths(x).some(m=>ymOf(m)===todayYM))
+     || [...terms].reverse().find(x=>ymOf(x.start_date)<=todayYM) || terms[0];
   PLAN_TERM=t.id;
-  const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10);
-  const me=termMonthsEquiv(t);
+  const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10), nM=termMonthCount(t);
   const pro=ME.role==='professional' && MY_PROF_ID;
-
-  // targets (monthly) — this professional's own slice where split, else the whole child
-  let rows=null;
-  if(pro){ const {data:mine}=await sb.from('v_child_prof_progress').select('*').eq('client_id',c.id).eq('professional_id',MY_PROF_ID).order('sort_order'); if(mine&&mine.length) rows=mine; }
+  let rows=null, split=false;
+  if(pro){ const {data:mine}=await sb.from('v_child_prof_progress').select('*').eq('client_id',c.id).eq('professional_id',MY_PROF_ID).order('sort_order'); if(mine&&mine.length){ rows=mine; split=true; } }
   if(!rows){ const r=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order'); rows=r.data||[]; }
   let sq=sb.from('session_logs').select('*').eq('client_id',c.id).gte('session_date',tStart).lte('session_date',tEnd).order('session_date',{ascending:false});
-  if(pro && rows.length && rows[0].professional_id) sq=sq.eq('professional_id',MY_PROF_ID);
+  if(split) sq=sq.eq('professional_id',MY_PROF_ID);
   const {data:sessAll}=await sq;
   const sess=(sessAll||[]).filter(s=>{ const d=String(s.session_date).slice(0,10); return d>=tStart&&d<=tEnd; });
   const doneBy={}; sess.forEach(s=>{ const k=s.activity_key||'direct_session'; doneBy[k]=(doneBy[k]||0)+1; });
-  const acts=rows.map(r=>{ const mt=Number(r.target_count||0); return {label:r.label,key:r.activity_key,monthly:mt,target:mt>0?Math.max(1,Math.round(mt*me)):0,done:doneBy[r.activity_key]||0}; });
+  const acts=rows.map(r=>{ const mt=Number(r.target_count||0); return {label:r.label,monthly:mt,target:mt*nM,done:doneBy[r.activity_key]||0}; });
   const totT=acts.reduce((a,x)=>a+x.target,0), totD=acts.reduce((a,x)=>a+Math.min(x.done,x.target),0);
   const pct=totT?Math.min(100,Math.round(totD/totT*100)):0;
   const tgtH=mndBandTargetHours(c.assigned_band||c.assessed_band);
-  const termH=tgtH?Math.round(tgtH*me*10)/10:null;
   const totMin=sess.reduce((a,s)=>a+Number(s.duration_minutes||0),0);
-
   v.innerHTML=head+`
     <div class="form-row two" style="max-width:560px;margin-bottom:8px">
       <div><label>Term</label><select id="tpSel">${terms.map(x=>`<option value="${x.id}" ${x.id===t.id?'selected':''}>${escapeHtml(x.label)}</option>`).join('')}</select></div>
-      <div style="display:flex;align-items:flex-end">${canEditPlan()?'<button class="btn btn-ghost btn-sm" id="tpTerms" style="width:auto">Manage terms</button>':''}</div>
-    </div>
+      <div style="display:flex;align-items:flex-end">${canEditPlan()?'<button class="btn btn-ghost btn-sm tpTerms" style="width:auto">Manage terms</button>':''}</div></div>
     <div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main">
-      <div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Finalized</span>':'<span class="pill band" style="margin-left:6px">Open</span>'}</div>
-      <div class="row-sub">${termRange(t)} · ${termDays(t)} days · ${(Math.round(me*10)/10)} months. Targets below are the monthly targets scaled to the length of this term.</div></div></div>
-
+      <div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Closed</span>':'<span class="pill band" style="margin-left:6px">Open</span>'}</div>
+      <div class="row-sub">${termRange(t)} · ${nM} month${nM===1?'':'s'}${t.school_start?` · school ${fmtDate(t.school_start)} – ${fmtDate(t.school_end)}`:''}. Term targets = monthly targets × ${nM}.</div></div></div>
     <div class="plan-ring-wrap">
       <div class="plan-ring" style="--p:${pct}"><div class="plan-ring-inner"><div class="plan-ring-pct">${pct}%</div><div class="plan-ring-lbl">term</div></div></div>
-      <div class="plan-ring-side"><div class="plan-big">${totD}<span>/${totT}</span></div><div class="plan-sub">activities completed in ${escapeHtml(t.label)}${pro?' (your share)':''}</div></div>
-    </div>
+      <div class="plan-ring-side"><div class="plan-big">${totD}<span>/${totT}</span></div><div class="plan-sub">activities completed in ${escapeHtml(t.label)}${split?' (your share)':''}</div></div></div>
     <div class="section-head" style="margin-top:24px"><h3>Activities this term</h3></div>
-    <div class="rows">${acts.length?acts.map(a=>{ const p=a.target?Math.min(100,Math.round(a.done/a.target*100)):0; const ok=a.target>0&&a.done>=a.target;
+    <div class="rows">${acts.length?acts.map(a=>{ const p=a.target?Math.min(100,Math.round(a.done/a.target*100)):0;
       return `<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
-        <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.label)}</div><span class="row-sub">${a.monthly}/month</span><span class="pill ${ok?'active':'band'}">${a.done}/${a.target}</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.label)}</div><span class="row-sub">${a.monthly}/month</span><span class="pill ${a.target&&a.done>=a.target?'active':'band'}">${a.done}/${a.target}</span></div>
         <div class="bar"><div class="bar-fill" style="width:${p}%"></div></div></div>`; }).join(''):'<div class="empty" style="padding:20px"><h4>No plan yet</h4><p>Assign a band to generate the plan.</p></div>'}</div>
-
     <div class="section-head" style="margin-top:26px"><h3>Hours this term</h3></div>
-    <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">${Math.round(totMin/6)/10}h logged${termH?' of about '+termH+'h':''}</div>
-      <div class="row-sub">${termH?`Band target ${tgtH}h a month × ${(Math.round(me*10)/10)} months.`:'No band target hours set.'}</div></div></div>
-
+    <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">${Math.round(totMin/6)/10}h logged${tgtH?' of '+(tgtH*nM)+'h':''}</div>
+      <div class="row-sub">${tgtH?`Band target ${tgtH}h a month × ${nM} months.`:'No band target hours set.'}</div></div></div>
     ${canSeeMoney()?`<div class="section-head" style="margin-top:26px"><h3>Term fee &amp; pay — ${escapeHtml(t.label)}</h3></div><div id="tpMoney"><div class="row-sub" style="color:var(--muted);padding:8px">Loading…</div></div>`:''}
-
+    ${pro?`<div class="section-head" style="margin-top:26px"><h3>Your pay this term</h3></div><div id="tpMyPay"></div>`:''}
     <div class="section-head" style="margin-top:26px"><h3>Session summaries — ${escapeHtml(t.label)}</h3></div>
     <div class="rows" id="tpSess"></div>`;
   wireTop();
   $('#tpSel').onchange=()=>{ PLAN_TERM=$('#tpSel').value; renderChildPlan($('#view'),c); };
-  const sb2=$('#tpSess');
-  if(!sess.length) sb2.innerHTML=`<div class="empty" style="padding:20px"><h4>No sessions in ${escapeHtml(t.label)}</h4><p>Sessions dated between ${termRange(t)} will appear here.</p></div>`;
-  sess.forEach(s=>{
-    const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
+  const box=$('#tpSess');
+  if(!sess.length) box.innerHTML=`<div class="empty" style="padding:20px"><h4>No sessions in ${escapeHtml(t.label)}</h4><p>Sessions dated ${termRange(t)} will appear here.</p></div>`;
+  sess.forEach(s=>{ const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
       <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div><span class="row-sub">${fmtDate(s.session_date)}</span></div>
       ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}</div>`);
-    card.onclick=()=>sessionDetail(s,c); sb2.appendChild(card);
-  });
-  if(canSeeMoney()) paintTermMoney(c, t);
-}
-
-/* Work out, per professional, what the term owes them.
-   owed    = (qualifies over the whole term) ? Σ over months (slice × that month's share) : 0
-   paid    = slices already recorded for this term
-   settle  = owed − paid   (negative = deduction)                         */
-async function computeTermSettlement(c, t, {ensureShares=false}={}){
-  const months=termMonths(t);
-  if(ensureShares){ for(const mo of months){ await ensureProfShares(c, mo); } }
-  const [{data:shares},{data:pays},{data:fins}]=await Promise.all([
-    sb.from('child_prof_shares').select('*').eq('client_id',c.id).in('period_month',months),
-    sb.from('prof_payables').select('*').eq('term_id',t.id),
-    sb.from('op_forms').select('period_month').eq('client_id',c.id).eq('kind','svc_units').eq('status','finalized').in('period_month',months)
-  ]);
-  const finSet=new Set((fins||[]).map(f=>String(f.period_month).slice(0,10)));
-  const pids=[...new Set([...(shares||[]).map(s=>s.professional_id),...(pays||[]).map(p=>p.professional_id)].filter(Boolean))];
-  const nm={}; if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
-  const threshold=Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
-  const exc=t.pay_exceptions||{};
-  const people=await Promise.all(pids.map(async pid=>{
-    let full=0;
-    months.forEach(mo=>{ const sh=(shares||[]).find(s=>s.professional_id===pid && String(s.period_month).slice(0,10)===mo); if(sh) full+=termSliceTotal(t,mo)*Number(sh.share_fraction||0); });
-    full=Math.round(full);
-    const mine=(pays||[]).filter(p=>p.professional_id===pid);
-    const paid=Math.round(mine.filter(p=>p.source==='term_slice').reduce((a,p)=>a+Number(p.amount||0),0));
-    const settled=mine.filter(p=>p.source==='term_settle');
-    let pct=null; try{ const {data:q}=await sb.rpc('mnd_term_qualifies',{p_client:c.id,p_professional:pid,p_term:t.id}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
-    const meets=pct!=null && pct>=threshold;
-    const exception=!!exc[pid];
-    const qualifies=meets||exception;
-    const owed=qualifies?full:0;
-    return {pid, name:nm[pid]||'Professional', full, paid, pct, meets, exception, exceptionReason:exc[pid]||'', qualifies, owed, settle:owed-paid, settled};
-  }));
-  return {months, finSet, people, threshold, pays:pays||[]};
+    card.onclick=()=>sessionDetail(s,c); box.appendChild(card); });
+  if(canSeeMoney()) paintTermMoney(c,t);
+  if(pro) paintProTermPay(c,t);
 }
 
 async function paintTermMoney(c, t){
   const box=document.getElementById('tpMoney'); if(!box) return;
-  const money=v=>v==null?'—':'UGX '+Math.round(Number(v)).toLocaleString();
-  const signed=v=>(v<0?'− ':'')+'UGX '+Math.abs(Math.round(v)).toLocaleString();
-  const R=await computeTermSettlement(c,t);
+  const P=await termPayPicture(c,t);
   const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10);
-  const {data:invAll}=await sb.from('invoices').select('*').eq('client_id',c.id).gte('invoice_date',tStart).lte('invoice_date',tEnd).order('invoice_date');
+  const [{data:invAll},{data:fins}]=await Promise.all([
+    sb.from('invoices').select('*').eq('client_id',c.id).gte('invoice_date',tStart).lte('invoice_date',tEnd).order('invoice_date'),
+    sb.from('op_forms').select('period_month').eq('client_id',c.id).eq('kind','svc_units').eq('status','finalized').in('period_month',P.months)
+  ]);
+  const closed=new Set((fins||[]).map(f=>ymOf(f.period_month)));
   const invs=invAll||[]; const invTot=invs.reduce((a,i)=>a+Number(i.amount||0),0);
-  // also count invoices dated shortly before the term (families often pay ahead)
-  const sliceRows=R.months.map(mo=>{ const d=termDaysInMonth(t,mo); return `<tr>
-    <td style="padding:6px 8px">${monthLabel(mo)}</td><td style="padding:6px 8px;text-align:right">${d}</td>
-    <td style="padding:6px 8px;text-align:right">${Math.round(d/termDays(t)*100)}%</td>
-    <td style="padding:6px 8px;text-align:right">${money(termSliceTotal(t,mo))}</td>
-    <td style="padding:6px 8px">${R.finSet.has(mo)?'<span style="color:var(--teal)">Month finalized — slice paid</span>':'<span style="color:var(--muted)">Not finalized</span>'}</td></tr>`; }).join('');
-  const peopleRows=R.people.map(p=>`<tr>
-    <td style="padding:6px 8px">${escapeHtml(p.name)}</td>
-    <td style="padding:6px 8px;text-align:right">${money(p.full)}</td>
-    <td style="padding:6px 8px;text-align:right">${money(p.paid)}</td>
-    <td style="padding:6px 8px;text-align:right">${p.pct==null?'—':`<span style="color:${p.qualifies?'var(--teal)':'var(--coral)'}">${p.pct}%</span>`}${p.exception?' <span style="color:var(--accent)">(exception)</span>':''}</td>
-    <td style="padding:6px 8px;text-align:right;font-weight:600;color:${p.settle<0?'var(--coral)':'inherit'}">${p.settled.length?'<span style="color:var(--teal)">Settled</span>':signed(p.settle)}</td>
-    <td style="padding:6px 8px">${(isDirector()&&!p.meets&&p.pct!=null&&t.status!=='finalized')?`<button class="btn btn-ghost btn-sm tpExc" data-p="${p.pid}" style="width:auto;padding:2px 8px;font-size:12px">${p.exception?'Remove exception':'Pay anyway…'}</button>`:''}</td></tr>`).join('');
   let check;
   if(t.term_fee==null) check=`<div class="row-sub" style="color:var(--warn)">No family term fee set for this term.</div>`;
-  else if(!invs.length) check=`<div class="row-sub" style="color:var(--warn)">No invoice dated within this term yet. Expected: ${money(t.term_fee)}.</div>`;
-  else if(Math.round(invTot)===Math.round(Number(t.term_fee))) check=`<div class="row-sub" style="color:var(--teal)">✓ Invoiced ${money(invTot)} — matches the term fee.</div>`;
-  else { const d=invTot-Number(t.term_fee); check=`<div class="row-sub" style="color:var(--coral)">Invoiced ${money(invTot)} but the term fee is ${money(t.term_fee)} — ${d>0?'over':'under'} by ${money(Math.abs(d))}. If the invoice was dated before the term started it won't show here.</div>`; }
-
+  else if(!invs.length) check=`<div class="row-sub" style="color:var(--warn)">No invoice dated within this term yet. Expected: ${mndMoney(t.term_fee)}.</div>`;
+  else if(Math.round(invTot)===Math.round(Number(t.term_fee))) check=`<div class="row-sub" style="color:var(--teal)">✓ Invoiced ${mndMoney(invTot)} — matches the term fee.</div>`;
+  else { const d=invTot-Number(t.term_fee); check=`<div class="row-sub" style="color:var(--coral)">Invoiced ${mndMoney(invTot)} but the term fee is ${mndMoney(t.term_fee)} — ${d>0?'over':'under'} by ${mndMoney(Math.abs(d))}.</div>`; }
+  const allClosed=P.months.every(m=>closed.has(ymOf(m)));
+  const openBal=P.people.filter(p=>p.balance!==0);
   box.innerHTML=`<div class="rows">
     <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
       <div class="fee-strip" style="margin:0">
-        <div class="fee-chip">Family — this term<b>${money(t.term_fee)}</b></div>
-        <div class="fee-chip">Term service unit<b>${money(t.term_unit_fee)}</b></div>
-        <div class="fee-chip">Monthly unit on record<b>${money(c.prof_unit_rate)}</b></div>
+        <div class="fee-chip">Family — this term<b>${mndMoney(t.term_fee)}</b></div>
+        <div class="fee-chip">Term service unit<b>${mndMoney(t.term_unit_fee)}</b></div>
+        <div class="fee-chip">Months closed<b>${P.months.filter(m=>closed.has(ymOf(m))).length} / ${P.months.length}</b></div>
       </div></div>
     <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
-      <div class="row-name">Monthly slices (advances)</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px"><thead><tr style="color:var(--muted);text-align:left;font-size:12px">
-        <th style="padding:6px 8px">Month</th><th style="padding:6px 8px;text-align:right">Term days</th><th style="padding:6px 8px;text-align:right">Share of term</th><th style="padding:6px 8px;text-align:right">Slice (whole team)</th><th style="padding:6px 8px">Status</th></tr></thead>
-        <tbody>${sliceRows}</tbody></table>
-      <div class="row-sub" style="white-space:normal;color:var(--muted)">Each slice is paid when you finalize that month, split by the month's care-team shares — whatever the month's activity.</div></div>
-    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
-      <div class="row-name">End-of-term settlement ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Finalized</span>':''}</div>
-      ${R.people.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px"><thead><tr style="color:var(--muted);text-align:left;font-size:12px">
-        <th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Full term share</th><th style="padding:6px 8px;text-align:right">Slices paid</th><th style="padding:6px 8px;text-align:right">Term fulfilment</th><th style="padding:6px 8px;text-align:right">Settlement</th><th></th></tr></thead>
-        <tbody>${peopleRows}</tbody></table>`:'<div class="row-sub">No care team recorded for this term yet.</div>'}
-      <div class="row-sub" style="white-space:normal;color:var(--muted)">The ${R.threshold}% rule is judged over the whole term. A professional at or above ${R.threshold}% (or with an exception) is paid their full term share; the settlement pays whatever the slices didn't cover. Below ${R.threshold}% with no exception, the term share is nil and the slices already paid are recovered as a deduction.</div>
-      ${(canEditPlan()&&t.status!=='finalized')?'<div><button class="btn btn-primary" id="tpFinalize" style="width:auto">Finalize term…</button></div>':''}</div>
+      <div class="row-name">What each professional is to be paid this term</div>
+      ${P.people.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px"><thead><tr style="color:var(--muted);text-align:left;font-size:12px">
+        <th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Share</th><th style="padding:6px 8px;text-align:right">Term total</th><th style="padding:6px 8px;text-align:right">Approved so far</th><th style="padding:6px 8px;text-align:right">Paid</th><th style="padding:6px 8px;text-align:right">Balance</th></tr></thead>
+        <tbody>${P.people.map(p=>`<tr><td style="padding:6px 8px">${escapeHtml(p.name)}</td><td style="padding:6px 8px;text-align:right">${Math.round(p.share*100)}%</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:600">${mndMoney(p.total)}</td><td style="padding:6px 8px;text-align:right">${mndMoney(p.approved)}</td>
+          <td style="padding:6px 8px;text-align:right">${mndMoney(p.paid)}</td><td style="padding:6px 8px;text-align:right;color:${p.balance<0?'var(--coral)':'inherit'}">${mndMoney(p.balance)}</td></tr>`).join('')}</tbody></table>`
+        :'<div class="row-sub">No care team recorded for this term yet — assign professionals and open a month in the Director review.</div>'}
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">Instalments are approved month by month in the <b>Director review</b>. It suggests an even instalment and puts the remainder on the last month — you can change any amount.</div>
+      ${(isDirector()&&t.status!=='finalized')?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" id="tpReview" style="width:auto">Open Director review</button><button class="btn btn-ghost btn-sm" id="tpClose" style="width:auto">Close term…</button></div>`:''}
+    </div>
     <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
       <div class="row-name">Invoiced to the family — ${escapeHtml(t.label)}</div>
-      ${invs.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:440px"><tbody>${invs.map(i=>`<tr><td style="padding:6px 8px">${escapeHtml(i.invoice_no||'—')}</td><td style="padding:6px 8px">${escapeHtml(fmtDate(i.invoice_date))}</td><td style="padding:6px 8px;text-align:right">${money(i.amount)}</td><td style="padding:6px 8px">${escapeHtml(String(i.status||'').replace('_',' '))}</td></tr>`).join('')}</tbody></table>`:''}
-      ${check}</div>
+      ${invs.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:420px"><tbody>${invs.map(i=>`<tr><td style="padding:6px 8px">${escapeHtml(i.invoice_no||'—')}</td><td style="padding:6px 8px">${escapeHtml(fmtDate(i.invoice_date))}</td><td style="padding:6px 8px;text-align:right">${mndMoney(i.amount)}</td><td style="padding:6px 8px">${escapeHtml(String(i.status||'').replace('_',' '))}</td></tr>`).join('')}</tbody></table>`:''}
+      ${check}</div></div>`;
+  const rb=document.getElementById('tpReview'); if(rb) rb.onclick=()=>{ SELECTED_CHILD=c; REVIEW_MONTH=null; go('child_review'); };
+  const cb=document.getElementById('tpClose'); if(cb) cb.onclick=async()=>{
+    let reason='';
+    if(!allClosed || openBal.length){
+      reason=prompt(`${!allClosed?'Not every month of this term has been closed in the Director review. ':''}${openBal.length?openBal.length+' professional(s) still have a balance ('+openBal.map(p=>p.name+' '+mndMoney(p.balance)).join(', ')+'). ':''}\nClosing the term locks it. Give the reason:`);
+      if(!reason||!reason.trim()) return;
+    } else if(!confirm('Close '+t.label+'? All months are closed and every balance is settled.')) return;
+    const notes=[t.notes,reason?('Closed '+localISO(new Date())+': '+reason.trim()):null].filter(Boolean).join('\n');
+    const {error}=await sb.from('child_terms').update({status:'finalized',finalized_at:new Date().toISOString(),finalized_by:ME.id,notes:notes||null}).eq('id',t.id);
+    if(error){ toast(error.message,true); return; }
+    toast(t.label+' closed'); renderChildPlan($('#view'),c);
+  };
+}
+
+async function paintProTermPay(c, t){
+  const box=document.getElementById('tpMyPay'); if(!box) return;
+  const P=await termPayPicture(c,t);
+  const me=P.people.find(p=>p.pid===MY_PROF_ID);
+  if(!me){ box.innerHTML='<div class="row-sub">No pay has been set up for you on this term yet.</div>'; return; }
+  box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+    <div class="fee-strip" style="margin:0">
+      ${P.unit?`<div class="fee-chip">Your term total<b>${mndMoney(me.total)}</b></div>`:''}
+      <div class="fee-chip">Approved so far<b>${mndMoney(me.approved)}</b></div>
+      <div class="fee-chip">Paid<b>${mndMoney(me.paid)}</b></div>
+      ${P.unit?`<div class="fee-chip">Balance<b>${mndMoney(me.balance)}</b></div>`:''}
+    </div>
+    <div class="row-sub" style="white-space:normal;color:var(--muted)">Paid in instalments approved by the director each month.</div></div>`;
+}
+
+/* ---------------------------------------------------------------------
+   Professional's own pay for a month (monthly children, month view)
+--------------------------------------------------------------------- */
+async function paintProMonthPay(c, period){
+  const box=document.getElementById('proPayBox'); if(!box||!MY_PROF_ID) return;
+  const [{data:sh},{data:pays}]=await Promise.all([
+    sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',period).eq('professional_id',MY_PROF_ID).maybeSingle(),
+    sb.from('prof_payables').select('*').eq('client_id',c.id).eq('period_month',period).eq('professional_id',MY_PROF_ID)
+  ]);
+  const unit=c.prof_unit_rate!=null?Number(c.prof_unit_rate):null;
+  const shareAmt=(sh&&unit!=null)?Math.round(unit*Number(sh.share_fraction||0)):null;
+  const approved=(pays||[]).reduce((a,p)=>a+Number(p.amount||0),0);
+  const STL={awaiting_prof:'Awaiting your check',prof_approved:'With director',disputed:'Disputed',approved:'Approved — to be paid',billed:'On a pay bill',paid:'Paid',pending:'Pending'};
+  box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+    <div class="fee-strip" style="margin:0">
+      ${shareAmt!=null?`<div class="fee-chip">Your share this month<b>${mndMoney(shareAmt)}${sh?' ('+Math.round(Number(sh.share_fraction||0)*100)+'%)':''}</b></div>`:''}
+      <div class="fee-chip">Approved for ${monthLabel(period)}<b>${(pays||[]).length?mndMoney(approved):'Not yet reviewed'}</b></div>
+    </div>
+    ${(pays||[]).length?`<div class="row-sub">${(pays||[]).map(p=>escapeHtml(STL[p.status]||p.status)).join(', ')}</div>`:'<div class="row-sub" style="color:var(--muted)">The director reviews the month and approves your pay.</div>'}
   </div>`;
-  box.querySelectorAll('.tpExc').forEach(b=>b.onclick=()=>toggleTermException(c,t,b.dataset.p));
-  const fb=document.getElementById('tpFinalize'); if(fb) fb.onclick=()=>finalizeTerm(c,t);
 }
 
-async function toggleTermException(c, t, pid){
-  if(!isDirector()){ toast('Only the director can grant exceptions.',true); return; }
-  const exc={...(t.pay_exceptions||{})};
-  if(exc[pid]){
-    if(!confirm('Remove the exception? This professional will only be paid for the term if they reach the threshold.')) return;
-    delete exc[pid];
-  } else {
-    const reason=prompt('Why should this professional be paid for the term despite being below the threshold? (required — e.g. child was sick for three weeks)');
-    if(!reason||!reason.trim()) return;
-    exc[pid]=reason.trim();
-  }
-  const {error}=await sb.from('child_terms').update({pay_exceptions:exc}).eq('id',t.id);
-  if(error){ toast(error.message,true); return; }
-  t.pay_exceptions=exc; toast('Saved'); paintTermMoney(c,t);
+/* =====================================================================
+   DIRECTOR REVIEW — work & pay, month by month, for one child
+   ===================================================================== */
+
+function childMonthsFromStart(c){
+  const now=new Date(); const cur=new Date(now.getFullYear(),now.getMonth(),1);
+  const seed=c&&(c.intake_date||c.created_at);
+  let d=seed?mndDate(String(seed).slice(0,10)):new Date(cur.getFullYear(),cur.getMonth()-11,1);
+  d=new Date(d.getFullYear(),d.getMonth(),1); if(d>cur) d=cur;
+  const out=[]; while(d<=cur){ out.push(localMonthISO(d)); d=new Date(d.getFullYear(),d.getMonth()+1,1); }
+  return out;
 }
 
-async function finalizeTerm(c, t){
-  if(!canEditPlan()||!canSeeMoney()){ toast('Not available for this login.',true); return; }
-  if(!t.term_unit_fee){ toast('Set the term service unit first (Manage terms).',true); return; }
-  const R=await computeTermSettlement(c,t,{ensureShares:true});
-  if(R.people.some(p=>p.settled.some(s=>['approved','billed','paid'].includes(s.status)))){
-    toast('A settlement for this term has already been approved or paid, so it cannot be redone.',true); return;
+/* Everything the review needs for one month. */
+async function reviewMonthData(c, month, terms){
+  const ym=ymOf(month), next=localMonthISO(new Date(mndDate(month).getFullYear(),mndDate(month).getMonth()+1,1));
+  const termly=c.billing_cycle==='termly';
+  const term=termly?(termsInMonth(terms,month)[0]||null):null;
+  const holiday=termly && !term;
+  if(!holiday && month<=thisMonthISO()) await ensureProfShares(c, month);
+  const [{data:shares},{data:sess},{data:pays},{data:fin}]=await Promise.all([
+    sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',month),
+    sb.from('session_logs').select('professional_id,activity_key,duration_minutes,session_date').eq('client_id',c.id).gte('session_date',month).lt('session_date',next),
+    sb.from('prof_payables').select('*').eq('client_id',c.id).eq('period_month',month),
+    sb.from('op_forms').select('*').eq('client_id',c.id).eq('kind','svc_units').eq('period_month',month).eq('status','finalized').maybeSingle()
+  ]);
+  const monthSess=(sess||[]).filter(s=>ymOf(s.session_date)===ym);
+  const pids=[...new Set([...(shares||[]).map(s=>s.professional_id),...monthSess.map(s=>s.professional_id),...(pays||[]).map(p=>p.professional_id)].filter(Boolean))];
+  const nm={}; if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name,discipline').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p); }
+  const TP=term?await termPayPicture(c,term):null;
+  const unit=c.prof_unit_rate!=null?Number(c.prof_unit_rate):0;
+  const people=await Promise.all(pids.map(async pid=>{
+    const sh=(shares||[]).find(s=>s.professional_id===pid);
+    const mine=monthSess.filter(s=>s.professional_id===pid);
+    let pct=null; try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:pid,p_month:month}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
+    const frac=sh?Number(sh.share_fraction||0):0;
+    const monthLines=(pays||[]).filter(p=>p.professional_id===pid && ['child_units','term_instalment','term_slice'].includes(p.source));
+    let suggested=0, termTotal=null, approvedBefore=null;
+    if(holiday) suggested=0;
+    else if(term){
+      const tp=TP.people.find(p=>p.pid===pid);
+      termTotal=tp?tp.total:Math.round(Number(term.term_unit_fee||0)*frac);
+      approvedBefore=(tp?tp.lines:[]).filter(l=>ymOf(l.period_month)!==ym).reduce((a,l)=>a+Number(l.amount||0),0);
+      suggested=suggestInstalment(term, month, termTotal, approvedBefore);
+    } else suggested=Math.round(unit*frac);
+    return { pid, name:(nm[pid]&&nm[pid].full_name)||'Professional', disc:(nm[pid]&&nm[pid].discipline)||'', share:frac, inSplit:!!sh, shareId:sh?sh.id:null,
+      sessions:mine.length, minutes:mine.reduce((a,s)=>a+Number(s.duration_minutes||0),0), pct,
+      suggested, termTotal, approvedBefore, lines:monthLines };
+  }));
+  people.sort((a,b)=>(b.inSplit-a.inSplit)||a.name.localeCompare(b.name));
+  return {month, termly, term, holiday, closed:fin||null, people, sessions:monthSess.length};
+}
+
+async function renderChildReview(v, c){
+  if(!c){ go('clients'); return; }
+  if(!canSeeMoney()){ v.innerHTML='<div class="empty"><h4>Not available</h4><p>The Director review is for the director.</p></div>'; return; }
+  const dir=isDirector();
+  const termly=c.billing_cycle==='termly';
+  let terms=[];
+  if(termly){ const r=await loadChildTerms(c); if(r.error){ v.innerHTML=`<button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>`+termLoadError(r.error); $('#backBtn').onclick=()=>go('staff_child'); return; } terms=r.terms; }
+  const months=childMonthsFromStart(c);
+  const {data:fins}=await sb.from('op_forms').select('period_month,created_at,data').eq('client_id',c.id).eq('kind','svc_units').eq('status','finalized');
+  const closedSet=new Set((fins||[]).map(f=>ymOf(f.period_month)));
+  const cur=thisMonthISO();
+  const statusOf=m=>{
+    if(closedSet.has(ymOf(m))) return 'closed';
+    if(termly && !termsInMonth(terms,m).length) return 'holiday';
+    return m<cur?'pending':'current';
+  };
+  const pendingPast=months.filter(m=>statusOf(m)==='pending');
+  if(!REVIEW_MONTH || !months.some(m=>ymOf(m)===ymOf(REVIEW_MONTH))) REVIEW_MONTH=pendingPast[0]||cur;
+  const pill={closed:'<span class="pill active">Closed</span>',pending:'<span class="pill assessment">Pending</span>',current:'<span class="pill band">In progress</span>',holiday:'<span class="pill exited">Holiday</span>'};
+  v.innerHTML=`
+    <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to ${escapeHtml(c.full_name)}</button>
+    <div class="welcome"><h1>Director review — work &amp; pay</h1>
+      <p>${escapeHtml(c.full_name)} · ${c.assessed_band?'Band '+(c.assigned_band||c.assessed_band)+' · ':''}${termly?'billed per term':'billed monthly'}. Review each month's work, set what each professional is paid, and close the month. Fulfilment below ${flagThreshold()}% is flagged for your attention — it never changes an amount.</p></div>
+    ${pendingPast.length?`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;border:1px solid var(--warn)">
+      <div class="row-name">${pendingPast.length} past month${pendingPast.length===1?'':'s'} still open</div>
+      <div class="row-sub" style="white-space:normal">Open any month below to review it in detail — or close several at once with the suggested amounts and one reason.</div>
+      ${dir?'<div><button class="btn btn-ghost btn-sm" id="rvBulk" style="width:auto">Close several months…</button></div>':''}</div>`:''}
+    <div class="section-head" style="margin-top:18px"><h3>Months</h3></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="rvMonths">
+      ${[...months].reverse().map(m=>`<button class="btn ${ymOf(m)===ymOf(REVIEW_MONTH)?'btn-primary':'btn-ghost'} btn-sm rvM" data-m="${m}" style="width:auto">${monthLabel(m)} ${statusOf(m)==='closed'?'✓':statusOf(m)==='pending'?'•':statusOf(m)==='holiday'?'–':''}</button>`).join('')}
+    </div>
+    <div id="rvBody"><div class="row-sub" style="color:var(--muted);padding:8px">Loading ${monthLabel(REVIEW_MONTH)}…</div></div>`;
+  $('#backBtn').onclick=()=>go('staff_child');
+  v.querySelectorAll('.rvM').forEach(b=>b.onclick=()=>{ REVIEW_MONTH=b.dataset.m; renderChildReview($('#view'),c); });
+  const bk=$('#rvBulk'); if(bk) bk.onclick=()=>bulkCloseMonths(c, pendingPast, terms);
+  const D=await reviewMonthData(c, REVIEW_MONTH, terms);
+  paintReviewMonth(c, D, pill[statusOf(REVIEW_MONTH)], terms);
+}
+
+function reviewFlags(D, p){
+  const f=[]; const thr=flagThreshold();
+  if(!D.holiday && p.inSplit){
+    if(p.pct==null) f.push('no targets set');
+    else if(p.pct<thr) f.push(`${p.pct}% of targets — below ${thr}%`);
+    if(!p.sessions) f.push('no sessions logged');
   }
-  const signed=v=>(v<0?'− ':'')+'UGX '+Math.abs(Math.round(v)).toLocaleString();
-  const openMonths=R.months.filter(mo=>!R.finSet.has(mo));
-  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
-    <h3>Finalize ${escapeHtml(t.label)}</h3>
-    <div class="sub">${escapeHtml(c.full_name)} · ${termRange(t)}. This judges the ${R.threshold}% rule over the whole term and records a settlement line for each professional. Each goes to them for approval, then to you, like monthly pay.</div>
-    ${openMonths.length?`<div class="as-flag" style="margin:8px 0">${openMonths.map(monthLabel).join(', ')} ${openMonths.length===1?'has':'have'} not been finalized, so no slice was paid for ${openMonths.length===1?'it':'them'}. That money is included in the settlement instead — don't finalize ${openMonths.length===1?'that month':'those months'} afterwards.</div>`:''}
-    <div class="rows">${R.people.map(p=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:2px">
-      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(p.name)}</div><b style="color:${p.settle<0?'var(--coral)':'inherit'}">${signed(p.settle)}</b></div>
-      <div class="row-sub" style="white-space:normal">Term fulfilment ${p.pct==null?'— (no targets set)':p.pct+'%'}${p.exception?' · exception: '+escapeHtml(p.exceptionReason):''} · ${p.qualifies?'qualifies — full term share '+signed(p.full):'below '+R.threshold+'% — no term share'} · slices paid ${signed(p.paid)}</div>
-      ${p.settle<0?'<div class="row-sub" style="color:var(--coral);white-space:normal">This is a deduction. It will be taken off this professional\'s next pay bill.</div>':''}
-    </div>`).join('')||'<div class="row-sub">No care team recorded.</div>'}</div>
-    <div class="modal-actions"><button class="btn btn-ghost" id="ftCancel">Cancel</button><button class="btn btn-primary" id="ftGo">Finalize term</button></div>
+  if(!p.inSplit && p.sessions) f.push('logged sessions but is not in the care-team split');
+  return f;
+}
+
+function paintReviewMonth(c, D, statusPill, terms){
+  const box=document.getElementById('rvBody'); if(!box) return;
+  const dir=isDirector(); const label=monthLabel(D.month);
+  const fmtH=m=>Math.round(m/6)/10+'h';
+  const termInfo=D.term?`<div class="row-sub" style="white-space:normal">${escapeHtml(D.term.label)} — month ${termMonthIndex(D.term,D.month)+1} of ${termMonthCount(D.term)} (${termRange(D.term)}). Suggested amounts spread each professional's term balance evenly over the months left, rounded to UGX 1,000; the last month takes whatever remains.</div>`:'';
+  if(D.holiday){
+    box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">${label} ${statusPill}</div><div class="row-sub">School holiday — no term this month, so no service is due and nothing is paid.</div></div></div>`;
+    return;
+  }
+  if(D.closed){
+    const R=D.closed.data||{};
+    box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${label} ${statusPill}</div>
+        ${dir?'<button class="btn btn-ghost btn-sm" id="rvReopen" style="width:auto">Reopen month</button>':''}</div>
+      <div class="row-sub">Closed ${fmtDate(D.closed.created_at)}${R.reason?' · Reason: '+escapeHtml(R.reason):''}</div>${termInfo}
+      <div class="rows" id="rvLines"></div></div>`;
+    const lb=box.querySelector('#rvLines');
+    const lines=D.people.flatMap(p=>p.lines.map(l=>({...l,_name:p.name})));
+    lb.innerHTML=lines.length?'':'<div class="row-sub">No pay was approved for this month.</div>';
+    lines.forEach(l=>{
+      const editable=dir && !['billed','paid'].includes(l.status);
+      const row=el(`<div class="row-card" style="cursor:default">
+        <div class="row-main"><div class="row-name">${escapeHtml(l._name)} — ${mndMoney(l.amount)}</div>
+          <div class="row-sub" style="white-space:normal">${escapeHtml(l.description||'')} · ${escapeHtml(String(l.status).replace('_',' '))}</div></div>
+        ${editable?`<button class="btn btn-ghost btn-sm" style="width:auto">Edit amount</button>`:''}</div>`);
+      const b=row.querySelector('button'); if(b) b.onclick=async()=>{
+        const v=prompt('New amount (UGX) for '+l._name+' — '+label+':', l.amount); if(v===null) return;
+        const amt=parseInt(String(v).replace(/[^0-9]/g,''),10); if(isNaN(amt)){ toast('Enter a number.',true); return; }
+        const note=prompt('Reason for the change (kept on the pay line):')||'';
+        const {error}=await sb.from('prof_payables').update({amount:amt,unit_rate:amt,description:(l.description||'')+` · amount edited to UGX ${amt.toLocaleString()} by director${note?': '+note:''}`}).eq('id',l.id);
+        if(error){ toast(error.message,true); return; }
+        toast('Amount updated'); renderChildReview($('#view'),c);
+      };
+      lb.appendChild(row);
+    });
+    const ro=box.querySelector('#rvReopen'); if(ro) ro.onclick=()=>reopenMonth(c,D);
+    return;
+  }
+  // ---- open month: review form
+  box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
+    <div class="row-name">${label} ${statusPill}</div>${termInfo}
+    <div class="row-sub">${D.sessions} session${D.sessions===1?'':'s'} logged for this child in ${label}.</div>
+    <div class="rows" id="rvPeople"></div>
+    <div class="row-sub" id="rvTotal" style="font-weight:600"></div>
+    <div class="form-row"><label>Review note / reason <span id="rvReasonReq" style="color:var(--coral);font-weight:400"></span></label>
+      <textarea id="rvReason" style="min-height:80px" placeholder="e.g. Child was unwell for two weeks; sessions made up in October."></textarea></div>
+    ${dir?`<div><button class="btn btn-primary" id="rvClose" style="width:auto">Approve work &amp; close ${label}</button></div>`
+         :'<div class="row-sub" style="color:var(--muted)">Only the director can close a month.</div>'}
+  </div>`;
+  const pb=box.querySelector('#rvPeople');
+  if(!D.people.length) pb.innerHTML='<div class="empty" style="padding:16px"><h4>No care team for this month</h4><p>Assign professionals to the child first. You can still close the month with no pay.</p></div>';
+  D.people.forEach(p=>{
+    const flags=reviewFlags(D,p);
+    const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;${flags.length?'border:1px solid var(--warn)':''}">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="row-main"><div class="row-name">${escapeHtml(p.name)}${p.disc?' <span class="row-sub">· '+escapeHtml(p.disc)+'</span>':''}</div>
+          <div class="row-sub">${p.inSplit?Math.round(p.share*100)+'% share':'not in split'} · ${p.sessions} session${p.sessions===1?'':'s'} · ${fmtH(p.minutes)} · ${p.pct==null?'no targets':'fulfilment '+p.pct+'%'}</div>
+          ${D.term&&p.termTotal!=null?`<div class="row-sub">Term total ${mndMoney(p.termTotal)} · approved in earlier months ${mndMoney(p.approvedBefore)} · balance before this month ${mndMoney(p.termTotal-p.approvedBefore)}</div>`:''}</div>
+        <div style="display:flex;align-items:center;gap:6px"><span class="row-sub">UGX</span>
+          <input type="number" min="0" class="rvAmt" data-p="${p.pid}" data-s="${p.suggested}" value="${p.suggested}" style="width:130px" ${dir?'':'disabled'}/></div>
+      </div>
+      ${flags.length?`<div class="row-sub" style="color:var(--warn)">⚑ ${flags.map(escapeHtml).join(' · ')}</div>`:''}
+      <div class="row-sub rvSug" style="color:var(--muted)">Suggested ${mndMoney(p.suggested)}${D.term?' (instalment)':p.inSplit?' (monthly unit × share)':''}</div>
+    </div>`);
+    pb.appendChild(card);
+  });
+  const anyFlag=D.people.some(p=>reviewFlags(D,p).length) || !D.sessions;
+  const recalc=()=>{
+    let tot=0, edited=false;
+    pb.querySelectorAll('.rvAmt').forEach(i=>{ const v=Number(i.value||0); tot+=v; if(v!==Number(i.dataset.s)) edited=true; });
+    box.querySelector('#rvTotal').textContent=`Total to approve for ${label}: ${mndMoney(tot)}`+(D.term?'':(c.prof_unit_rate?` (monthly service unit ${mndMoney(c.prof_unit_rate)})`:''));
+    box.querySelector('#rvReasonReq').textContent=(anyFlag||edited)?'— required: '+[anyFlag?'something is flagged':null, edited?'amounts changed from the suggestion':null].filter(Boolean).join(' and '):'';
+    return {tot, need:anyFlag||edited};
+  };
+  pb.querySelectorAll('.rvAmt').forEach(i=>i.addEventListener('input',recalc)); recalc();
+  const cb=box.querySelector('#rvClose'); if(cb) cb.onclick=async()=>{
+    const {need}=recalc(); const reason=box.querySelector('#rvReason').value.trim();
+    if(need && !reason){ toast('Give a reason — something is flagged or an amount was changed.',true); box.querySelector('#rvReason').focus(); return; }
+    const amounts={}; pb.querySelectorAll('.rvAmt').forEach(i=>{ const v=Number(i.value||0); if(v<0||isNaN(v)){ amounts._bad=true; } amounts[i.dataset.p]=Math.round(v); });
+    if(amounts._bad){ toast('Amounts cannot be negative.',true); return; }
+    cb.disabled=true; cb.textContent='Closing…';
+    const ok=await closeReviewMonth(c, D, amounts, reason);
+    if(ok){ toast(`${label} closed`); renderChildReview($('#view'),c); } else { cb.disabled=false; cb.textContent=`Approve work & close ${label}`; }
+  };
+}
+
+/* Close one month: record the review, stamp the split, create approved pay lines. */
+async function closeReviewMonth(c, D, amounts, reason){
+  if(!isDirector()){ toast('Only the director can close a month.',true); return false; }
+  const {data:exists}=await sb.from('op_forms').select('id').eq('client_id',c.id).eq('kind','svc_units').eq('period_month',D.month).eq('status','finalized').maybeSingle();
+  if(exists){ toast(monthLabel(D.month)+' is already closed.',true); return false; }
+  const label=monthLabel(D.month);
+  const lines=D.people.map(p=>({pid:p.pid,name:p.name,share:p.share,sessions:p.sessions,minutes:p.minutes,fulfilment:p.pct,flags:reviewFlags(D,p),suggested:p.suggested,amount:amounts[p.pid]||0}));
+  const {error}=await sb.from('op_forms').insert({
+    kind:'svc_units', client_id:c.id, professional_id:(D.people[0]&&D.people[0].pid)||null, period_month:D.month,
+    title:`Director review — ${label}`, status:'finalized', created_by:ME.id,
+    data:{review:true, month:label, reason:reason||null, billing_cycle:c.billing_cycle||'monthly', term_id:D.term?D.term.id:null, term:D.term?D.term.label:null, sessions:D.sessions, lines}
+  });
+  if(error){ toast(error.message,true); return false; }
+  for(const p of D.people){ if(p.shareId){
+    await sb.from('child_prof_shares').update({fulfil_pct:p.pct, amount:amounts[p.pid]||0, status:'finalized', updated_by:ME.id, updated_at:new Date().toISOString()}).eq('id',p.shareId);
+  } }
+  // clear any not-yet-paid lines for this month left by the old finalize flow
+  await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',D.month).in('source',['child_units','term_instalment','term_slice']).in('status',['awaiting_prof','disputed','prof_approved','pending']);
+  const now=new Date().toISOString();
+  const pays=D.people.filter(p=>(amounts[p.pid]||0)>0).map(p=>({
+    professional_id:p.pid, client_id:c.id, period_month:D.month, term_id:D.term?D.term.id:null,
+    source:D.term?'term_instalment':'child_units', units:1, unit_rate:amounts[p.pid], amount:amounts[p.pid],
+    description:D.term
+      ? `${c.full_name} — ${D.term.label} instalment, ${label} (term total UGX ${Math.round(p.termTotal||0).toLocaleString()})`
+      : `${c.full_name} — monthly service unit, ${label} (${Math.round(p.share*100)}% share)`,
+    status:'approved', dir_approved_at:now, dir_approved_by:ME.id, created_by:ME.id
+  }));
+  if(pays.length){ const {error:pe}=await sb.from('prof_payables').insert(pays); if(pe){ toast('Month closed, but pay lines failed: '+pe.message,true); return true; } }
+  return true;
+}
+
+async function reopenMonth(c, D){
+  if(!isDirector()) return;
+  const locked=D.people.flatMap(p=>p.lines).filter(l=>['billed','paid'].includes(l.status));
+  if(locked.length){ toast('Some pay for this month is already on a pay bill or paid, so the month cannot be reopened. Edit the other amounts instead.',true); return; }
+  if(!confirm('Reopen '+monthLabel(D.month)+'? Its approved pay lines are removed so you can review it again.')) return;
+  await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',D.month).in('source',['child_units','term_instalment','term_slice']).in('status',['approved','awaiting_prof','disputed','prof_approved','pending']);
+  await sb.from('op_forms').delete().eq('client_id',c.id).eq('kind','svc_units').eq('period_month',D.month);
+  await sb.from('child_prof_shares').update({status:'pending'}).eq('client_id',c.id).eq('period_month',D.month);
+  toast(monthLabel(D.month)+' reopened'); renderChildReview($('#view'),c);
+}
+
+async function bulkCloseMonths(c, pending, terms){
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:560px">
+    <h3>Close several months</h3>
+    <div class="sub">${escapeHtml(c.full_name)}. Each ticked month is closed with its <b>suggested</b> amounts. To change an amount, close that month on its own instead.</div>
+    <div class="rows">${pending.map(mo=>`<label class="row-card" style="cursor:pointer;gap:10px"><input type="checkbox" class="bkM" value="${mo}" checked style="width:auto"/><div class="row-main"><div class="row-name">${monthLabel(mo)}</div></div></label>`).join('')}</div>
+    <div class="form-row"><label>Reason (applies to every month closed)</label><textarea id="bkReason" style="min-height:80px" placeholder="e.g. Catching up on months before the review was set up; sessions were delivered but not all logged."></textarea></div>
+    <div id="bkProg" class="row-sub"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="bkCancel">Cancel</button><button class="btn btn-primary" id="bkGo">Close ticked months</button></div>
   </div></div>`);
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
-  m.querySelector('#ftCancel').onclick=close;
-  m.querySelector('#ftGo').onclick=async()=>{
-    const btn=m.querySelector('#ftGo'); btn.disabled=true; btn.textContent='Finalizing…';
-    await sb.from('prof_payables').delete().eq('term_id',t.id).eq('source','term_settle').in('status',['awaiting_prof','disputed','pending']);
-    const endMonth=localMonthISO(mndDate(t.end_date));
-    const lines=R.people.filter(p=>Math.round(p.settle)!==0).map(p=>({
-      professional_id:p.pid, period_month:endMonth, source:'term_settle', client_id:c.id, term_id:t.id,
-      description:`${c.full_name} — ${t.label} settlement: term fulfilment ${p.pct==null?'n/a':p.pct+'%'}${p.exception?' [exception]':''}; ${p.qualifies?'full term share UGX '+p.full.toLocaleString():'below '+R.threshold+'%, no term share'}; slices paid UGX ${p.paid.toLocaleString()}${p.settle<0?' — DEDUCTION':''}`,
-      units:1, unit_rate:Math.round(p.settle), amount:Math.round(p.settle), status:'awaiting_prof', created_by:ME.id
-    }));
-    if(lines.length){ const {error}=await sb.from('prof_payables').insert(lines); if(error){ toast(error.message,true); btn.disabled=false; btn.textContent='Finalize term'; return; } }
-    const {error:e2}=await sb.from('child_terms').update({status:'finalized',finalized_at:new Date().toISOString(),finalized_by:ME.id}).eq('id',t.id);
-    if(e2){ toast(e2.message,true); btn.disabled=false; btn.textContent='Finalize term'; return; }
-    toast(`${t.label} finalized — ${lines.length} settlement line${lines.length===1?'':'s'}`);
-    close(); renderChildPlan($('#view'),c);
+  m.querySelector('#bkCancel').onclick=close;
+  m.querySelector('#bkGo').onclick=async()=>{
+    const reason=m.querySelector('#bkReason').value.trim();
+    const sel=[...m.querySelectorAll('.bkM:checked')].map(i=>i.value).sort();
+    if(!sel.length){ toast('Tick at least one month.',true); return; }
+    if(!reason){ toast('Give the reason for closing these months.',true); return; }
+    const btn=m.querySelector('#bkGo'); btn.disabled=true;
+    let done=0;
+    for(const mo of sel){   // oldest first, so term instalment suggestions build on each other
+      m.querySelector('#bkProg').textContent=`Closing ${monthLabel(mo)}… (${done+1} of ${sel.length})`;
+      const D=await reviewMonthData(c, mo, terms);
+      if(D.closed||D.holiday){ done++; continue; }
+      const amounts={}; D.people.forEach(p=>amounts[p.pid]=Math.round(p.suggested));
+      if(await closeReviewMonth(c, D, amounts, reason)) done++;
+    }
+    toast(`${done} month${done===1?'':'s'} closed`); close(); renderChildReview($('#view'),c);
   };
 }
 
