@@ -7067,11 +7067,17 @@ async function renderChildPlan(v,c){
       </div>`;
     }).join('');
   })();
-  // session summaries feed the service plan too
+  // session summaries feed the service plan too — filtered to the selected month
   (async()=>{
     const psBox=$('#planSessions'); if(!psBox) return;
-    const {data:sess}=await sb.from('session_logs').select('*').eq('client_id',c.id).order('session_date',{ascending:false}).limit(12);
-    if(!sess||!sess.length){ psBox.innerHTML='<div class="empty" style="padding:20px"><h4>No sessions yet</h4><p>Logged sessions will appear here.</p></div>'; return; }
+    const ym=period.slice(0,7);
+    const monthStart=ym+'-01';
+    const d0=new Date(monthStart);
+    const next=localMonthISO(new Date(d0.getFullYear(),d0.getMonth()+1,1));
+    const {data:sess}=await sb.from('session_logs').select('*').eq('client_id',c.id)
+      .gte('session_date',monthStart).lt('session_date',next)
+      .order('session_date',{ascending:false});
+    if(!sess||!sess.length){ psBox.innerHTML=`<div class="empty" style="padding:20px"><h4>No sessions in ${monthLabel(period)}</h4><p>Sessions logged with dates in ${monthLabel(period)} will appear here.</p></div>`; return; }
     psBox.innerHTML='';
     sess.forEach(s=>{
       const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
