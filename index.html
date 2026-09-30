@@ -6035,7 +6035,7 @@ async function finPayApprovals(b){
       : '<span class="pill assessment">Awaiting professional</span>';
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
       <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(nm[p.professional_id]||'Professional')}</div>${pill}</div>
-      <div class="row-sub">${escapeHtml(p.description||'')} — <b>UGX ${Number(p.amount||0).toLocaleString()}</b></div>
+      <div class="row-sub">${escapeHtml(p.description||'')} — <b${Number(p.amount||0)<0?' style="color:var(--coral)"':''}>${Number(p.amount||0)<0?'Deduction: UGX '+Math.abs(Number(p.amount)).toLocaleString():'UGX '+Number(p.amount||0).toLocaleString()}</b></div>
       ${p.prof_dispute_note?`<div class="row-sub" style="color:var(--coral)">Dispute: ${escapeHtml(p.prof_dispute_note)}</div>`:''}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
         <button class="btn btn-primary btn-sm paApprove" data-id="${p.id}" style="width:auto">Approve for payment</button>
@@ -6051,7 +6051,7 @@ async function finPayApprovals(b){
       const cur=p.amount||0;
       const v=prompt('New amount (UGX) for '+(nm[p.professional_id]||'this professional')+':', cur);
       if(v===null) return;
-      const amt=parseInt(String(v).replace(/[^0-9]/g,''),10);
+      const raw=String(v).trim(); const amt=parseInt(raw.replace(/[^0-9]/g,''),10)*(/^[-−]/.test(raw)?-1:1);   // keep a leading minus: term deductions are negative
       if(isNaN(amt)){ toast('Enter a valid number.',true); return; }
       const note=prompt('Optional note on the adjustment (the professional will review it):')||null;
       const {error}=await sb.rpc('mnd_pay_adjust',{p_payable:p.id,p_amount:amt,p_note:note});
@@ -6287,9 +6287,22 @@ async function generateProfBills(){
   const {data:pend}=await sb.from('prof_payables').select('*').eq('status','approved');
   const items=pend||[];
   if(!items.length){ toast('No pending professional pay to bill.'); return; }
-  // group by professional + month
-  const groups={};
-  items.forEach(it=>{ const k=it.professional_id+'|'+it.period_month; (groups[k]=groups[k]||[]).push(it); });
+  // group by professional + month. A term-settlement DEDUCTION (negative line) is
+  // netted against the same professional's other approved pay in one bill. If their
+  // deductions are bigger than the pay due, nothing is billed for them now — the
+  // lines stay approved and are carried forward to their next pay.
+  const groups={}; const carried=[];
+  const byProf={}; items.forEach(it=>{ (byProf[it.professional_id]=byProf[it.professional_id]||[]).push(it); });
+  Object.keys(byProf).forEach(pid=>{
+    const all=byProf[pid];
+    const hasNeg=all.some(x=>Number(x.amount||0)<0);
+    if(!hasNeg){ all.forEach(it=>{ const k=pid+'|'+it.period_month; (groups[k]=groups[k]||[]).push(it); }); return; }
+    const net=all.reduce((a,x)=>a+Number(x.amount||0),0);
+    if(net<=0){ carried.push({pid,net}); return; }
+    const latest=all.map(x=>String(x.period_month)).sort().pop();
+    groups[pid+'|'+latest]=all;
+  });
+  if(!Object.keys(groups).length){ toast('Nothing to bill — deductions are larger than the pay due for '+carried.length+' professional(s); carried forward.'); return; }
   // resolve professional names
   const profIds=[...new Set(items.map(i=>i.professional_id))];
   const {data:profs}=await sb.from('professionals').select('id,full_name').in('id',profIds);
@@ -6300,12 +6313,12 @@ async function generateProfBills(){
     const list=groups[key];
     const [profId,period]=key.split('|');
     const total=list.reduce((a,x)=>a+Number(x.amount||0),0);
-    const lines=list.map(x=>'• '+x.description).join('\n');
+    const lines=list.map(x=>'• '+x.description+(Number(x.amount)<0?' (UGX '+Number(x.amount).toLocaleString()+')':'')).join('\n');
     const {data:bill,error}=await sb.from('bills').insert({
       payee:nameMap[profId]||'Professional',
       description:`Professional pay — ${monthLabel(period)}\n${lines}`,
       amount:total, expense_account_code:'6100',
-      bill_date:new Date().toISOString().slice(0,10),
+      bill_date:localISO(new Date()),
       bill_no:'PAY-'+Date.now().toString().slice(-6), status:'pending'
     }).select().single();
     if(error){ toast(error.message,true); continue; }
@@ -6314,7 +6327,7 @@ async function generateProfBills(){
     await sb.from('prof_payables').update({status:'billed',bill_id:bill.id}).in('id',ids);
     made++;
   }
-  toast(`${made} professional pay bill(s) created`); renderFinances($('#view'));
+  toast(`${made} professional pay bill(s) created`+(carried.length?` — ${carried.length} professional(s) carried forward: deductions exceed pay due`:'')); renderFinances($('#view'));
 }
 
 function billForm(bl){
@@ -6622,6 +6635,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
       <div class="qa" id="qaCaseReport">${icon('schedule')} Case report</div>
       ${canSeeMoney()?`<div class="qa" id="qaBandFees">${icon('plan')} Band &amp; fees</div>`:''}
+      ${c.billing_cycle==='termly'?`<div class="qa" id="qaTerms">${icon('schedule')} Terms</div>`:''}
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
     </div>
 
@@ -6674,6 +6688,7 @@ async function renderStaffChild(v,c){
   { const _refresh=(fresh)=>renderStaffChild($('#view'),fresh||c);
     const er=$('#qaEditRate'); if(er) er.onclick=()=>childFeeEditor(c,_refresh); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>childFeeEditor(c,_refresh);
     const bf=$('#qaBandFees'); if(bf) bf.onclick=()=>childFeeEditor(c,_refresh);
+    const qt=$('#qaTerms'); if(qt) qt.onclick=()=>childTermsEditor(c,_refresh);
     const sp=$('#qaSplit'); if(sp) sp.onclick=()=>editProfShares(c);
     if(c.prof_unit_rate && canSeeMoney()){ renderShareSummary(c); } }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
@@ -6933,11 +6948,16 @@ async function editProfShares(c){
   };
 }
 
+const TERM_DAYS_PER_MONTH = 30.44;
+let PLAN_MODE = null;   // 'month' | 'term' for termly children; null = default ('term' for termly)
+let PLAN_TERM = null;   // id of the term the term view is showing
 let PLAN_PERIOD=null;   // YYYY-MM-01 the plan view is showing; null = current month
 async function renderChildPlan(v,c){
   if(!c){ go(isStaff()?'clients':'pro_children'); return; }
   if(ME.role==='parent'){ v.innerHTML='<div class="empty"><h4>Not available</h4><p>This area is for the care team.</p></div>'; return; }
   const period = PLAN_PERIOD || thisMonthISO();   // exact selected month, defaults to the real current month
+  const termly = c.billing_cycle==='termly';
+  if(termly && (PLAN_MODE||'term')==='term') return renderChildTermPlan(v,c);
   // If the work has been split per-professional and the viewer is a professional,
   // show only THEIR allocated slice. Otherwise show the whole-child plan.
   let rows, usingSplit=false;
@@ -6947,6 +6967,14 @@ async function renderChildPlan(v,c){
   }
   if(!rows){ const r=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order'); rows=r.data; }
   const list=rows||[];
+  // The progress views count the CURRENT month only. Recount for the month actually selected.
+  { const ms=period.slice(0,7)+'-01'; const d0=mndDate(ms);
+    const nx=localMonthISO(new Date(d0.getFullYear(),d0.getMonth()+1,1));
+    let cq=sb.from('session_logs').select('activity_key,professional_id,session_date').eq('client_id',c.id).gte('session_date',ms).lt('session_date',nx);
+    if(usingSplit && MY_PROF_ID) cq=cq.eq('professional_id',MY_PROF_ID);
+    const {data:cs,error:ce}=await cq;
+    if(!ce){ const cnt={}; (cs||[]).forEach(x=>{ if(String(x.session_date).slice(0,7)!==ms.slice(0,7)) return; const k=x.activity_key||'direct_session'; cnt[k]=(cnt[k]||0)+1; });
+      list.forEach(r=>{ r.done_count=cnt[r.activity_key]||0; }); } }
   const totDone=list.reduce((s,r)=>s+Number(r.done_count||0),0);
   const totTarget=list.reduce((s,r)=>s+Number(r.target_count||0),0);
   const pct=totTarget?Math.min(100,Math.round(totDone/totTarget*100)):0;
@@ -6954,8 +6982,12 @@ async function renderChildPlan(v,c){
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
     <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1>
       <p>${c.assessed_band?'Band '+c.assessed_band+' · ':''}Showing <b>${monthLabel(period)}</b>. ${canEditPlan()?'You can edit targets and confirm activities.':(usingSplit?'This is your share of the plan for this child.':'Targets are set by Mindora.')}</p></div>
+    ${termly?`<div style="display:flex;gap:6px;margin:0 0 12px">
+      <button class="btn btn-primary btn-sm" style="width:auto;cursor:default">Month view</button>
+      <button class="btn btn-ghost btn-sm" id="pmTerm" style="width:auto">Term view</button></div>`:''}
     <div class="form-row" style="max-width:260px;margin-bottom:8px"><label>Month</label>
       <select id="planMonth">${planMonthOptions(c, period)}</select></div>
+    ${termly?'<div id="termBanner" style="margin-bottom:10px"></div>':''}
     <div id="finStatus"></div>
 
     <div class="plan-ring-wrap">
@@ -6989,6 +7021,7 @@ async function renderChildPlan(v,c){
     </div>`:''}`;
   $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
   { const sel=$('#planMonth'); if(sel) sel.onchange=()=>{ PLAN_PERIOD=sel.value; renderChildPlan($('#view'),c); }; }
+  if(termly){ const pt=$('#pmTerm'); if(pt) pt.onclick=()=>{ PLAN_MODE='term'; renderChildPlan($('#view'),c); }; paintTermBanner(c, period); }
 
   // Finalization status for the shown month: finalized, or pending with the
   // exact reason (who / which activity was missing).
@@ -7132,7 +7165,15 @@ async function renderChildPlan(v,c){
       const finLabel = monthLabel(finPeriod);
       fb.disabled=true; fb.textContent='Finalizing…';
       // recompute done-counts for the CHOSEN month (may differ from the view's current month)
-      const mStart=finPeriod, mEnd=(()=>{ const d=new Date(finPeriod+'T00:00:00'); d.setMonth(d.getMonth()+1); return d.toISOString().slice(0,10); })();
+      const mStart=finPeriod, mEnd=(()=>{ const d=mndDate(finPeriod); return localMonthISO(new Date(d.getFullYear(),d.getMonth()+1,1)); })();
+      // Termly child: only months inside a term can be finalized (holidays: no service, no pay).
+      let finTerms=[];
+      if(c.billing_cycle==='termly'){
+        const {terms:allT,error:tErr}=await loadChildTerms(c);
+        if(tErr){ toast('Run stage52.sql to enable termly plans.',true); fb.disabled=false; fb.textContent='Finalize month'; return; }
+        finTerms=termsInMonth(allT, finPeriod);
+        if(!finTerms.length){ toast(finLabel+' is outside every term for this child — school holiday, nothing to finalize or pay.',true); fb.disabled=false; fb.textContent='Finalize month'; return; }
+      }
       const {data:monthSess}=await sb.from('session_logs').select('activity_key,service_units,professional_id').eq('client_id',c.id).gte('session_date',mStart).lt('session_date',mEnd);
       const doneBy={}; (monthSess||[]).forEach(s=>{ const k=s.activity_key||'direct_session'; doneBy[k]=(doneBy[k]||0)+1; });
       const acts=list.map(r=>({key:r.activity_key,label:r.label,done:doneBy[r.activity_key]||0,target:Number(r.target_count||0)}));
@@ -7150,15 +7191,43 @@ async function renderChildPlan(v,c){
       // Each professional earns their share_fraction of that fee, but ONLY if their bundle
       // was marked fulfilled for the month. Shares default to an equal split (1/N) and are
       // director-editable via the "Service unit & split" editor.
-      const childFee = Number(c.prof_unit_rate||0);
       let payMsg='';
+      if(c.billing_cycle==='termly'){
+        // ---- TERMLY: pay each open term's SLICE for this month as an advance ----
+        // Slice = term service unit x (term days in this month / term days).
+        // No monthly 60% gate: the rule is judged over the whole term at settlement.
+        await ensureProfShares(c, finPeriod);
+        const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',finPeriod);
+        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('source','term_slice').in('status',['awaiting_prof','disputed','pending']);
+        const lines=[]; const skippedTerms=[];
+        for(const t of finTerms){
+          if(t.status==='finalized'){ skippedTerms.push(t.label); continue; }
+          const slice=termSliceTotal(t, finPeriod);
+          if(!(slice>0)){ skippedTerms.push(t.label+' (no term service unit set)'); continue; }
+          const dIn=termDaysInMonth(t,finPeriod), dTot=termDays(t);
+          for(const sh of (shares||[])){
+            const amt=Math.round(slice*Number(sh.share_fraction||0));
+            if(amt<=0) continue;
+            lines.push({ professional_id:sh.professional_id, period_month:finPeriod, source:'term_slice', client_id:c.id, term_id:t.id,
+              description:`${c.full_name} — ${t.label} slice, ${finLabel}: ${dIn}/${dTot} term days, ${Math.round(Number(sh.share_fraction||0)*100)}% share (advance; settled at term end)`,
+              units:1, unit_rate:Math.round(slice), amount:amt, status:'awaiting_prof', created_by:ME.id });
+          }
+        }
+        for(const sh of (shares||[])){
+          let pct=null; try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:sh.professional_id,p_month:finPeriod}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
+          await sb.from('child_prof_shares').update({ fulfil_pct:pct, status:'finalized', updated_by:ME.id, updated_at:new Date().toISOString() }).eq('id',sh.id);
+        }
+        if(lines.length){ const {error:pe}=await sb.from('prof_payables').insert(lines); if(pe){ toast(pe.message,true); } }
+        payMsg=` — ${lines.length} term slice${lines.length===1?'':'s'}`+(skippedTerms.length?` (skipped: ${skippedTerms.join(', ')})`:'');
+      } else {
+      const childFee = Number(c.prof_unit_rate||0);
       if(childFee>0){
         // ensure share rows exist for the accepted care team this month (equal default split)
         await ensureProfShares(c, finPeriod);
         const {data:shares}=await sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',finPeriod);
         const team=shares||[];
         // clear prior pending payables for this child+month to avoid duplicates on re-finalize
-        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).in('status',['awaiting_prof','disputed']);
+        await sb.from('prof_payables').delete().eq('client_id',c.id).eq('period_month',finPeriod).eq('source','child_units').in('status',['awaiting_prof','disputed']);
         const paid=[]; const skipped=[];
         for(const sh of team){
           const amt=Math.round(childFee*Number(sh.share_fraction||0));
@@ -7186,6 +7255,7 @@ async function renderChildPlan(v,c){
         }
         if(paid.length){ await sb.from('prof_payables').insert(paid); }
         payMsg = ` — ${paid.length} payable`+(skipped.length?`, ${skipped.length} below ${Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60)}% (not payable)`:'');
+      }
       }
       toast(`${finLabel} finalized${payMsg}`);
       fb.textContent='✓ Finalized';
@@ -8416,7 +8486,7 @@ async function paintMyPay(){
       : '<span class="pill exited">Disputed — with director</span>';
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
       <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(p.description||'Monthly service unit')}</div>${pill}</div>
-      <div class="row-sub">UGX ${Number(p.amount||0).toLocaleString()}</div>
+      <div class="row-sub">${Number(p.amount||0)<0?`<b style="color:var(--coral)">Deduction: UGX ${Math.abs(Number(p.amount)).toLocaleString()}</b> — taken off your next pay`:`UGX ${Number(p.amount||0).toLocaleString()}`}</div>
       ${st==='awaiting_prof'?`<div style="display:flex;gap:8px;margin-top:2px">
         <button class="btn btn-primary btn-sm mpApprove" data-id="${p.id}" style="width:auto">Approve amount</button>
         <button class="btn btn-ghost btn-sm mpDispute" data-id="${p.id}" style="width:auto">Something's wrong</button></div>`:''}
@@ -12597,6 +12667,7 @@ async function childFeeEditor(c, after){
     <div class="row-sub" style="white-space:normal;margin:10px 0 4px;color:var(--muted)">Changes apply from now on. Months already finalized keep the pay amounts they were finalized with, and invoices already sent are not changed — edit those in Finances if needed.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="fe_cancel">Cancel</button>
+      <button class="btn btn-ghost" id="fe_terms" style="width:auto;display:none">Manage terms</button>
       <button class="btn btn-ghost" id="fe_fill" style="width:auto">Fill from rate card</button>
       <button class="btn btn-primary" id="fe_save">Save band &amp; fees</button>
     </div>
@@ -12629,7 +12700,8 @@ async function childFeeEditor(c, after){
     q('#fe_box').innerHTML=`
       <div class="fee-h">Fees for this child <span>${sel.assessed_band?'Band '+sel.assessed_band:'No band'}${sel.pricing_context?' · '+escapeHtml(sel.pricing_context):''}</span></div>
       ${row('fe_monthly','What the family pays — monthly',r&&r.monthly,S.monthly_fee,'')}
-      ${termly?row('fe_term','What the family pays — per term',r&&r.term,S.term_fee,r&&r.termSec==='term_modelb'?'Model B, −10%':'direct, full'):''}
+      ${termly?row('fe_term','Family term fee — default for new terms',r&&r.term,S.term_fee,r&&r.termSec==='term_modelb'?'Model B, −10%':'direct, full'):''}
+      ${termly?'<div class="fee-note">Termly child: each term\'s own dates, family fee and term service unit are set under <b>Manage terms</b>. The monthly service-unit fee below is used to work out each term\'s service unit (monthly unit × term length).</div>':''}
       ${row('fe_unit','Monthly service-unit fee (professional bundle)',r&&r.prof,S.prof_unit_rate,'split across the care team')}`;
     q('#fe_box').querySelectorAll('input').forEach(inp=>inp.oninput=()=>{
       const v=inp.value===''?null:Number(inp.value);
@@ -12654,6 +12726,12 @@ async function childFeeEditor(c, after){
     if(!r){ toast('Choose an assessed band and a pricing context (A, B or C) first.',true); return; }
     S.monthly_fee=r.monthly.value; S.term_fee=r.term.value; S.prof_unit_rate=r.prof.value;
     paint(); toast('Filled from the rate card — adjust any figure before saving.');
+  };
+  const paintTermsBtn=()=>{ q('#fe_terms').style.display=q('#fe_cycle').value==='termly'?'':'none'; };
+  q('#fe_cycle').addEventListener('change',paintTermsBtn); paintTermsBtn();
+  q('#fe_terms').onclick=()=>{
+    if(c.billing_cycle!=='termly'){ toast('Save the billing cycle as Termly first, then manage terms.',true); return; }
+    childTermsEditor(c);
   };
   paint(); paintVar();
 
@@ -12726,6 +12804,17 @@ async function paintPlanFee(c, period){
 
   const PAYLBL={pending:'Pending',awaiting_prof:'Awaiting professional',prof_approved:'Professional approved',disputed:'Disputed',approved:'Approved for pay',billed:'Billed',paid:'Paid'};
   const unit=c.prof_unit_rate!=null?Number(c.prof_unit_rate):null;
+  // What the month's split is worked out from: the monthly unit, or — for a termly
+  // child — the slice of each term that falls in this month (nil in a holiday month).
+  let basis=unit, basisNote='';
+  if(c.billing_cycle==='termly'){
+    const {terms}=await loadChildTerms(c);
+    const here=termsInMonth(terms, monthStart);
+    basis=Math.round(here.reduce((a,t)=>a+termSliceTotal(t,monthStart),0));
+    basisNote=here.length
+      ? `Termly child — this month's basis is the term slice: ${here.map(t=>escapeHtml(t.label)+' '+termDaysInMonth(t,monthStart)+'/'+termDays(t)+' days = '+money(termSliceTotal(t,monthStart))).join('; ')}.`
+      : 'Termly child — school holiday, no term in this month, so nothing is due.';
+  }
 
   // ---- 1. Fee on record
   const band=c.assigned_band&&String(c.assigned_band)!==String(c.assessed_band)
@@ -12755,7 +12844,7 @@ async function paintPlanFee(c, period){
     const rows=profIds.map(pid=>{
       const s=shares.find(x=>x.professional_id===pid);
       const frac=s?Number(s.share_fraction||0):null;
-      const expected=(unit!=null&&frac!=null)?Math.round(unit*frac):null;
+      const expected=(basis!=null&&frac!=null)?Math.round(basis*frac):null;
       if(expected!=null) totExpected+=expected;
       const pp=payBy[pid]||[];
       const payAmt=pp.reduce((a,p)=>a+Number(p.amount||0),0);
@@ -12781,10 +12870,11 @@ async function paintPlanFee(c, period){
         <tbody>${rows}</tbody>
         <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)">
           <td style="padding:6px 8px">Total</td><td></td>
-          <td style="padding:6px 8px;text-align:right">${unit!=null?money(totExpected):'—'}</td><td></td>
+          <td style="padding:6px 8px;text-align:right">${basis!=null?money(totExpected):'—'}</td><td></td>
           <td style="padding:6px 8px;text-align:right">${pays.length?money(totPayable):'—'}</td><td></td>
         </tr></tfoot>
       </table>
+      ${basisNote?`<div class="row-sub" style="white-space:normal;color:var(--accent)">${basisNote}</div>`:''}
       <div class="row-sub" style="white-space:normal;color:var(--muted)">"Share of fee" uses the service-unit fee on record. "Pay recorded" is what was actually released when the month was finalized — a professional below ${threshold}% of their targets is not paid unless the director grants an exception.</div>
     </div>`;
   }
@@ -12800,7 +12890,7 @@ async function paintPlanFee(c, period){
   </tr>`).join('');
   let check='';
   if(c.billing_cycle==='termly'){
-    check=`<div class="row-sub" style="white-space:normal;color:var(--muted)">Termly billing — the family is invoiced per term (${money(c.term_fee)} on record), so a month may have no invoice. Invoices dated in ${monthLabel(period)} are listed for reference.</div>`;
+    check=`<div class="row-sub" style="white-space:normal;color:var(--muted)">Termly billing — the family is invoiced per term, so a month may have no invoice. Invoices dated in ${monthLabel(period)} are listed for reference; the term fee check is in <b>Term view</b>.</div>`;
   } else if(c.monthly_fee==null){
     check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No monthly family fee is on record, so the invoice can't be checked. Use "Edit band &amp; fees" to set it.</div>`;
   } else if(!invs.length){
@@ -12824,6 +12914,440 @@ async function paintPlanFee(c, period){
   box.innerHTML=`<div class="rows">${recHtml}${splitHtml}${invHtml}</div>`;
   const eb=document.getElementById('pfEdit');
   if(eb) eb.onclick=()=>childFeeEditor(c,()=>renderChildPlan($('#view'),c));
+}
+
+/* =====================================================================
+   TERMLY SERVICE PLANS  (stage 52)
+   ---------------------------------------------------------------------
+   For children billed per term. Each termly child has their own terms.
+   * Every month a term touches pays the care team a SLICE of the term
+     service unit, sized by the term days that fall in that month.
+     Slices are advances, paid whatever that month's activity.
+   * At the end of term the 60% rule is judged over the WHOLE term and a
+     settlement line tops up, or recovers, the difference.
+   * Months outside every term (school holidays): no service, no pay.
+   ===================================================================== */
+
+function mndDate(iso){ return new Date(String(iso).slice(0,10)+'T00:00:00'); }
+function termDays(t){ return Math.round((mndDate(t.end_date)-mndDate(t.start_date))/86400000)+1; }
+function termMonthsEquiv(t){ return termDays(t)/TERM_DAYS_PER_MONTH; }
+function termDaysInMonth(t, monthISO){
+  const ms=mndDate(String(monthISO).slice(0,7)+'-01');
+  const me=new Date(ms.getFullYear(), ms.getMonth()+1, 0);
+  const s=mndDate(t.start_date), e=mndDate(t.end_date);
+  const a=s>ms?s:ms, b=e<me?e:me;
+  return b<a?0:Math.round((b-a)/86400000)+1;
+}
+/* Every calendar month (YYYY-MM-01) the term touches, in order. */
+function termMonths(t){
+  const out=[]; const s=mndDate(t.start_date), e=mndDate(t.end_date);
+  let d=new Date(s.getFullYear(), s.getMonth(), 1);
+  while(d<=e){ out.push(localMonthISO(d)); d=new Date(d.getFullYear(), d.getMonth()+1, 1); }
+  return out;
+}
+function termsInMonth(terms, monthISO){ return (terms||[]).filter(t=>termDaysInMonth(t,monthISO)>0); }
+/* Whole-team slice of the term service unit for one month. */
+function termSliceTotal(t, monthISO){
+  const unit=Number(t.term_unit_fee||0); if(!unit) return 0;
+  return unit*termDaysInMonth(t,monthISO)/termDays(t);
+}
+/* Default term service unit = monthly unit x term length, to the nearest 100. */
+function autoTermUnit(c, start, end){
+  if(!c.prof_unit_rate || !start || !end) return null;
+  const days=termDays({start_date:start,end_date:end});
+  if(!(days>0)) return null;
+  return Math.round(Number(c.prof_unit_rate)*days/TERM_DAYS_PER_MONTH/100)*100;
+}
+function termRange(t){ return `${fmtDate(t.start_date)} – ${fmtDate(t.end_date)}`; }
+async function loadChildTerms(c){
+  const {data,error}=await sb.from('child_terms').select('*').eq('client_id',c.id).order('start_date',{ascending:true});
+  if(error){ return {terms:[], error}; }
+  return {terms:data||[], error:null};
+}
+function termLoadError(error){
+  const missing=/child_terms|does not exist|schema cache/i.test(error&&error.message||'');
+  return `<div class="empty" style="padding:20px"><h4>Termly plans aren't switched on yet</h4><p>${missing?'Run <b>stage52.sql</b> in the Supabase SQL Editor, then reload.':escapeHtml(error.message)}</p></div>`;
+}
+
+/* ---------------------------------------------------------------------
+   Terms editor — add / edit / delete a child's terms.
+--------------------------------------------------------------------- */
+async function childTermsEditor(c, after){
+  if(!canEditPlan()){ toast('Only Mindora staff can set terms.',true); return; }
+  const {terms, error}=await loadChildTerms(c);
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:640px">
+    <h3>Terms</h3>
+    <div class="sub">${escapeHtml(c.full_name)} is billed per term. Set each term's dates here. Each month a term touches pays the care team a slice of the term service unit, sized by the term days in that month. Months outside every term are holidays — no service, no pay.</div>
+    <div id="tmList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="tmClose">Close</button>
+      <button class="btn btn-primary" id="tmAdd" style="width:auto">+ Add a term</button>
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>{ m.remove(); if(typeof after==='function') after(c); };
+  m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#tmClose').onclick=close;
+  const listBox=m.querySelector('#tmList');
+  if(error){ listBox.innerHTML=termLoadError(error); m.querySelector('#tmAdd').style.display='none'; return; }
+  const money=v=>v==null?'—':'UGX '+Math.round(Number(v)).toLocaleString();
+  const paintList=(ts)=>{
+    listBox.innerHTML=ts.length?ts.map(t=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="row-main"><div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Finalized</span>':''}</div>
+          <div class="row-sub">${termRange(t)} · ${termDays(t)} days (${(Math.round(termMonthsEquiv(t)*10)/10)} months)</div>
+          ${canSeeMoney()?`<div class="row-sub">Family term fee ${money(t.term_fee)} · Term service unit ${money(t.term_unit_fee)}</div>`:''}</div>
+        <button class="btn btn-ghost btn-sm tmEdit" data-id="${t.id}" style="width:auto">${t.status==='finalized'?'View':'Edit'}</button>
+      </div></div>`).join('')
+      :'<div class="empty" style="padding:18px"><h4>No terms yet</h4><p>Add this child\'s first term to start the termly plan.</p></div>';
+    listBox.querySelectorAll('.tmEdit').forEach(b=>b.onclick=()=>termForm(c, ts.find(x=>x.id===b.dataset.id), refresh));
+  };
+  const refresh=async()=>{ const r=await loadChildTerms(c); paintList(r.terms); };
+  paintList(terms);
+  m.querySelector('#tmAdd').onclick=()=>termForm(c, null, refresh);
+}
+
+async function termForm(c, t, onSaved){
+  const edit=!!t, locked=edit&&t.status==='finalized';
+  const money=canSeeMoney();
+  const S={ term_fee: edit?(t.term_fee??null):(c.term_fee??null), term_unit_fee: edit?(t.term_unit_fee??null):null, unitTouched: edit };
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:560px">
+    <h3>${edit?(locked?'Term (finalized)':'Edit term'):'Add a term'}</h3>
+    <div class="sub">${escapeHtml(c.full_name)}${locked?' — this term has been finalized and settled, so it can no longer be changed.':''}</div>
+    <div class="form-row"><label>Term name</label><input id="tf_label" value="${escapeHtml(edit?t.label:'')}" placeholder="e.g. Term 3 2026" ${locked?'disabled':''}/></div>
+    <div class="form-row two">
+      <div><label>First day of term</label><input type="date" id="tf_start" value="${edit?String(t.start_date).slice(0,10):''}" ${locked?'disabled':''}/></div>
+      <div><label>Last day of term</label><input type="date" id="tf_end" value="${edit?String(t.end_date).slice(0,10):''}" ${locked?'disabled':''}/></div>
+    </div>
+    ${money?`<div class="form-row two">
+      <div><label>Family term fee (UGX)</label><input type="number" min="0" id="tf_fee" value="${S.term_fee??''}" ${locked?'disabled':''}/></div>
+      <div><label>Term service unit (UGX) <span style="color:var(--muted);font-weight:400">— for the whole team</span></label><input type="number" min="0" id="tf_unit" value="${S.term_unit_fee??''}" ${locked?'disabled':''}/></div>
+    </div>`:''}
+    <div id="tf_prev" class="row-sub" style="white-space:normal;margin:4px 0 10px"></div>
+    <div class="form-row"><label>Notes</label><textarea id="tf_notes" style="min-height:70px" ${locked?'disabled':''}>${escapeHtml(edit?(t.notes||''):'')}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="tf_cancel">${locked?'Close':'Cancel'}</button>
+      ${edit&&!locked?'<button class="btn btn-ghost" id="tf_del" style="width:auto;color:var(--coral)">Delete</button>':''}
+      ${locked?'':`<button class="btn btn-primary" id="tf_save">${edit?'Save term':'Add term'}</button>`}
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  const q=s=>m.querySelector(s);
+  q('#tf_cancel').onclick=close;
+  const fmtM=v=>'UGX '+Math.round(Number(v)).toLocaleString();
+  const paintPrev=()=>{
+    const s=q('#tf_start').value, e=q('#tf_end').value;
+    if(!s||!e){ q('#tf_prev').innerHTML=''; return; }
+    if(e<s){ q('#tf_prev').innerHTML='<span style="color:var(--coral)">The last day is before the first day.</span>'; return; }
+    const tt={start_date:s,end_date:e,term_unit_fee:S.term_unit_fee};
+    if(money && !S.unitTouched){
+      const auto=autoTermUnit(c,s,e);
+      if(auto!=null){ S.term_unit_fee=auto; tt.term_unit_fee=auto; q('#tf_unit').value=auto; }
+    }
+    const months=termMonths(tt).map(mo=>{
+      const d=termDaysInMonth(tt,mo);
+      return `<div style="display:flex;justify-content:space-between;gap:10px"><span>${monthLabel(mo)} — ${d} day${d===1?'':'s'}</span>${money&&tt.term_unit_fee?`<span>slice ${fmtM(termSliceTotal(tt,mo))}</span>`:''}</div>`;
+    }).join('');
+    q('#tf_prev').innerHTML=`<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">
+      <div style="font-weight:600;margin-bottom:4px">${termDays(tt)} days · ${(Math.round(termMonthsEquiv(tt)*10)/10)} months${money&&c.prof_unit_rate?` · auto term unit = monthly unit ${fmtM(c.prof_unit_rate)} × ${(Math.round(termMonthsEquiv(tt)*100)/100)}`:''}</div>
+      ${months}
+      <div style="color:var(--muted);margin-top:6px">Each month's slice is paid to the care team as an advance when that month is finalized. The balance is settled when the term is finalized.</div></div>`;
+  };
+  if(!locked){
+    ['#tf_start','#tf_end'].forEach(s=>q(s).addEventListener('change',paintPrev));
+    if(money){
+      q('#tf_unit').addEventListener('input',()=>{ S.unitTouched=true; S.term_unit_fee=q('#tf_unit').value===''?null:Number(q('#tf_unit').value); paintPrev(); });
+      q('#tf_fee').addEventListener('input',()=>{ S.term_fee=q('#tf_fee').value===''?null:Number(q('#tf_fee').value); });
+    }
+  }
+  paintPrev();
+  if(locked) return;
+
+  if(edit){ q('#tf_del').onclick=async()=>{
+    const {count}=await sb.from('prof_payables').select('id',{count:'exact',head:true}).eq('term_id',t.id);
+    if(count){ toast('Pay has already been recorded against this term, so it cannot be deleted. Change its dates instead.',true); return; }
+    if(!confirm('Delete '+t.label+'?')) return;
+    const {error}=await sb.from('child_terms').delete().eq('id',t.id);
+    if(error){ toast(error.message,true); return; }
+    toast('Term deleted'); close(); if(onSaved) onSaved();
+  }; }
+
+  q('#tf_save').onclick=async()=>{
+    const label=q('#tf_label').value.trim(), s=q('#tf_start').value, e=q('#tf_end').value;
+    if(!label||!s||!e){ toast('Give the term a name, a first day and a last day.',true); return; }
+    if(e<s){ toast('The last day is before the first day.',true); return; }
+    const payload={ label, start_date:s, end_date:e, notes:q('#tf_notes').value.trim()||null };
+    if(money){ payload.term_fee=S.term_fee; payload.term_unit_fee=S.term_unit_fee; }
+    else if(!edit){ payload.term_unit_fee=autoTermUnit(c,s,e); payload.term_fee=c.term_fee??null; }
+    const btn=q('#tf_save'); btn.disabled=true; btn.textContent='Saving…';
+    let res;
+    if(edit) res=await sb.from('child_terms').update(payload).eq('id',t.id);
+    else { payload.client_id=c.id; payload.created_by=ME.id; res=await sb.from('child_terms').insert(payload); }
+    if(res.error){
+      const msg=/TERM_OVERLAP/.test(res.error.message)?'These dates overlap another term for this child.':res.error.message;
+      toast(msg,true); btn.disabled=false; btn.textContent=edit?'Save term':'Add term'; return;
+    }
+    toast(edit?'Term saved':'Term added'); close(); if(onSaved) onSaved();
+  };
+}
+
+/* ---------------------------------------------------------------------
+   Month view banner for a termly child: which term(s) this month falls
+   in and the size of the slice — or that it's a holiday month.
+--------------------------------------------------------------------- */
+async function paintTermBanner(c, period){
+  const box=document.getElementById('termBanner'); if(!box) return;
+  const {terms, error}=await loadChildTerms(c);
+  if(error){ box.innerHTML=termLoadError(error); return; }
+  const here=termsInMonth(terms, period);
+  const money=v=>'UGX '+Math.round(Number(v)).toLocaleString();
+  const edit=canEditPlan()?`<button class="btn btn-ghost btn-sm" id="tbTerms" style="width:auto">Manage terms</button>`:'';
+  if(!terms.length){
+    box.innerHTML=`<div class="row-card" style="cursor:default;border:1px dashed var(--warn)"><div class="row-main"><div class="row-name">Termly child — no terms set</div><div class="row-sub" style="white-space:normal">Add this child's term dates so the plan, pay slices and settlement can be worked out.</div></div>${edit}</div>`;
+  } else if(!here.length){
+    box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">School holiday — no term in ${monthLabel(period)}</div><div class="row-sub" style="white-space:normal">This child is billed per term. No term falls in this month, so there is no service due and nothing to pay.</div></div>${edit}</div>`;
+  } else {
+    box.innerHTML=here.map(t=>{
+      const d=termDaysInMonth(t,period), tot=termDays(t);
+      return `<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main">
+        <div class="row-name">${escapeHtml(t.label)} — ${d} of ${tot} term days fall in ${monthLabel(period)} (${Math.round(d/tot*100)}%)</div>
+        <div class="row-sub" style="white-space:normal">${termRange(t)}${canSeeMoney()&&t.term_unit_fee?` · this month's slice of the term service unit: ${money(termSliceTotal(t,period))}`:''}${t.status==='finalized'?' · term finalized':''}</div></div>${edit}</div>`;
+    }).join('');
+  }
+  box.querySelectorAll('#tbTerms').forEach(b=>b.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c)));
+}
+
+/* ---------------------------------------------------------------------
+   Term view of the service plan.
+--------------------------------------------------------------------- */
+async function renderChildTermPlan(v, c){
+  const {terms, error}=await loadChildTerms(c);
+  const toggle=`<div style="display:flex;gap:6px;margin:0 0 12px">
+      <button class="btn btn-ghost btn-sm" id="pmMonth" style="width:auto">Month view</button>
+      <button class="btn btn-primary btn-sm" style="width:auto;cursor:default">Term view</button></div>`;
+  const head=`<button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back</button>
+    <div class="welcome"><h1>${escapeHtml(c.full_name)} — Service plan</h1><p>${c.assessed_band?'Band '+(c.assigned_band||c.assessed_band)+' · ':''}Billed per term.</p></div>${toggle}`;
+  const wireTop=()=>{
+    $('#backBtn').onclick=()=>go(isStaff()?'clients':'pro_children');
+    $('#pmMonth').onclick=()=>{ PLAN_MODE='month'; renderChildPlan($('#view'),c); };
+    const tb=$('#tpTerms'); if(tb) tb.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c));
+  };
+  if(error){ v.innerHTML=head+termLoadError(error); wireTop(); return; }
+  if(!terms.length){
+    v.innerHTML=head+`<div class="empty" style="padding:26px"><h4>No terms set for this child</h4><p>${canEditPlan()?'Add the term dates to start the termly plan.':'Mindora has not set this child\'s terms yet.'}</p>${canEditPlan()?'<button class="btn btn-primary" id="tpTerms" style="width:auto;margin-top:10px">Add a term</button>':''}</div>`;
+    wireTop(); return;
+  }
+  const today=localISO(new Date());
+  let t=terms.find(x=>x.id===PLAN_TERM)
+     || terms.find(x=>String(x.start_date)<=today && String(x.end_date)>=today)
+     || [...terms].reverse().find(x=>String(x.start_date)<=today)
+     || terms[0];
+  PLAN_TERM=t.id;
+  const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10);
+  const me=termMonthsEquiv(t);
+  const pro=ME.role==='professional' && MY_PROF_ID;
+
+  // targets (monthly) — this professional's own slice where split, else the whole child
+  let rows=null;
+  if(pro){ const {data:mine}=await sb.from('v_child_prof_progress').select('*').eq('client_id',c.id).eq('professional_id',MY_PROF_ID).order('sort_order'); if(mine&&mine.length) rows=mine; }
+  if(!rows){ const r=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order'); rows=r.data||[]; }
+  let sq=sb.from('session_logs').select('*').eq('client_id',c.id).gte('session_date',tStart).lte('session_date',tEnd).order('session_date',{ascending:false});
+  if(pro && rows.length && rows[0].professional_id) sq=sq.eq('professional_id',MY_PROF_ID);
+  const {data:sessAll}=await sq;
+  const sess=(sessAll||[]).filter(s=>{ const d=String(s.session_date).slice(0,10); return d>=tStart&&d<=tEnd; });
+  const doneBy={}; sess.forEach(s=>{ const k=s.activity_key||'direct_session'; doneBy[k]=(doneBy[k]||0)+1; });
+  const acts=rows.map(r=>{ const mt=Number(r.target_count||0); return {label:r.label,key:r.activity_key,monthly:mt,target:mt>0?Math.max(1,Math.round(mt*me)):0,done:doneBy[r.activity_key]||0}; });
+  const totT=acts.reduce((a,x)=>a+x.target,0), totD=acts.reduce((a,x)=>a+Math.min(x.done,x.target),0);
+  const pct=totT?Math.min(100,Math.round(totD/totT*100)):0;
+  const tgtH=mndBandTargetHours(c.assigned_band||c.assessed_band);
+  const termH=tgtH?Math.round(tgtH*me*10)/10:null;
+  const totMin=sess.reduce((a,s)=>a+Number(s.duration_minutes||0),0);
+
+  v.innerHTML=head+`
+    <div class="form-row two" style="max-width:560px;margin-bottom:8px">
+      <div><label>Term</label><select id="tpSel">${terms.map(x=>`<option value="${x.id}" ${x.id===t.id?'selected':''}>${escapeHtml(x.label)}</option>`).join('')}</select></div>
+      <div style="display:flex;align-items:flex-end">${canEditPlan()?'<button class="btn btn-ghost btn-sm" id="tpTerms" style="width:auto">Manage terms</button>':''}</div>
+    </div>
+    <div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main">
+      <div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Finalized</span>':'<span class="pill band" style="margin-left:6px">Open</span>'}</div>
+      <div class="row-sub">${termRange(t)} · ${termDays(t)} days · ${(Math.round(me*10)/10)} months. Targets below are the monthly targets scaled to the length of this term.</div></div></div>
+
+    <div class="plan-ring-wrap">
+      <div class="plan-ring" style="--p:${pct}"><div class="plan-ring-inner"><div class="plan-ring-pct">${pct}%</div><div class="plan-ring-lbl">term</div></div></div>
+      <div class="plan-ring-side"><div class="plan-big">${totD}<span>/${totT}</span></div><div class="plan-sub">activities completed in ${escapeHtml(t.label)}${pro?' (your share)':''}</div></div>
+    </div>
+    <div class="section-head" style="margin-top:24px"><h3>Activities this term</h3></div>
+    <div class="rows">${acts.length?acts.map(a=>{ const p=a.target?Math.min(100,Math.round(a.done/a.target*100)):0; const ok=a.target>0&&a.done>=a.target;
+      return `<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.label)}</div><span class="row-sub">${a.monthly}/month</span><span class="pill ${ok?'active':'band'}">${a.done}/${a.target}</span></div>
+        <div class="bar"><div class="bar-fill" style="width:${p}%"></div></div></div>`; }).join(''):'<div class="empty" style="padding:20px"><h4>No plan yet</h4><p>Assign a band to generate the plan.</p></div>'}</div>
+
+    <div class="section-head" style="margin-top:26px"><h3>Hours this term</h3></div>
+    <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">${Math.round(totMin/6)/10}h logged${termH?' of about '+termH+'h':''}</div>
+      <div class="row-sub">${termH?`Band target ${tgtH}h a month × ${(Math.round(me*10)/10)} months.`:'No band target hours set.'}</div></div></div>
+
+    ${canSeeMoney()?`<div class="section-head" style="margin-top:26px"><h3>Term fee &amp; pay — ${escapeHtml(t.label)}</h3></div><div id="tpMoney"><div class="row-sub" style="color:var(--muted);padding:8px">Loading…</div></div>`:''}
+
+    <div class="section-head" style="margin-top:26px"><h3>Session summaries — ${escapeHtml(t.label)}</h3></div>
+    <div class="rows" id="tpSess"></div>`;
+  wireTop();
+  $('#tpSel').onchange=()=>{ PLAN_TERM=$('#tpSel').value; renderChildPlan($('#view'),c); };
+  const sb2=$('#tpSess');
+  if(!sess.length) sb2.innerHTML=`<div class="empty" style="padding:20px"><h4>No sessions in ${escapeHtml(t.label)}</h4><p>Sessions dated between ${termRange(t)} will appear here.</p></div>`;
+  sess.forEach(s=>{
+    const card=el(`<div class="row-card" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:4px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(s.session_type||'Session')}</div><span class="row-sub">${fmtDate(s.session_date)}</span></div>
+      ${s.summary?`<div class="row-sub" style="white-space:normal">${escapeHtml(s.summary)}</div>`:''}</div>`);
+    card.onclick=()=>sessionDetail(s,c); sb2.appendChild(card);
+  });
+  if(canSeeMoney()) paintTermMoney(c, t);
+}
+
+/* Work out, per professional, what the term owes them.
+   owed    = (qualifies over the whole term) ? Σ over months (slice × that month's share) : 0
+   paid    = slices already recorded for this term
+   settle  = owed − paid   (negative = deduction)                         */
+async function computeTermSettlement(c, t, {ensureShares=false}={}){
+  const months=termMonths(t);
+  if(ensureShares){ for(const mo of months){ await ensureProfShares(c, mo); } }
+  const [{data:shares},{data:pays},{data:fins}]=await Promise.all([
+    sb.from('child_prof_shares').select('*').eq('client_id',c.id).in('period_month',months),
+    sb.from('prof_payables').select('*').eq('term_id',t.id),
+    sb.from('op_forms').select('period_month').eq('client_id',c.id).eq('kind','svc_units').eq('status','finalized').in('period_month',months)
+  ]);
+  const finSet=new Set((fins||[]).map(f=>String(f.period_month).slice(0,10)));
+  const pids=[...new Set([...(shares||[]).map(s=>s.professional_id),...(pays||[]).map(p=>p.professional_id)].filter(Boolean))];
+  const nm={}; if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
+  const threshold=Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
+  const exc=t.pay_exceptions||{};
+  const people=await Promise.all(pids.map(async pid=>{
+    let full=0;
+    months.forEach(mo=>{ const sh=(shares||[]).find(s=>s.professional_id===pid && String(s.period_month).slice(0,10)===mo); if(sh) full+=termSliceTotal(t,mo)*Number(sh.share_fraction||0); });
+    full=Math.round(full);
+    const mine=(pays||[]).filter(p=>p.professional_id===pid);
+    const paid=Math.round(mine.filter(p=>p.source==='term_slice').reduce((a,p)=>a+Number(p.amount||0),0));
+    const settled=mine.filter(p=>p.source==='term_settle');
+    let pct=null; try{ const {data:q}=await sb.rpc('mnd_term_qualifies',{p_client:c.id,p_professional:pid,p_term:t.id}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
+    const meets=pct!=null && pct>=threshold;
+    const exception=!!exc[pid];
+    const qualifies=meets||exception;
+    const owed=qualifies?full:0;
+    return {pid, name:nm[pid]||'Professional', full, paid, pct, meets, exception, exceptionReason:exc[pid]||'', qualifies, owed, settle:owed-paid, settled};
+  }));
+  return {months, finSet, people, threshold, pays:pays||[]};
+}
+
+async function paintTermMoney(c, t){
+  const box=document.getElementById('tpMoney'); if(!box) return;
+  const money=v=>v==null?'—':'UGX '+Math.round(Number(v)).toLocaleString();
+  const signed=v=>(v<0?'− ':'')+'UGX '+Math.abs(Math.round(v)).toLocaleString();
+  const R=await computeTermSettlement(c,t);
+  const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10);
+  const {data:invAll}=await sb.from('invoices').select('*').eq('client_id',c.id).gte('invoice_date',tStart).lte('invoice_date',tEnd).order('invoice_date');
+  const invs=invAll||[]; const invTot=invs.reduce((a,i)=>a+Number(i.amount||0),0);
+  // also count invoices dated shortly before the term (families often pay ahead)
+  const sliceRows=R.months.map(mo=>{ const d=termDaysInMonth(t,mo); return `<tr>
+    <td style="padding:6px 8px">${monthLabel(mo)}</td><td style="padding:6px 8px;text-align:right">${d}</td>
+    <td style="padding:6px 8px;text-align:right">${Math.round(d/termDays(t)*100)}%</td>
+    <td style="padding:6px 8px;text-align:right">${money(termSliceTotal(t,mo))}</td>
+    <td style="padding:6px 8px">${R.finSet.has(mo)?'<span style="color:var(--teal)">Month finalized — slice paid</span>':'<span style="color:var(--muted)">Not finalized</span>'}</td></tr>`; }).join('');
+  const peopleRows=R.people.map(p=>`<tr>
+    <td style="padding:6px 8px">${escapeHtml(p.name)}</td>
+    <td style="padding:6px 8px;text-align:right">${money(p.full)}</td>
+    <td style="padding:6px 8px;text-align:right">${money(p.paid)}</td>
+    <td style="padding:6px 8px;text-align:right">${p.pct==null?'—':`<span style="color:${p.qualifies?'var(--teal)':'var(--coral)'}">${p.pct}%</span>`}${p.exception?' <span style="color:var(--accent)">(exception)</span>':''}</td>
+    <td style="padding:6px 8px;text-align:right;font-weight:600;color:${p.settle<0?'var(--coral)':'inherit'}">${p.settled.length?'<span style="color:var(--teal)">Settled</span>':signed(p.settle)}</td>
+    <td style="padding:6px 8px">${(isDirector()&&!p.meets&&p.pct!=null&&t.status!=='finalized')?`<button class="btn btn-ghost btn-sm tpExc" data-p="${p.pid}" style="width:auto;padding:2px 8px;font-size:12px">${p.exception?'Remove exception':'Pay anyway…'}</button>`:''}</td></tr>`).join('');
+  let check;
+  if(t.term_fee==null) check=`<div class="row-sub" style="color:var(--warn)">No family term fee set for this term.</div>`;
+  else if(!invs.length) check=`<div class="row-sub" style="color:var(--warn)">No invoice dated within this term yet. Expected: ${money(t.term_fee)}.</div>`;
+  else if(Math.round(invTot)===Math.round(Number(t.term_fee))) check=`<div class="row-sub" style="color:var(--teal)">✓ Invoiced ${money(invTot)} — matches the term fee.</div>`;
+  else { const d=invTot-Number(t.term_fee); check=`<div class="row-sub" style="color:var(--coral)">Invoiced ${money(invTot)} but the term fee is ${money(t.term_fee)} — ${d>0?'over':'under'} by ${money(Math.abs(d))}. If the invoice was dated before the term started it won't show here.</div>`; }
+
+  box.innerHTML=`<div class="rows">
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px">
+      <div class="fee-strip" style="margin:0">
+        <div class="fee-chip">Family — this term<b>${money(t.term_fee)}</b></div>
+        <div class="fee-chip">Term service unit<b>${money(t.term_unit_fee)}</b></div>
+        <div class="fee-chip">Monthly unit on record<b>${money(c.prof_unit_rate)}</b></div>
+      </div></div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
+      <div class="row-name">Monthly slices (advances)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px"><thead><tr style="color:var(--muted);text-align:left;font-size:12px">
+        <th style="padding:6px 8px">Month</th><th style="padding:6px 8px;text-align:right">Term days</th><th style="padding:6px 8px;text-align:right">Share of term</th><th style="padding:6px 8px;text-align:right">Slice (whole team)</th><th style="padding:6px 8px">Status</th></tr></thead>
+        <tbody>${sliceRows}</tbody></table>
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">Each slice is paid when you finalize that month, split by the month's care-team shares — whatever the month's activity.</div></div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
+      <div class="row-name">End-of-term settlement ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Finalized</span>':''}</div>
+      ${R.people.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px"><thead><tr style="color:var(--muted);text-align:left;font-size:12px">
+        <th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Full term share</th><th style="padding:6px 8px;text-align:right">Slices paid</th><th style="padding:6px 8px;text-align:right">Term fulfilment</th><th style="padding:6px 8px;text-align:right">Settlement</th><th></th></tr></thead>
+        <tbody>${peopleRows}</tbody></table>`:'<div class="row-sub">No care team recorded for this term yet.</div>'}
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">The ${R.threshold}% rule is judged over the whole term. A professional at or above ${R.threshold}% (or with an exception) is paid their full term share; the settlement pays whatever the slices didn't cover. Below ${R.threshold}% with no exception, the term share is nil and the slices already paid are recovered as a deduction.</div>
+      ${(canEditPlan()&&t.status!=='finalized')?'<div><button class="btn btn-primary" id="tpFinalize" style="width:auto">Finalize term…</button></div>':''}</div>
+    <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
+      <div class="row-name">Invoiced to the family — ${escapeHtml(t.label)}</div>
+      ${invs.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:440px"><tbody>${invs.map(i=>`<tr><td style="padding:6px 8px">${escapeHtml(i.invoice_no||'—')}</td><td style="padding:6px 8px">${escapeHtml(fmtDate(i.invoice_date))}</td><td style="padding:6px 8px;text-align:right">${money(i.amount)}</td><td style="padding:6px 8px">${escapeHtml(String(i.status||'').replace('_',' '))}</td></tr>`).join('')}</tbody></table>`:''}
+      ${check}</div>
+  </div>`;
+  box.querySelectorAll('.tpExc').forEach(b=>b.onclick=()=>toggleTermException(c,t,b.dataset.p));
+  const fb=document.getElementById('tpFinalize'); if(fb) fb.onclick=()=>finalizeTerm(c,t);
+}
+
+async function toggleTermException(c, t, pid){
+  if(!isDirector()){ toast('Only the director can grant exceptions.',true); return; }
+  const exc={...(t.pay_exceptions||{})};
+  if(exc[pid]){
+    if(!confirm('Remove the exception? This professional will only be paid for the term if they reach the threshold.')) return;
+    delete exc[pid];
+  } else {
+    const reason=prompt('Why should this professional be paid for the term despite being below the threshold? (required — e.g. child was sick for three weeks)');
+    if(!reason||!reason.trim()) return;
+    exc[pid]=reason.trim();
+  }
+  const {error}=await sb.from('child_terms').update({pay_exceptions:exc}).eq('id',t.id);
+  if(error){ toast(error.message,true); return; }
+  t.pay_exceptions=exc; toast('Saved'); paintTermMoney(c,t);
+}
+
+async function finalizeTerm(c, t){
+  if(!canEditPlan()||!canSeeMoney()){ toast('Not available for this login.',true); return; }
+  if(!t.term_unit_fee){ toast('Set the term service unit first (Manage terms).',true); return; }
+  const R=await computeTermSettlement(c,t,{ensureShares:true});
+  if(R.people.some(p=>p.settled.some(s=>['approved','billed','paid'].includes(s.status)))){
+    toast('A settlement for this term has already been approved or paid, so it cannot be redone.',true); return;
+  }
+  const signed=v=>(v<0?'− ':'')+'UGX '+Math.abs(Math.round(v)).toLocaleString();
+  const openMonths=R.months.filter(mo=>!R.finSet.has(mo));
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
+    <h3>Finalize ${escapeHtml(t.label)}</h3>
+    <div class="sub">${escapeHtml(c.full_name)} · ${termRange(t)}. This judges the ${R.threshold}% rule over the whole term and records a settlement line for each professional. Each goes to them for approval, then to you, like monthly pay.</div>
+    ${openMonths.length?`<div class="as-flag" style="margin:8px 0">${openMonths.map(monthLabel).join(', ')} ${openMonths.length===1?'has':'have'} not been finalized, so no slice was paid for ${openMonths.length===1?'it':'them'}. That money is included in the settlement instead — don't finalize ${openMonths.length===1?'that month':'those months'} afterwards.</div>`:''}
+    <div class="rows">${R.people.map(p=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:2px">
+      <div style="display:flex;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(p.name)}</div><b style="color:${p.settle<0?'var(--coral)':'inherit'}">${signed(p.settle)}</b></div>
+      <div class="row-sub" style="white-space:normal">Term fulfilment ${p.pct==null?'— (no targets set)':p.pct+'%'}${p.exception?' · exception: '+escapeHtml(p.exceptionReason):''} · ${p.qualifies?'qualifies — full term share '+signed(p.full):'below '+R.threshold+'% — no term share'} · slices paid ${signed(p.paid)}</div>
+      ${p.settle<0?'<div class="row-sub" style="color:var(--coral);white-space:normal">This is a deduction. It will be taken off this professional\'s next pay bill.</div>':''}
+    </div>`).join('')||'<div class="row-sub">No care team recorded.</div>'}</div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="ftCancel">Cancel</button><button class="btn btn-primary" id="ftGo">Finalize term</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#ftCancel').onclick=close;
+  m.querySelector('#ftGo').onclick=async()=>{
+    const btn=m.querySelector('#ftGo'); btn.disabled=true; btn.textContent='Finalizing…';
+    await sb.from('prof_payables').delete().eq('term_id',t.id).eq('source','term_settle').in('status',['awaiting_prof','disputed','pending']);
+    const endMonth=localMonthISO(mndDate(t.end_date));
+    const lines=R.people.filter(p=>Math.round(p.settle)!==0).map(p=>({
+      professional_id:p.pid, period_month:endMonth, source:'term_settle', client_id:c.id, term_id:t.id,
+      description:`${c.full_name} — ${t.label} settlement: term fulfilment ${p.pct==null?'n/a':p.pct+'%'}${p.exception?' [exception]':''}; ${p.qualifies?'full term share UGX '+p.full.toLocaleString():'below '+R.threshold+'%, no term share'}; slices paid UGX ${p.paid.toLocaleString()}${p.settle<0?' — DEDUCTION':''}`,
+      units:1, unit_rate:Math.round(p.settle), amount:Math.round(p.settle), status:'awaiting_prof', created_by:ME.id
+    }));
+    if(lines.length){ const {error}=await sb.from('prof_payables').insert(lines); if(error){ toast(error.message,true); btn.disabled=false; btn.textContent='Finalize term'; return; } }
+    const {error:e2}=await sb.from('child_terms').update({status:'finalized',finalized_at:new Date().toISOString(),finalized_by:ME.id}).eq('id',t.id);
+    if(e2){ toast(e2.message,true); btn.disabled=false; btn.textContent='Finalize term'; return; }
+    toast(`${t.label} finalized — ${lines.length} settlement line${lines.length===1?'':'s'}`);
+    close(); renderChildPlan($('#view'),c);
+  };
 }
 
 /* ---------------------------------------------------------------------
