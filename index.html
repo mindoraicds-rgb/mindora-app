@@ -2941,7 +2941,7 @@ async function renderProRequests(v){
       if(error){toast(error.message,true);return;}
       // event fee becomes a pending payable for the professional
       if(isEvent && a.event_fee>0){
-        const evPeriod=(a.event_date||new Date().toISOString().slice(0,10)).slice(0,7)+'-01';
+        const evPeriod=(a.event_date||localISO(new Date())).slice(0,7)+'-01';
         await sb.from('prof_payables').insert({
           professional_id:a.professional_id, period_month:evPeriod, source:'event', assignment_id:a.id,
           description:`${a.event_title||'Event'}${a.event_date?' — '+fmtDate(a.event_date):''}`,
@@ -3155,7 +3155,7 @@ function mndRenderGrouped(box, groups, renderItem, noun){
   groups.forEach((g,i)=>{
     const det=document.createElement('details');
     det.className='period-group'; if(i===0) det.open=true;
-    det.innerHTML=`<summary><span class="pg-label">${escapeHtml(g.label)}</span>${g.sub?`<span class="pg-sub">${escapeHtml(g.sub)}</span>`:''}<span class="pill band pg-count">${g.items.length} ${noun==='activit'?(g.items.length===1?'activity':'activities'):noun+(g.items.length===1?'':'s')}</span></summary><div class="rows pg-rows"></div>`;
+    det.innerHTML=`<summary><span class="pg-label">${escapeHtml(g.label)}</span>${g.sub?`<span class="pg-sub">${escapeHtml(g.sub)}</span>`:''}<span class="pill band pg-count">${g.items.length} ${noun==='activit'?(g.items.length===1?'activity':'activities'):noun==='entr'?(g.items.length===1?'entry':'entries'):noun+(g.items.length===1?'':'s')}</span></summary><div class="rows pg-rows"></div>`;
     const rows=det.querySelector('.pg-rows');
     g.items.forEach(it=>rows.appendChild(renderItem(it)));
     box.appendChild(det);
@@ -3507,7 +3507,7 @@ const MND_CONF_SCALE = [
    which otherwise looks random. Cost and transport being on this list is
    the point: those are the two reasons a program can actually act on. */
 function missedSessionForm(c){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Missed session</h3><div class="sub">For ${escapeHtml(c.full_name)}. Recording why helps us spot patterns we can fix.</div>
     <div class="form-row two">
@@ -3580,7 +3580,7 @@ function offerLateLogRequest(profId, child, sDate){
 }
 
 function sessionForm(c){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Log a session</h3><div class="sub">For ${escapeHtml(c.full_name)}. This replaces the paper session summary.</div>
     <div class="form-row two">
@@ -4540,7 +4540,7 @@ function milestoneForm(c, after){
       <input id="ms_title" placeholder="e.g. Said her first two-word sentence"/></div>
     <div class="form-row"><label>A little more <span style="color:var(--muted);font-weight:400">— optional</span></label>
       <textarea id="ms_detail" placeholder="What made this special, or what it means"></textarea></div>
-    <div class="form-row"><label>Date</label><input id="ms_date" type="date" value="${new Date().toISOString().slice(0,10)}"/></div>
+    <div class="form-row"><label>Date</label><input id="ms_date" type="date" value="${localISO(new Date())}"/></div>
     <div class="form-row"><label>Photo or short clip <span style="color:var(--muted);font-weight:400">— only with the family's consent</span></label><div id="ms_att"></div></div>
     <div class="form-row"><label style="display:flex;align-items:center;gap:9px;cursor:pointer"><input id="ms_vis" type="checkbox" checked style="width:auto"/> Share with the family</label></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="ms_cancel">Cancel</button><button class="btn btn-primary" id="ms_save">Save milestone</button></div>
@@ -4557,7 +4557,7 @@ function milestoneForm(c, after){
       client_id:c.id, professional_id:MY_PROF_ID||null, author_id:ME.id,
       title:title, detail:m.querySelector('#ms_detail').value.trim()||null,
       attachments:(ATTACH_STATE['milestone']&&ATTACH_STATE['milestone'].length)?ATTACH_STATE['milestone']:null,
-      achieved_on:m.querySelector('#ms_date').value||new Date().toISOString().slice(0,10),
+      achieved_on:m.querySelector('#ms_date').value||localISO(new Date()),
       visible_to_parent:m.querySelector('#ms_vis').checked
     });
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Save milestone';return;}
@@ -5349,8 +5349,8 @@ async function printReceipt(inv){
   const bal = knownBal;
   const w=window.open('','_blank'); if(!w){toast('Allow pop-ups to save the receipt.',true);return;}
   const esc=escapeHtml;
-  const rcptNo='RCPT-'+String(inv.invoice_no||'').replace(/[^0-9A-Za-z]/g,'')+'-'+new Date().toISOString().slice(0,10).replace(/-/g,'');
-  const lastDate=txns.length?txns[txns.length-1].txn_date:new Date().toISOString().slice(0,10);
+  const rcptNo='RCPT-'+String(inv.invoice_no||'').replace(/[^0-9A-Za-z]/g,'')+'-'+localISO(new Date()).replace(/-/g,'');
+  const lastDate=txns.length?txns[txns.length-1].txn_date:localISO(new Date());
   const chan=txns.length?(txns[txns.length-1].channel||'—'):'—';
   const lineRows=txns.length
     ? txns.map(t=>`<tr><td>${esc(fmtDate(t.txn_date))}</td><td>${esc(t.channel||'—')}</td><td style="text-align:right">${money(t.gross_amount)}</td></tr>`).join('')
@@ -5380,7 +5380,7 @@ async function printReceipt(inv){
     <div class="kind">Payment Receipt</div>
     <div class="meta">
       <div><div class="b">Received from</div>${esc(inv.client_name||'Client')}</div>
-      <div style="text-align:right"><div class="b">Receipt no.</div>${esc(rcptNo)}<br><span class="muted">Issued ${esc(fmtDate(new Date().toISOString().slice(0,10)))}</span></div>
+      <div style="text-align:right"><div class="b">Receipt no.</div>${esc(rcptNo)}<br><span class="muted">Issued ${esc(fmtDate(localISO(new Date())))}</span></div>
     </div>
     <div class="meta">
       <div><div class="b">For invoice</div>${esc(inv.invoice_no||'—')}${inv.description?' · '+esc(inv.description):''}</div>
@@ -5528,7 +5528,7 @@ function modelBComponentForm(inst,comp){
   };
 }
 function institutionActivityForm(inst){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
     <h3>Log activity / event</h3><div class="sub">Visible to ${escapeHtml(inst.name)} in their portal.</div>
     <div class="form-row two">
@@ -5699,10 +5699,15 @@ function acctOptions(types,sel){
 }
 
 async function finOverview(b){
-  const {data:fin}=await sb.from('v_dashboard').select('*').single();
+  const [{data:fin},{data:tx}]=await Promise.all([sb.from('v_dashboard').select('*').single(), sb.from('transactions').select('*')]);
+  // Cash position and receipts worked out entry by entry — the SAME rule as the cash book
+  // (cash actually moved = base + VAT − WHT), so the two always agree.
+  const cashPos=(tx||[]).reduce((a,t)=>a+(t.direction==='in'?1:-1)*cbCash(t),0);
+  const recd=(tx||[]).filter(t=>t.direction==='in').reduce((a,t)=>a+cbCash(t),0);
+  const viewDiff=(fin&&fin.cash_position!=null)?Math.round(Number(fin.cash_position)-cashPos):0;
   b.innerHTML=`<div class="grid fin-grid" style="margin-bottom:18px">
-      <div class="fin pos"><div class="l">Cash position</div><div class="n">${money(fin?.cash_position)}</div></div>
-      <div class="fin"><div class="l">Received</div><div class="n">${money(fin?.total_received)}</div></div>
+      <div class="fin pos"><div class="l">Cash position</div><div class="n">${money(cashPos)}</div></div>
+      <div class="fin"><div class="l">Received</div><div class="n">${money(recd)}</div></div>
       <div class="fin due"><div class="l">Owed to us</div><div class="n">${money(fin?.total_receivable)}</div></div>
       <div class="fin due"><div class="l">We owe</div><div class="n">${money(fin?.total_payable)}</div></div>
     </div>
@@ -5712,18 +5717,186 @@ async function finOverview(b){
       <button class="btn btn-ghost btn-sm" id="qInv">+ New invoice</button>
       <button class="btn btn-ghost btn-sm" id="qBill">+ New bill</button>
     </div>
-    <p style="color:var(--muted);font-size:13px;margin-top:16px">Every entry here flows into the cash book, the figures above, and (next) your reports — recorded once.</p>`;
+    <p style="color:var(--muted);font-size:13px;margin-top:16px">Every entry here flows into the cash book, the figures above, and (next) your reports — recorded once. Cash position and Received match the Cash book tab exactly.</p>
+    ${viewDiff?`<p style="font-size:12.5px;color:var(--warn)">Note: the older database summary gives a cash position ${viewDiff>0?'higher':'lower'} by ${money(Math.abs(viewDiff))} — it does not count VAT and WHT the same way. The figure above is the correct cash that moved.</p>`:''}`;
   $('#qTxn').onclick=()=>txnForm(); $('#qInv').onclick=()=>invoiceForm(); $('#qBill').onclick=()=>billForm();
 }
+/* =====================================================================
+   CASH BOOK — standard three-column (Cash · Bank · Mobile money)
+   Receipts (Dr) on the left, Payments (Cr) on the right, month by month.
+   Each month opens with Balance b/d, closes with Balance c/d, and both
+   sides total the same. The amount is the cash that actually moved:
+   base + VAT − WHT (what the entry form calls "Actual cash").
+   ===================================================================== */
+const CB_CH=[['cash','Cash'],['bank','Bank'],['mobile money','Mobile money']];
+function cbCash(t){ return Number(t.gross_amount||0)+Number(t.vat_amount||0)-Number(t.wht_amount||0); }
+function cbChannel(t){ const c=String(t.channel||'cash').toLowerCase().trim(); return CB_CH.some(x=>x[0]===c)?c:'cash'; }
+function cbZero(){ const o={}; CB_CH.forEach(([k])=>o[k]=0); return o; }
+function cbSum(o){ return CB_CH.reduce((a,[k])=>a+o[k],0); }
+
+/* Build month-by-month cash book from all transactions (oldest first). */
+function buildCashbook(txns){
+  const list=[...(txns||[])].filter(t=>t.txn_date).sort((a,b)=>
+    String(a.txn_date).localeCompare(String(b.txn_date)) || String(a.created_at||'').localeCompare(String(b.created_at||'')));
+  const byMonth={};
+  list.forEach(t=>{ const m=String(t.txn_date).slice(0,7)+'-01'; (byMonth[m]=byMonth[m]||[]).push(t); });
+  const months=Object.keys(byMonth).sort();
+  // fill any empty months between the first and last, so balances carry through
+  const all=[]; if(months.length){ let d=mndDate(months[0]); const end=mndDate(months[months.length-1]);
+    while(d<=end){ all.push(localMonthISO(d)); d=new Date(d.getFullYear(),d.getMonth()+1,1); } }
+  let bal=cbZero(); const out=[];
+  all.forEach(m=>{
+    const open={...bal}, rec=[], pay=[], recT=cbZero(), payT=cbZero();
+    (byMonth[m]||[]).forEach(t=>{
+      const ch=cbChannel(t), amt=Math.round(cbCash(t));
+      if(t.direction==='in'){ rec.push({t,ch,amt}); recT[ch]+=amt; }
+      else { pay.push({t,ch,amt}); payT[ch]+=amt; }
+    });
+    const close=cbZero(); CB_CH.forEach(([k])=>close[k]=open[k]+recT[k]-payT[k]);
+    // side totals, standard layout: positive b/d on Dr, overdrawn b/d on Cr; positive c/d on Cr, overdrawn c/d on Dr
+    const drT=cbZero(), crT=cbZero();
+    CB_CH.forEach(([k])=>{
+      drT[k]=Math.max(open[k],0)+recT[k]+Math.max(-close[k],0);
+      crT[k]=Math.max(-open[k],0)+payT[k]+Math.max(close[k],0);
+    });
+    out.push({month:m, open, close, rec, pay, recT, payT, drT, crT});
+    bal=close;
+  });
+  return out;
+}
+
+function cashbookMonthHtml(M, accName){
+  const money=v=>v?Math.round(v).toLocaleString():'';
+  const amtCells=(ch,amt)=>CB_CH.map(([k])=>`<td class="cb-n">${k===ch?money(amt):''}</td>`).join('');
+  const balCells=(obj,sign)=>CB_CH.map(([k])=>{ const v=sign>0?Math.max(obj[k],0):Math.max(-obj[k],0); return `<td class="cb-n cb-b">${money(v)}</td>`; }).join('');
+  const anyPos=o=>CB_CH.some(([k])=>o[k]>0), anyNeg=o=>CB_CH.some(([k])=>o[k]<0);
+  const part=x=>{ const t=x.t; const bits=[t.party, t.description].filter(Boolean).join(' — ');
+    const tax=(Number(t.vat_amount||0)||Number(t.wht_amount||0))?` <span class="cb-tax">(${Number(t.vat_amount||0)?'VAT '+Math.round(t.vat_amount).toLocaleString():''}${Number(t.vat_amount||0)&&Number(t.wht_amount||0)?', ':''}${Number(t.wht_amount||0)?'WHT '+Math.round(t.wht_amount).toLocaleString():''})</span>`:'';
+    return `<b>${escapeHtml(accName(t.account_code)||'—')}</b>${bits?'<br><span class="cb-sub">'+escapeHtml(bits.slice(0,90))+'</span>':''}${tax}`; };
+  const firstDay=fmtDate(M.month), lastDay=fmtDate(monthEndISO(M.month));
+  const dr=[], cr=[];
+  if(anyPos(M.open)) dr.push(`<td>${firstDay}</td><td><b>Balance b/d</b></td><td></td>${balCells(M.open,1)}`);
+  if(anyNeg(M.open)) cr.push(`<td>${firstDay}</td><td><b>Balance b/d</b> <span class="cb-sub">(overdrawn)</span></td><td></td>${balCells(M.open,-1)}`);
+  M.rec.forEach(x=>dr.push(`<td>${fmtDate(x.t.txn_date)}</td><td>${part(x)}</td><td>${escapeHtml(x.t.reference||'')}</td>${amtCells(x.ch,x.amt)}`));
+  M.pay.forEach(x=>cr.push(`<td>${fmtDate(x.t.txn_date)}</td><td>${part(x)}</td><td>${escapeHtml(x.t.reference||'')}</td>${amtCells(x.ch,x.amt)}`));
+  if(anyPos(M.close)) cr.push(`<td>${lastDay}</td><td><b>Balance c/d</b></td><td></td>${balCells(M.close,1)}`);
+  if(anyNeg(M.close)) dr.push(`<td>${lastDay}</td><td><b>Balance c/d</b> <span class="cb-sub">(overdrawn)</span></td><td></td>${balCells(M.close,-1)}`);
+  const blank='<td></td><td></td><td></td>'+CB_CH.map(()=>'<td></td>').join('');
+  const n=Math.max(dr.length,cr.length,1);
+  let rows=''; for(let i=0;i<n;i++) rows+=`<tr>${dr[i]||blank}<td class="cb-mid"></td>${cr[i]||blank}</tr>`;
+  const tot=o=>CB_CH.map(([k])=>`<td class="cb-n cb-tot">${Math.round(o[k]).toLocaleString()}</td>`).join('');
+  const nextMonth=localMonthISO(new Date(mndDate(M.month).getFullYear(),mndDate(M.month).getMonth()+1,1));
+  const bdNext=(anyPos(M.close)?`<tr class="cb-bd"><td>${fmtDate(nextMonth)}</td><td><b>Balance b/d</b></td><td></td>${balCells(M.close,1)}<td class="cb-mid"></td>${blank}</tr>`:'')+
+               (anyNeg(M.close)?`<tr class="cb-bd">${blank}<td class="cb-mid"></td><td>${fmtDate(nextMonth)}</td><td><b>Balance b/d</b> <span class="cb-sub">(overdrawn)</span></td><td></td>${balCells(M.close,-1)}</tr>`:'');
+  const head=CB_CH.map(([,l])=>`<th class="cb-n">${l}</th>`).join('');
+  const balanced=CB_CH.every(([k])=>Math.round(M.drT[k])===Math.round(M.crT[k]));
+  return `<div class="cb-month">
+    <div class="cb-mhead"><span class="cb-mname">${monthLabel(M.month)}</span>
+      <span class="cb-msum">Receipts ${Math.round(cbSum(M.recT)).toLocaleString()} · Payments ${Math.round(cbSum(M.payT)).toLocaleString()} · Closing balance <b>${Math.round(cbSum(M.close)).toLocaleString()}</b>${balanced?' <span class="cb-ok">✓ balances</span>':' <span class="cb-bad">✗ does not balance</span>'}</span></div>
+    <div class="cb-scroll"><table class="cb-table">
+      <thead><tr><th colspan="${3+CB_CH.length}" class="cb-side">Dr — Receipts</th><th class="cb-mid"></th><th colspan="${3+CB_CH.length}" class="cb-side">Cr — Payments</th></tr>
+        <tr><th>Date</th><th>Particulars</th><th>Ref</th>${head}<th class="cb-mid"></th><th>Date</th><th>Particulars</th><th>Ref</th>${head}</tr></thead>
+      <tbody>${rows}
+        <tr class="cb-totrow"><td colspan="3"><b>Totals</b></td>${tot(M.drT)}<td class="cb-mid"></td><td colspan="3"><b>Totals</b></td>${tot(M.crT)}</tr>
+        ${bdNext}</tbody></table></div></div>`;
+}
+const CB_CSS=`.cb-month{margin:0 0 22px}
+.cb-mhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin:0 0 6px}
+.cb-mname{font-family:Fraunces,Georgia,serif;font-size:17px;font-weight:700;color:#6C3483}
+.cb-msum{font-size:12.5px;color:#555}
+.cb-ok{color:#0F6E56;font-weight:700}.cb-bad{color:#B23A48;font-weight:700}
+.cb-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cb-table{width:100%;min-width:980px;border-collapse:collapse;font-size:12px}
+.cb-table th,.cb-table td{border:1px solid #ddd;padding:5px 6px;vertical-align:top;text-align:left}
+.cb-table th{background:#F3ECF8;color:#3D1A5E;font-weight:700}
+.cb-table th.cb-side{background:#6C3483;color:#fff;text-align:center;letter-spacing:.04em}
+.cb-n{text-align:right!important;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb-mid{width:6px;padding:0!important;background:#6C3483;border:none!important}
+.cb-b{font-weight:700}
+.cb-totrow td{border-top:2px solid #1A1A2E;border-bottom:3px double #1A1A2E;font-weight:700;background:#FAF7FC}
+.cb-bd td{color:#3D1A5E}
+.cb-sub{color:#777;font-size:11px}.cb-tax{color:#8E44AD;font-size:11px}`;
+
+function paintCashbookBook(box, txns){
+  const accName=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
+  const book=buildCashbook(txns);
+  if(!book.length){ box.innerHTML=''; return; }
+  const last=book[book.length-1];
+  box.innerHTML=`<style>${CB_CSS}</style>
+    <div class="section-head" style="margin-top:26px"><h3>Cash book — month by month</h3>
+      <button class="btn btn-ghost btn-sm" id="cbPrint" style="width:auto">Print cash book…</button></div>
+    <div class="fee-strip" style="margin:0 0 12px">
+      ${CB_CH.map(([k,l])=>`<div class="fee-chip">${l} balance<b>${money(last.close[k])}</b></div>`).join('')}
+      <div class="fee-chip">Total cash position<b>${money(cbSum(last.close))}</b></div>
+    </div>
+    <div class="row-sub" style="white-space:normal;color:var(--muted);margin-bottom:10px">Receipts (Dr) on the left, payments (Cr) on the right. Each month opens with the balance brought down (b/d) and closes with the balance carried down (c/d), so both sides total the same. Amounts are the cash that actually moved — after VAT and WHT. The first month starts from nil: record any money the business started with as a receipt (e.g. capital introduced).</div>
+    <div id="cbMonths"></div>`;
+  const mb=box.querySelector('#cbMonths');
+  [...book].reverse().forEach((M,i)=>{
+    const det=document.createElement('details'); det.className='period-group'; if(i===0) det.open=true;
+    det.innerHTML=`<summary><span class="pg-label">${monthLabel(M.month)}</span><span class="pg-sub">In ${money(cbSum(M.recT))} · Out ${money(cbSum(M.payT))} · Closing ${money(cbSum(M.close))}</span><span class="pill band pg-count">${M.rec.length+M.pay.length} entr${M.rec.length+M.pay.length===1?'y':'ies'}</span></summary><div style="padding:6px 12px 12px">${cashbookMonthHtml(M,accName)}</div>`;
+    mb.appendChild(det);
+  });
+  box.querySelector('#cbPrint').onclick=()=>printCashbookDialog(book, accName);
+}
+
+function printCashbookDialog(book, accName){
+  const opts=book.map(M=>`<option value="${M.month}">${monthLabel(M.month)}</option>`).join('');
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:420px">
+    <h3>Print cash book</h3><div class="sub">Choose the months. Each month prints on its own page (landscape), with balances carried forward.</div>
+    <div class="form-row two"><div><label>From</label><select id="cbFrom">${opts}</select></div><div><label>To</label><select id="cbTo">${opts}</select></div></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="cbCancel">Cancel</button><button class="btn btn-primary" id="cbGo">Print</button></div></div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#cbFrom').value=book[Math.max(0,book.length-3)].month;
+  m.querySelector('#cbTo').value=book[book.length-1].month;
+  m.querySelector('#cbCancel').onclick=close;
+  m.querySelector('#cbGo').onclick=()=>{
+    let a=m.querySelector('#cbFrom').value, b=m.querySelector('#cbTo').value; if(a>b){ const x=a; a=b; b=x; }
+    const sel=book.filter(M=>M.month>=a&&M.month<=b);
+    const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to print.',true); return; }
+    const co=(typeof COMPANY!=='undefined'&&COMPANY)||{};
+    const recT=cbZero(), payT=cbZero(); sel.forEach(M=>CB_CH.forEach(([k])=>{ recT[k]+=M.recT[k]; payT[k]+=M.payT[k]; }));
+    const pages=sel.map((M,i)=>`<section class="${i?'pb':''}">
+      <div class="hd"><div><div class="org">Mindora Inclusive Child Development Services Co. Ltd</div><div class="tag">Cash Book</div></div>
+        <div class="meta">${escapeHtml(monthLabel(M.month))}<br>Printed ${escapeHtml(fmtDate(localISO(new Date())))}</div></div>
+      <div class="flag"><i class="b"></i><i class="y"></i><i class="r"></i></div>
+      ${cashbookMonthHtml(M,accName)}</section>`).join('');
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Cash Book ${escapeHtml(monthLabel(a))} – ${escapeHtml(monthLabel(b))}</title>
+      <style>@page{size:A4 landscape;margin:12mm}
+      body{font-family:'Plus Jakarta Sans',Arial,sans-serif;color:#1A1A2E;margin:0;padding:18px}
+      .hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #6C3483;padding-bottom:6px;margin-bottom:6px}
+      .org{font-family:Georgia,serif;font-size:16px;font-weight:700;color:#6C3483}.tag{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#0F6E56;font-weight:700}
+      .meta{text-align:right;font-size:11px;color:#555}
+      .flag{display:flex;height:4px;margin-bottom:12px}.flag i{flex:1}.flag .b{background:#000}.flag .y{background:#FCD116}.flag .r{background:#CE1126}
+      .pb{page-break-before:always}
+      ${CB_CSS} .cb-table{min-width:0;font-size:10.5px}.cb-scroll{overflow:visible}
+      .sum{margin-top:18px;font-size:12px}.sum table{border-collapse:collapse}.sum td,.sum th{border:1px solid #ccc;padding:5px 10px;text-align:right}.sum th:first-child,.sum td:first-child{text-align:left}
+      .sign{margin-top:28px;display:flex;gap:60px;font-size:12px}.sign div{border-top:1px solid #333;padding-top:4px;width:220px}
+      .noprint{margin:10px 0}@media print{.noprint{display:none}}</style></head><body>
+      <div class="noprint"><button onclick="window.print()" style="padding:9px 22px;background:#6C3483;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">Print / Save as PDF</button></div>
+      ${pages}
+      <section class="pb"><div class="hd"><div><div class="org">Mindora Inclusive Child Development Services Co. Ltd</div><div class="tag">Cash Book — Summary</div></div><div class="meta">${escapeHtml(monthLabel(a))} – ${escapeHtml(monthLabel(b))}</div></div>
+      <div class="sum"><table><tr><th></th>${CB_CH.map(([,l])=>`<th>${l}</th>`).join('')}<th>Total</th></tr>
+        <tr><td>Opening balance (${escapeHtml(monthLabel(a))})</td>${CB_CH.map(([k])=>`<td>${Math.round(sel[0].open[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(sel[0].open)).toLocaleString()}</td></tr>
+        <tr><td>Add: receipts</td>${CB_CH.map(([k])=>`<td>${Math.round(recT[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(recT)).toLocaleString()}</td></tr>
+        <tr><td>Less: payments</td>${CB_CH.map(([k])=>`<td>${Math.round(payT[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(payT)).toLocaleString()}</td></tr>
+        <tr><th>Closing balance (${escapeHtml(monthLabel(b))})</th>${CB_CH.map(([k])=>`<th>${Math.round(sel[sel.length-1].close[k]).toLocaleString()}</th>`).join('')}<th>${Math.round(cbSum(sel[sel.length-1].close)).toLocaleString()}</th></tr></table></div>
+      <div class="sign"><div>Prepared by</div><div>Checked by</div><div>Approved — Director</div></div></section>
+      </body></html>`);
+    w.document.close(); close();
+  };
+}
 async function finCashbook(b){
+  await loadAccounts();
   const {data}=await sb.from('transactions').select('*').order('txn_date',{ascending:false}).order('created_at',{ascending:false});
-  b.innerHTML=`<div class="section-head"><h3>Cash book</h3><button class="btn btn-primary btn-sm" id="newTxn">+ Record</button></div><div class="rows" id="txnRows"></div>`;
+  b.innerHTML=`<div class="section-head"><h3>Entries</h3><button class="btn btn-primary btn-sm" id="newTxn">+ Record</button></div><div class="rows" id="txnRows"></div><div id="cbBook"></div>`;
+  paintCashbookBook($('#cbBook'), data||[]);
   $('#newTxn').onclick=()=>txnForm();
   const rows=$('#txnRows');
   if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No transactions yet</h4><p>Record your first receipt or payment.</p></div>`;return;}
-  rows.innerHTML='';
+  const cardFor=(t)=>{
   const accName=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
-  data.forEach(t=>{
     const vat=Number(t.vat_amount||0), wht=Number(t.wht_amount||0);
     const cash=Number(t.gross_amount||0)+vat-wht;
     const taxNote=(vat||wht)?`<div class="row-sub" style="color:var(--purple)">${vat?'VAT '+money(vat):''}${vat&&wht?' · ':''}${wht?'WHT '+money(wht):''} · base ${money(t.gross_amount)}</div>`:'';
@@ -5734,8 +5907,9 @@ async function finCashbook(b){
     <div style="font-weight:700;color:${t.direction==='in'?'#0F6E56':'#B23A48'}">${money(cash)}</div>
   </div>`);
     card.addEventListener('click',()=>txnForm(t));
-    rows.appendChild(card);
-  });
+    return card;
+  };
+  mndRenderGrouped(rows, mndPeriodGroups(data, x=>x.txn_date, null), cardFor, 'entr');
 }
 async function finTaxes(b){
   const {data:s}=await sb.from('v_tax_summary').select('*').single();
@@ -5760,7 +5934,7 @@ async function finTaxes(b){
 }
 function txnForm(t,preset){
   t=t||null; preset=preset||null; const edit=!!t;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const sel=(val,opt)=>val===opt?'selected':'';
   const initDir = edit ? t.direction : (preset?preset.direction:'in');
   const initAcct = edit ? t.account_code : (preset?preset.account_code:'');
@@ -5882,7 +6056,7 @@ async function finInvoices(b){
 }
 function invoiceForm(i){
   i=i||null; const edit=!!i;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit invoice':'New invoice'}</h3><div class="sub">Money owed to Mindora.</div>
     <div class="form-row"><label>Client / payer name</label><input id="i_client" value="${edit?escapeHtml(i.client_name||''):''}"/></div>
@@ -6132,7 +6306,7 @@ async function finPayApprovals(b){
 
 function finQuotations(b){
   if(!QUOTE_LINES.length) QUOTE_LINES=[{service:'',desc:'',qty:1,unit:''}];
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const qno='Q-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
   b.innerHTML=`
     <div class="row-sub" style="color:var(--muted);margin-bottom:14px">Build a quotation, then download it as a PDF to email. Pick a service or type your own; you fill in every figure. Prices shown are what the client pays.</div>
@@ -6400,7 +6574,7 @@ async function generateProfBills(){
 
 function billForm(bl){
   bl=bl||null; const edit=!!bl;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${edit?'Edit bill':'New bill'}</h3><div class="sub">Money Mindora owes.</div>
     <div class="form-row"><label>Payee</label><input id="b_payee" value="${edit?escapeHtml(bl.payee||''):''}"/></div>
@@ -6439,7 +6613,7 @@ function billForm(bl){
   };
 }
 function paymentForm(kind,doc){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const out=Number(doc.outstanding||doc.amount||0);
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Record payment</h3><div class="sub">${kind==='invoice'?'Received from '+escapeHtml(doc.client_name||'client'):'Paid to '+escapeHtml(doc.payee||'payee')}.</div>
@@ -6474,7 +6648,7 @@ function paymentForm(kind,doc){
 
 /* ===================== REPORTS (director) ===================== */
 let REPORT_TYPE='pnl', REPORT_PERIOD='fy', ALLTXNS=[], LAST_CSV=[], LAST_TITLE='Mindora report', LAST_PERIOD='';
-const isoD=d=>d.toISOString().slice(0,10);
+const isoD=d=>localISO(d);
 // Timezone-safe: build YYYY-MM-DD / YYYY-MM-01 from LOCAL date parts, never
 // via toISOString() (which converts to UTC and can roll a local midnight back
 // into the previous day/month — that caused the current month to go missing).
@@ -8169,7 +8343,7 @@ function sparkline(pts){
 }
 
 function goalProgressForm(c,g){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>Record progress</h3><div class="sub">${escapeHtml(g.goal)}</div>
     <div class="form-row two">
@@ -8602,7 +8776,7 @@ async function renderMyEngagement(v){
       const picks=[...document.querySelectorAll('.cf-sel')]
         .filter(x=>x.value!=='')
         .map(x=>({professional_id:MY_PROF_ID, domain:x.dataset.domain,
-                  rating:parseInt(x.value,10), rated_on:new Date().toISOString().slice(0,10)}));
+                  rating:parseInt(x.value,10), rated_on:localISO(new Date())}));
       if(!picks.length){ toast('Nothing to save yet — rate at least one area.',true); return; }
       cs.disabled=true; cs.textContent='Saving…';
       // One row per domain per day: re-saving the same day corrects that day
@@ -8657,7 +8831,7 @@ async function renderMyEngagement(v){
     if(!confirm(msg)) return;
     sub.disabled=true; sub.textContent='Submitting…';
     const payload=Object.assign({},openFields(),lockedFields(),{
-      consent_recorded_on:new Date().toISOString().slice(0,10),
+      consent_recorded_on:localISO(new Date()),
       consent_version:MND_CONSENT_VERSION.professional,
       profile_submitted_at:new Date().toISOString(),
       profile_submitted_by:ME.id
