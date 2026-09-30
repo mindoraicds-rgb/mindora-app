@@ -3142,9 +3142,9 @@ function mndPeriodGroups(items, dateOf, terms){
     const d=String(dateOf(it)||'').slice(0,10); if(!d) return;
     const month=d.slice(0,7)+'-01';
     let key, label, sub='', order;
-    const t=(terms&&terms.length)?termsInMonth(terms, month)[0]:null;
+    const t=(terms&&terms.length)?termOnDate(terms, d):null;     // by the real term dates, not the month
     if(t){ key='T:'+t.id; label=t.label; sub=termRange(t); order=String(t.start_date).slice(0,10); }
-    else if(terms&&terms.length){ key='H:'+month; label=monthLabel(month); sub='School holiday'; order=month; }
+    else if(terms&&terms.length){ key='H:'+month; label=monthLabel(month); sub='School holiday'; order=month+'h'; }
     else { key='M:'+month; label=monthLabel(month); order=month; }
     (groups[key]=groups[key]||{key,label,sub,order,items:[]}).items.push(it);
   });
@@ -6983,14 +6983,26 @@ async function renderChildPlan(v,c){
   }
   if(!rows){ const r=await sb.from('v_child_unit_progress').select('*').eq('client_id',c.id).order('sort_order'); rows=r.data; }
   const list=rows||[];
+  const rawList=list.map(r=>({...r}));   // real monthly targets — what "Edit targets" edits
+  // Termly child: only the REAL term days inside this month count. Targets and hours
+  // are scaled to those days (e.g. 17 of 30), and sessions on holiday days are not counted.
+  let termFrac=1, termWins=[];
+  if(termly){
+    const {terms:tt}=await loadChildTerms(c);
+    termWins=termsInMonth(tt||[], period).map(t=>termWindowInMonth(t,period));
+    const md=termWins.length?termWins[0].monthDays:30;
+    termFrac=termWins.reduce((a,w)=>a+w.days,0)/md;
+  }
+  const inTermWin=d=>!termly || termWins.some(w=>String(d).slice(0,10)>=w.from && String(d).slice(0,10)<=w.to);
   // The progress views count the CURRENT month only. Recount for the month actually selected.
   { const ms=period.slice(0,7)+'-01'; const d0=mndDate(ms);
     const nx=localMonthISO(new Date(d0.getFullYear(),d0.getMonth()+1,1));
     let cq=sb.from('session_logs').select('activity_key,professional_id,session_date').eq('client_id',c.id).gte('session_date',ms).lt('session_date',nx);
     if(usingSplit && MY_PROF_ID) cq=cq.eq('professional_id',MY_PROF_ID);
     const {data:cs,error:ce}=await cq;
-    if(!ce){ const cnt={}; (cs||[]).forEach(x=>{ if(String(x.session_date).slice(0,7)!==ms.slice(0,7)) return; const k=x.activity_key||'direct_session'; cnt[k]=(cnt[k]||0)+1; });
+    if(!ce){ const cnt={}; (cs||[]).forEach(x=>{ if(String(x.session_date).slice(0,7)!==ms.slice(0,7) || !inTermWin(x.session_date)) return; const k=x.activity_key||'direct_session'; cnt[k]=(cnt[k]||0)+1; });
       list.forEach(r=>{ r.done_count=cnt[r.activity_key]||0; }); } }
+  if(termly) list.forEach(r=>{ const t0=Number(r.target_count||0); r.target_count = (t0>0&&termFrac>0) ? Math.max(1,Math.round(t0*termFrac)) : 0; });
   const totDone=list.reduce((s,r)=>s+Number(r.done_count||0),0);
   const totTarget=list.reduce((s,r)=>s+Number(r.target_count||0),0);
   const pct=totTarget?Math.min(100,Math.round(totDone/totTarget*100)):0;
@@ -7059,7 +7071,8 @@ async function renderChildPlan(v,c){
   // against the band's target hours. Shows the director real-time coverage.
   (async function paintHours(){
     const box=$('#hoursCoverage'); if(!box) return;
-    const targetHrs=mndBandTargetHours(c.assigned_band||c.assessed_band);
+    const targetHrs0=mndBandTargetHours(c.assigned_band||c.assessed_band);
+    const targetHrs=(termly&&targetHrs0)?Math.round(targetHrs0*termFrac*10)/10:targetHrs0;   // termly: scaled to the term days in this month
     const ym=period.slice(0,7);                          // YYYY-MM of the selected month
     const monthStart=ym+'-01';
     // exclusive upper bound = first day of the next month
@@ -7070,8 +7083,8 @@ async function renderChildPlan(v,c){
       .eq('client_id',c.id).gte('session_date',monthStart).lt('session_date',next);
     if(error){ box.innerHTML=`<div class="row-sub" style="color:var(--coral);padding:8px">Couldn't load hours: ${escapeHtml(error.message)}</div>`; return; }
     // belt-and-braces: match the month prefix regardless of date/timestamp format
-    const mine=(sess||[]).filter(s=> s.session_date && String(s.session_date).slice(0,7)===ym );
-    if(!mine.length){ box.innerHTML=`<div class="empty" style="padding:20px"><h4>No hours logged in ${monthLabel(period)}</h4><p>Logged sessions and activities for this month will appear here.</p></div>`; return; }
+    const mine=(sess||[]).filter(s=> s.session_date && String(s.session_date).slice(0,7)===ym && inTermWin(s.session_date) );   // termly: holiday days don't count
+    if(!mine.length){ box.innerHTML=`<div class="empty" style="padding:20px"><h4>No hours logged in ${monthLabel(period)}${termly?' on term days':''}</h4><p>Logged sessions and activities for this month will appear here.</p></div>`; return; }
     // group by professional
     const byProf={};
     mine.forEach(s=>{
@@ -7160,7 +7173,7 @@ async function renderChildPlan(v,c){
         toast(chk.checked?'Activity confirmed':'Confirmation removed');
       };
     });
-    const et=$('#editTargets'); if(et) et.onclick=()=>editTargetsForm(c,list);
+    const et=$('#editTargets'); if(et) et.onclick=()=>editTargetsForm(c,rawList);
   }
 }
 async function editTargetsForm(c,list){
@@ -12715,7 +12728,7 @@ async function paintPlanFee(c, period){
       <div class="fee-chip">Service unit / month<b>${money(unit)}</b></div>
       ${term?`<div class="fee-chip">${escapeHtml(term.label)} service unit<b>${money(term.term_unit_fee)}</b></div>`:''}
     </div>
-    ${term?`<div class="row-sub" style="white-space:normal;color:var(--accent)">${escapeHtml(term.label)} — month ${termMonthIndex(term,monthStart)+1} of ${termMonthCount(term)}. Professionals are paid their term share in instalments set in the Director review.</div>`:''}
+    ${term?`<div class="row-sub" style="white-space:normal;color:var(--accent)">${escapeHtml(term.label)} runs ${termRange(term)} (${termLengthText(term)}) — ${termDaysInMonth(term,monthStart)} of its ${termDays(term)} days fall in ${monthLabel(period)}. Professionals are paid their term share in instalments set in the Director review.</div>`:''}
     ${holiday?`<div class="row-sub" style="white-space:normal;color:var(--accent)">Termly child — school holiday, no term this month, so nothing is due.</div>`:''}
     ${isPast?`<div class="row-sub" style="white-space:normal;color:var(--muted)">These are today's fee figures. Amounts approved for ${monthLabel(period)} are shown below exactly as approved.</div>`:''}
   </div>`;
@@ -12729,7 +12742,7 @@ async function paintPlanFee(c, period){
     const rows=ids.map(pid=>{
       const s=shares.find(x=>x.professional_id===pid);
       const frac=s?Number(s.share_fraction||0):null;
-      const sug=(!holiday && frac!=null)?Math.round((term?Number(term.term_unit_fee||0)/termMonthCount(term):(unit||0))*frac):null;
+      const sug=(!holiday && frac!=null)?Math.round((term?Number(term.term_unit_fee||0)*termDaysInMonth(term,monthStart)/termDays(term):(unit||0))*frac):null;
       if(sug!=null) totSug+=sug;
       const pp=pays.filter(p=>p.professional_id===pid);
       const app=pp.reduce((a,p)=>a+Number(p.amount||0),0); totApp+=app;
@@ -12746,7 +12759,7 @@ async function paintPlanFee(c, period){
     splitHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
       <div class="row-name">Care-team split — ${monthLabel(period)} ${closed?'<span class="pill active" style="margin-left:6px">Closed</span>':'<span class="pill band" style="margin-left:6px">Open</span>'}</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
-        <thead><tr style="color:var(--muted);text-align:left;font-size:12px"><th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Share</th><th style="padding:6px 8px;text-align:right">${term?'Even monthly part':'Share of fee'}</th><th style="padding:6px 8px;text-align:right">Fulfilment</th><th style="padding:6px 8px;text-align:right">Approved</th><th style="padding:6px 8px">Status</th></tr></thead>
+        <thead><tr style="color:var(--muted);text-align:left;font-size:12px"><th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Share</th><th style="padding:6px 8px;text-align:right">${term?'This month\'s part (by term days)':'Share of fee'}</th><th style="padding:6px 8px;text-align:right">Fulfilment</th><th style="padding:6px 8px;text-align:right">Approved</th><th style="padding:6px 8px">Status</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)"><td style="padding:6px 8px">Total</td><td></td><td style="padding:6px 8px;text-align:right">${money(totSug)}</td><td></td><td style="padding:6px 8px;text-align:right">${pays.length?money(totApp):'—'}</td><td></td></tr></tfoot>
       </table>
@@ -12794,6 +12807,21 @@ async function paintPlanFee(c, period){
 function mndDate(iso){ return new Date(String(iso).slice(0,10)+'T00:00:00'); }
 function ymOf(iso){ return String(iso).slice(0,7); }
 function monthEndISO(monthISO){ const d=mndDate(String(monthISO).slice(0,7)+'-01'); return localISO(new Date(d.getFullYear(),d.getMonth()+1,0)); }
+/* ---- A term is its REAL dates (first day to last day of school term). ---- */
+function termDays(t){ return Math.round((mndDate(t.end_date)-mndDate(t.start_date))/86400000)+1; }
+function termWeeks(t){ return Math.round(termDays(t)/7*10)/10; }
+function termMonthsEquiv(t){ return termDays(t)/30.44; }
+function termLengthText(t){ const d=termDays(t); return `${d} day${d===1?'':'s'} · ${termWeeks(t)} weeks · ${(Math.round(termMonthsEquiv(t)*10)/10)} months`; }
+/* The part of a term that falls inside one calendar month, or null. */
+function termWindowInMonth(t, monthISO){
+  const ms=mndDate(String(monthISO).slice(0,7)+'-01'), me=new Date(ms.getFullYear(),ms.getMonth()+1,0);
+  const s=mndDate(t.start_date), e=mndDate(t.end_date);
+  const a=s>ms?s:ms, b=e<me?e:me;
+  if(b<a) return null;
+  return {from:localISO(a), to:localISO(b), days:Math.round((b-a)/86400000)+1, monthDays:me.getDate()};
+}
+function termDaysInMonth(t, monthISO){ const w=termWindowInMonth(t,monthISO); return w?w.days:0; }
+/* Calendar months the term touches (e.g. 14 Sep–4 Dec touches Sep, Oct, Nov, Dec). */
 function termMonths(t){
   const out=[]; const s=mndDate(t.start_date), e=mndDate(t.end_date);
   let d=new Date(s.getFullYear(), s.getMonth(), 1);
@@ -12801,11 +12829,42 @@ function termMonths(t){
   return out;
 }
 function termMonthCount(t){ return termMonths(t).length; }
-function termsInMonth(terms, monthISO){ const ym=ymOf(monthISO); return (terms||[]).filter(t=>termMonths(t).some(m=>ymOf(m)===ym)); }
+function termsInMonth(terms, monthISO){ return (terms||[]).filter(t=>termDaysInMonth(t,monthISO)>0); }
+function termOnDate(terms, iso){ const d=String(iso).slice(0,10); return (terms||[]).find(t=>String(t.start_date).slice(0,10)<=d && String(t.end_date).slice(0,10)>=d)||null; }
 function termMonthIndex(t, monthISO){ return termMonths(t).findIndex(m=>ymOf(m)===ymOf(monthISO)); }
-function autoTermUnit(c, months){ return (c.prof_unit_rate && months>0) ? Math.round(Number(c.prof_unit_rate)*months) : null; }
-function termRange(t){ const ms=termMonths(t); return ms.length?`${monthLabel(ms[0])} – ${monthLabel(ms[ms.length-1])}`:''; }
+/* Default term service unit = monthly unit x the term's real length in months, to the nearest UGX 1,000. */
+function autoTermUnit(c, t){ return (c.prof_unit_rate && t && termDays(t)>0) ? round1000(Number(c.prof_unit_rate)*termMonthsEquiv(t)) : null; }
+function termRange(t){ return `${fmtDate(String(t.start_date).slice(0,10))} – ${fmtDate(String(t.end_date).slice(0,10))}`; }
 function round1000(v){ return Math.round(Number(v||0)/1000)*1000; }
+/* Instalment guide: split an amount across the months the term touches IN PROPORTION
+   TO THE TERM DAYS in each month, rounded to UGX 1,000; the last month takes the balance. */
+function termInstalmentPlan(t, total){
+  const ms=termMonths(t); let left=Math.round(Number(total||0)), remDays=termDays(t);
+  return ms.map((m,i)=>{
+    const d=termDaysInMonth(t,m);
+    const amt=(i===ms.length-1)?left:Math.min(left, round1000(left*d/remDays));
+    left-=amt; remDays-=d;
+    return {month:m, days:d, amount:amt};
+  });
+}
+/* Suggested instalment for one professional in one month: this month's share, by term
+   days, of the balance still owed — rounded to UGX 1,000; the last month pays the balance. */
+function suggestInstalment(t, monthISO, total, approvedBefore){
+  const ms=termMonths(t); const i=ms.findIndex(m=>ymOf(m)===ymOf(monthISO));
+  const bal=Math.round(total-approvedBefore); if(i<0||bal<=0) return 0;
+  if(i===ms.length-1) return bal;
+  const remDays=ms.slice(i).reduce((a,m)=>a+termDaysInMonth(t,m),0);
+  return Math.min(bal, round1000(bal*termDaysInMonth(t,monthISO)/remDays));
+}
+
+
+
+
+
+
+
+
+
 function mndMoney(v){ return v==null||v===''?'—':'UGX '+Math.round(Number(v)).toLocaleString(); }
 async function loadChildTerms(c){
   const {data,error}=await sb.from('child_terms').select('*').eq('client_id',c.id).order('start_date',{ascending:true});
@@ -12842,7 +12901,7 @@ async function childTermsEditor(c, after){
   const paintList=(ts)=>{
     listBox.innerHTML=ts.length?ts.map(t=>`<div class="row-card" style="cursor:default;margin-bottom:8px">
         <div class="row-main"><div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Closed</span>':''}</div>
-          <div class="row-sub">${termRange(t)} · ${termMonthCount(t)} month${termMonthCount(t)===1?'':'s'}${t.school_start?` · school days ${fmtDate(t.school_start)} – ${fmtDate(t.school_end)}`:''}</div>
+          <div class="row-sub">${termRange(t)} · ${termLengthText(t)}</div>
           ${canSeeMoney()?`<div class="row-sub">Family term fee ${mndMoney(t.term_fee)} · Term service unit ${mndMoney(t.term_unit_fee)}</div>`:''}</div>
         <button class="btn btn-ghost btn-sm tmEdit" data-id="${t.id}" style="width:auto">${t.status==='finalized'?'View':'Edit'}</button></div>`).join('')
       :'<div class="empty" style="padding:18px"><h4>No terms yet</h4><p>Add this child\'s first term.</p></div>';
@@ -12856,17 +12915,13 @@ async function childTermsEditor(c, after){
 async function termForm(c, t, onSaved){
   const edit=!!t, locked=edit&&t.status==='finalized', money=canSeeMoney();
   const S={ term_fee: edit?(t.term_fee??null):(c.term_fee??null), unit: edit?(t.term_unit_fee??null):null, unitTouched: edit };
-  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:540px">
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:560px">
     <h3>${edit?(locked?'Term (closed)':'Edit term'):'Add a term'}</h3>
-    <div class="sub">${escapeHtml(c.full_name)}${locked?' — this term is closed and can no longer be changed.':''}</div>
+    <div class="sub">${escapeHtml(c.full_name)}${locked?' — this term is closed and can no longer be changed.':' — enter the real first and last day of the school term. Everything (term length, targets, sessions counted, pay) is worked out from these dates.'}</div>
     <div class="form-row"><label>Term name</label><input id="tf_label" value="${escapeHtml(edit?t.label:'')}" placeholder="e.g. Term 3 2026" ${locked?'disabled':''}/></div>
     <div class="form-row two">
-      <div><label>First month</label><input type="month" id="tf_m1" value="${edit?ymOf(t.start_date):''}" ${locked?'disabled':''}/></div>
-      <div><label>Last month</label><input type="month" id="tf_m2" value="${edit?ymOf(t.end_date):''}" ${locked?'disabled':''}/></div>
-    </div>
-    <div class="form-row two">
-      <div><label>School opens <span style="color:var(--muted);font-weight:400">(optional, reference)</span></label><input type="date" id="tf_s1" value="${edit&&t.school_start?String(t.school_start).slice(0,10):''}" ${locked?'disabled':''}/></div>
-      <div><label>School closes <span style="color:var(--muted);font-weight:400">(optional)</span></label><input type="date" id="tf_s2" value="${edit&&t.school_end?String(t.school_end).slice(0,10):''}" ${locked?'disabled':''}/></div>
+      <div><label>First day of term</label><input type="date" id="tf_start" value="${edit?String(t.start_date).slice(0,10):''}" ${locked?'disabled':''}/></div>
+      <div><label>Last day of term</label><input type="date" id="tf_end" value="${edit?String(t.end_date).slice(0,10):''}" ${locked?'disabled':''}/></div>
     </div>
     ${money?`<div class="form-row two">
       <div><label>Family term fee (UGX)</label><input type="number" min="0" id="tf_fee" value="${S.term_fee??''}" ${locked?'disabled':''}/></div>
@@ -12884,21 +12939,25 @@ async function termForm(c, t, onSaved){
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   const q=s=>m.querySelector(s);
   q('#tf_cancel').onclick=close;
-  const range=()=>{ const a=q('#tf_m1').value, b=q('#tf_m2').value; if(!a||!b||b<a) return null; return {start_date:a+'-01', end_date:monthEndISO(b+'-01')}; };
+  const range=()=>{ const a=q('#tf_start').value, b=q('#tf_end').value; if(!a||!b||b<a) return null; return {start_date:a, end_date:b}; };
   const paintPrev=()=>{
     const r=range();
-    if(!r){ q('#tf_prev').innerHTML=(q('#tf_m1').value&&q('#tf_m2').value)?'<span style="color:var(--coral)">The last month is before the first month.</span>':''; return; }
-    const n=termMonthCount(r);
-    if(money && !S.unitTouched){ const a=autoTermUnit(c,n); if(a!=null){ S.unit=a; q('#tf_unit').value=a; } }
+    if(!r){ q('#tf_prev').innerHTML=(q('#tf_start').value&&q('#tf_end').value)?'<span style="color:var(--coral)">The last day is before the first day.</span>':''; return; }
+    if(money && !S.unitTouched){ const a=autoTermUnit(c,r); if(a!=null){ S.unit=a; q('#tf_unit').value=a; } }
+    const unit=money?Number(q('#tf_unit').value||0):0;
+    const plan=unit?termInstalmentPlan(r,unit):null;
     q('#tf_prev').innerHTML=`<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">
-      <b>${n} month${n===1?'':'s'}:</b> ${termMonths(r).map(monthLabel).join(', ')}
-      ${money&&c.prof_unit_rate?`<div style="margin-top:4px">Term service unit = monthly unit ${mndMoney(c.prof_unit_rate)} × ${n} = <b>${mndMoney(autoTermUnit(c,n))}</b> (you can change it).</div>`:''}
-      <div style="color:var(--muted);margin-top:4px">Professionals are paid their share of this in instalments you approve in the Director review each month.</div></div>`;
+      <div style="font-weight:600">${termLengthText(r)}</div>
+      ${money&&c.prof_unit_rate?`<div style="margin-top:4px">Term service unit = monthly unit ${mndMoney(c.prof_unit_rate)} × ${(Math.round(termMonthsEquiv(r)*100)/100)} months (${termDays(r)} days ÷ 30.44) = <b>${mndMoney(autoTermUnit(c,r))}</b>, rounded to UGX 1,000. You can change it.</div>`:''}
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px"><thead><tr style="color:var(--muted);text-align:left"><th style="padding:3px 4px">Month</th><th style="padding:3px 4px">Term days</th>${plan?'<th style="padding:3px 4px;text-align:right">Team instalment guide</th>':''}</tr></thead><tbody>
+      ${termMonths(r).map((mo,i)=>{ const w=termWindowInMonth(r,mo); return `<tr><td style="padding:3px 4px">${monthLabel(mo)}</td><td style="padding:3px 4px">${w.days} (${fmtDate(w.from)} – ${fmtDate(w.to)})</td>${plan?`<td style="padding:3px 4px;text-align:right">${mndMoney(plan[i].amount)}</td>`:''}</tr>`; }).join('')}
+      </tbody></table>
+      <div style="color:var(--muted);margin-top:6px">Days before the first day and after the last day are holiday. Instalments follow the term days in each month; the director can change any amount in the Director review.</div></div>`;
   };
   if(!locked){
-    ['#tf_m1','#tf_m2'].forEach(s=>q(s).addEventListener('change',paintPrev));
+    ['#tf_start','#tf_end'].forEach(s=>q(s).addEventListener('change',paintPrev));
     if(money){
-      q('#tf_unit').addEventListener('input',()=>{ S.unitTouched=true; S.unit=q('#tf_unit').value===''?null:Number(q('#tf_unit').value); });
+      q('#tf_unit').addEventListener('input',()=>{ S.unitTouched=true; S.unit=q('#tf_unit').value===''?null:Number(q('#tf_unit').value); paintPrev(); });
       q('#tf_fee').addEventListener('input',()=>{ S.term_fee=q('#tf_fee').value===''?null:Number(q('#tf_fee').value); });
     }
   }
@@ -12906,7 +12965,7 @@ async function termForm(c, t, onSaved){
   if(locked) return;
   if(edit){ q('#tf_del').onclick=async()=>{
     const {count}=await sb.from('prof_payables').select('id',{count:'exact',head:true}).eq('term_id',t.id);
-    if(count){ toast('Pay has already been approved against this term, so it cannot be deleted. Change its months instead.',true); return; }
+    if(count){ toast('Pay has already been approved against this term, so it cannot be deleted. Change its dates instead.',true); return; }
     if(!confirm('Delete '+t.label+'?')) return;
     const {error}=await sb.from('child_terms').delete().eq('id',t.id);
     if(error){ toast(error.message,true); return; }
@@ -12914,18 +12973,17 @@ async function termForm(c, t, onSaved){
   }; }
   q('#tf_save').onclick=async()=>{
     const label=q('#tf_label').value.trim(), r=range();
-    if(!label||!r){ toast('Give the term a name, a first month and a last month (last on or after first).',true); return; }
-    const s1=q('#tf_s1').value||null, s2=q('#tf_s2').value||null;
-    if(s1&&s2&&s2<s1){ toast('School closes before it opens — check the dates.',true); return; }
-    const payload={ label, start_date:r.start_date, end_date:r.end_date, school_start:s1, school_end:s2, notes:q('#tf_notes').value.trim()||null };
+    if(!label||!r){ toast('Give the term a name, a first day and a last day (last on or after first).',true); return; }
+    if(termDays(r)>140 && !confirm(`This term is ${termLengthText(r)} long — longer than a usual school term. Save anyway?`)) return;
+    const payload={ label, start_date:r.start_date, end_date:r.end_date, school_start:r.start_date, school_end:r.end_date, notes:q('#tf_notes').value.trim()||null };
     if(money){ payload.term_fee=S.term_fee; payload.term_unit_fee=S.unit; }
-    else if(!edit){ payload.term_unit_fee=autoTermUnit(c,termMonthCount(r)); payload.term_fee=c.term_fee??null; }
+    else if(!edit){ payload.term_unit_fee=autoTermUnit(c,r); payload.term_fee=c.term_fee??null; }
     const btn=q('#tf_save'); btn.disabled=true; btn.textContent='Saving…';
     let res;
     if(edit) res=await sb.from('child_terms').update(payload).eq('id',t.id);
     else { payload.client_id=c.id; payload.created_by=ME.id; res=await sb.from('child_terms').insert(payload); }
     if(res.error){
-      toast(/TERM_OVERLAP/.test(res.error.message)?'Those months overlap another term for this child.':res.error.message,true);
+      toast(/TERM_OVERLAP/.test(res.error.message)?'Those dates overlap another term for this child.':res.error.message,true);
       btn.disabled=false; btn.textContent=edit?'Save term':'Add term'; return;
     }
     toast(edit?'Term saved':'Term added'); close(); if(onSaved) onSaved();
@@ -12960,12 +13018,7 @@ async function termPayPicture(c, t){
 /* Suggested instalment for a professional in one month of a term:
    the balance spread evenly over the months left (rounded to UGX 1,000),
    with the whole remaining balance on the term's last month.            */
-function suggestInstalment(t, monthISO, total, approvedBefore){
-  const months=termMonths(t); const i=months.findIndex(m=>ymOf(m)===ymOf(monthISO));
-  const bal=total-approvedBefore; if(i<0||bal<=0) return 0;
-  const left=months.length-i;
-  return left<=1 ? Math.round(bal) : Math.min(Math.round(bal), round1000(bal/left));
-}
+
 
 /* ---------------------------------------------------------------------
    Month-view banner for a termly child
@@ -12976,11 +13029,12 @@ async function paintTermBanner(c, period){
   if(error){ box.innerHTML=termLoadError(error); return; }
   const here=termsInMonth(terms, period);
   const edit=canEditPlan()?`<button class="btn btn-ghost btn-sm tbTerms" style="width:auto">Manage terms</button>`:'';
-  if(!terms.length) box.innerHTML=`<div class="row-card" style="cursor:default;border:1px dashed var(--warn)"><div class="row-main"><div class="row-name">Termly child — no terms set</div><div class="row-sub" style="white-space:normal">Add this child's terms so the plan and instalments can be worked out.</div></div>${edit}</div>`;
-  else if(!here.length) box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">School holiday — no term in ${monthLabel(period)}</div><div class="row-sub">No service is due and nothing is paid this month.</div></div>${edit}</div>`;
-  else box.innerHTML=here.map(t=>`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main">
-      <div class="row-name">${escapeHtml(t.label)} — month ${termMonthIndex(t,period)+1} of ${termMonthCount(t)}</div>
-      <div class="row-sub">${termRange(t)}${t.school_start?` · school ${fmtDate(t.school_start)} – ${fmtDate(t.school_end)}`:''}${t.status==='finalized'?' · term closed':''}</div></div>${edit}</div>`).join('');
+  if(!terms.length) box.innerHTML=`<div class="row-card" style="cursor:default;border:1px dashed var(--warn)"><div class="row-main"><div class="row-name">Termly child — no terms set</div><div class="row-sub" style="white-space:normal">Add this child's term dates so the plan and instalments can be worked out.</div></div>${edit}</div>`;
+  else if(!here.length) box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">School holiday — no term days in ${monthLabel(period)}</div><div class="row-sub">No service is due and nothing is paid this month.</div></div>${edit}</div>`;
+  else box.innerHTML=here.map(t=>{ const w=termWindowInMonth(t,period); const part=w.days<w.monthDays;
+      return `<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)"><div class="row-main">
+      <div class="row-name">${escapeHtml(t.label)} — ${w.days} of ${termDays(t)} term days fall in ${monthLabel(period)}</div>
+      <div class="row-sub" style="white-space:normal">Term ${termRange(t)} (${termLengthText(t)}). In ${monthLabel(period)} the term runs ${fmtDate(w.from)} – ${fmtDate(w.to)}.${part?` The rest of the month is holiday, so this month's targets and hours are scaled to ${w.days} of ${w.monthDays} days and only sessions in those dates count.`:''}${t.status==='finalized'?' Term closed.':''}</div></div>${edit}</div>`; }).join('');
   box.querySelectorAll('.tbTerms').forEach(b=>b.onclick=()=>childTermsEditor(c,()=>renderChildPlan($('#view'),c)));
 }
 
@@ -13006,7 +13060,7 @@ async function renderChildTermPlan(v, c){
   let t=terms.find(x=>x.id===PLAN_TERM) || terms.find(x=>termMonths(x).some(m=>ymOf(m)===todayYM))
      || [...terms].reverse().find(x=>ymOf(x.start_date)<=todayYM) || terms[0];
   PLAN_TERM=t.id;
-  const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10), nM=termMonthCount(t);
+  const tStart=String(t.start_date).slice(0,10), tEnd=String(t.end_date).slice(0,10), me=termMonthsEquiv(t);
   const pro=ME.role==='professional' && MY_PROF_ID;
   let rows=null, split=false;
   if(pro){ const {data:mine}=await sb.from('v_child_prof_progress').select('*').eq('client_id',c.id).eq('professional_id',MY_PROF_ID).order('sort_order'); if(mine&&mine.length){ rows=mine; split=true; } }
@@ -13016,7 +13070,7 @@ async function renderChildTermPlan(v, c){
   const {data:sessAll}=await sq;
   const sess=(sessAll||[]).filter(s=>{ const d=String(s.session_date).slice(0,10); return d>=tStart&&d<=tEnd; });
   const doneBy={}; sess.forEach(s=>{ const k=s.activity_key||'direct_session'; doneBy[k]=(doneBy[k]||0)+1; });
-  const acts=rows.map(r=>{ const mt=Number(r.target_count||0); return {label:r.label,monthly:mt,target:mt*nM,done:doneBy[r.activity_key]||0}; });
+  const acts=rows.map(r=>{ const mt=Number(r.target_count||0); return {label:r.label,monthly:mt,target:mt>0?Math.max(1,Math.round(mt*me)):0,done:doneBy[r.activity_key]||0}; });
   const totT=acts.reduce((a,x)=>a+x.target,0), totD=acts.reduce((a,x)=>a+Math.min(x.done,x.target),0);
   const pct=totT?Math.min(100,Math.round(totD/totT*100)):0;
   const tgtH=mndBandTargetHours(c.assigned_band||c.assessed_band);
@@ -13027,7 +13081,7 @@ async function renderChildTermPlan(v, c){
       <div style="display:flex;align-items:flex-end">${canEditPlan()?'<button class="btn btn-ghost btn-sm tpTerms" style="width:auto">Manage terms</button>':''}</div></div>
     <div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main">
       <div class="row-name">${escapeHtml(t.label)} ${t.status==='finalized'?'<span class="pill active" style="margin-left:6px">Closed</span>':'<span class="pill band" style="margin-left:6px">Open</span>'}</div>
-      <div class="row-sub">${termRange(t)} · ${nM} month${nM===1?'':'s'}${t.school_start?` · school ${fmtDate(t.school_start)} – ${fmtDate(t.school_end)}`:''}. Term targets = monthly targets × ${nM}.</div></div></div>
+      <div class="row-sub" style="white-space:normal">${termRange(t)} · ${termLengthText(t)}. Term targets = monthly targets × ${(Math.round(me*100)/100)} months (${termDays(t)} days ÷ 30.44), rounded. Only sessions dated inside the term count.</div></div></div>
     <div class="plan-ring-wrap">
       <div class="plan-ring" style="--p:${pct}"><div class="plan-ring-inner"><div class="plan-ring-pct">${pct}%</div><div class="plan-ring-lbl">term</div></div></div>
       <div class="plan-ring-side"><div class="plan-big">${totD}<span>/${totT}</span></div><div class="plan-sub">activities completed in ${escapeHtml(t.label)}${split?' (your share)':''}</div></div></div>
@@ -13037,8 +13091,8 @@ async function renderChildTermPlan(v, c){
         <div style="display:flex;align-items:center;gap:10px"><div class="row-name" style="flex:1">${escapeHtml(a.label)}</div><span class="row-sub">${a.monthly}/month</span><span class="pill ${a.target&&a.done>=a.target?'active':'band'}">${a.done}/${a.target}</span></div>
         <div class="bar"><div class="bar-fill" style="width:${p}%"></div></div></div>`; }).join(''):'<div class="empty" style="padding:20px"><h4>No plan yet</h4><p>Assign a band to generate the plan.</p></div>'}</div>
     <div class="section-head" style="margin-top:26px"><h3>Hours this term</h3></div>
-    <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">${Math.round(totMin/6)/10}h logged${tgtH?' of '+(tgtH*nM)+'h':''}</div>
-      <div class="row-sub">${tgtH?`Band target ${tgtH}h a month × ${nM} months.`:'No band target hours set.'}</div></div></div>
+    <div class="row-card" style="cursor:default"><div class="row-main"><div class="row-name">${Math.round(totMin/6)/10}h logged${tgtH?' of '+(Math.round(tgtH*me*10)/10)+'h':''}</div>
+      <div class="row-sub">${tgtH?`Band target ${tgtH}h a month × ${(Math.round(me*100)/100)} months.`:'No band target hours set.'}</div></div></div>
     ${canSeeMoney()?`<div class="section-head" style="margin-top:26px"><h3>Term fee &amp; pay — ${escapeHtml(t.label)}</h3></div><div id="tpMoney"><div class="row-sub" style="color:var(--muted);padding:8px">Loading…</div></div>`:''}
     ${pro?`<div class="section-head" style="margin-top:26px"><h3>Your pay this term</h3></div><div id="tpMyPay"></div>`:''}
     <div class="section-head" style="margin-top:26px"><h3>Session summaries — ${escapeHtml(t.label)}</h3></div>
@@ -13078,6 +13132,7 @@ async function paintTermMoney(c, t){
         <div class="fee-chip">Family — this term<b>${mndMoney(t.term_fee)}</b></div>
         <div class="fee-chip">Term service unit<b>${mndMoney(t.term_unit_fee)}</b></div>
         <div class="fee-chip">Months closed<b>${P.months.filter(m=>closed.has(ymOf(m))).length} / ${P.months.length}</b></div>
+        <div class="fee-chip">Term length<b>${termDays(t)} days · ${termWeeks(t)} wks</b></div>
       </div></div>
     <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
       <div class="row-name">What each professional is to be paid this term</div>
@@ -13087,7 +13142,10 @@ async function paintTermMoney(c, t){
           <td style="padding:6px 8px;text-align:right;font-weight:600">${mndMoney(p.total)}</td><td style="padding:6px 8px;text-align:right">${mndMoney(p.approved)}</td>
           <td style="padding:6px 8px;text-align:right">${mndMoney(p.paid)}</td><td style="padding:6px 8px;text-align:right;color:${p.balance<0?'var(--coral)':'inherit'}">${mndMoney(p.balance)}</td></tr>`).join('')}</tbody></table>`
         :'<div class="row-sub">No care team recorded for this term yet — assign professionals and open a month in the Director review.</div>'}
-      <div class="row-sub" style="white-space:normal;color:var(--muted)">Instalments are approved month by month in the <b>Director review</b>. It suggests an even instalment and puts the remainder on the last month — you can change any amount.</div>
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">Instalments are approved month by month in the <b>Director review</b>. Each month's suggestion is that month's share, by term days, of the balance still owed — rounded to UGX 1,000 — and the term's last month takes the exact balance. You can change any amount.</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:420px;margin-top:4px"><thead><tr style="color:var(--muted);text-align:left"><th style="padding:4px 6px">Month</th><th style="padding:4px 6px">Term days</th><th style="padding:4px 6px;text-align:right">Team instalment guide</th><th style="padding:4px 6px">Status</th></tr></thead><tbody>
+        ${termInstalmentPlan(t, Number(t.term_unit_fee||0)).map(r=>{ const w=termWindowInMonth(t,r.month); return `<tr><td style="padding:4px 6px">${monthLabel(r.month)}</td><td style="padding:4px 6px">${w.days} (${fmtDate(w.from)} – ${fmtDate(w.to)})</td><td style="padding:4px 6px;text-align:right">${mndMoney(r.amount)}</td><td style="padding:4px 6px">${closed.has(ymOf(r.month))?'<span style="color:var(--teal)">Closed</span>':'<span style="color:var(--muted)">Open</span>'}</td></tr>`; }).join('')}
+      </tbody></table></div>
       ${(isDirector()&&t.status!=='finalized')?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" id="tpReview" style="width:auto">Open Director review</button><button class="btn btn-ghost btn-sm" id="tpClose" style="width:auto">Close term…</button></div>`:''}
     </div>
     <div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
@@ -13164,22 +13222,39 @@ async function reviewMonthData(c, month, terms){
   const termly=c.billing_cycle==='termly';
   const term=termly?(termsInMonth(terms,month)[0]||null):null;
   const holiday=termly && !term;
+  const win=term?termWindowInMonth(term,month):null;          // the real term days inside this month
   if(!holiday && month<=thisMonthISO()) await ensureProfShares(c, month);
-  const [{data:shares},{data:sess},{data:pays},{data:fin}]=await Promise.all([
+  const [{data:shares},{data:sess},{data:pays},{data:fin},{data:tg}]=await Promise.all([
     sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',month),
     sb.from('session_logs').select('professional_id,activity_key,duration_minutes,session_date').eq('client_id',c.id).gte('session_date',month).lt('session_date',next),
     sb.from('prof_payables').select('*').eq('client_id',c.id).eq('period_month',month),
-    sb.from('op_forms').select('*').eq('client_id',c.id).eq('kind','svc_units').eq('period_month',month).eq('status','finalized').maybeSingle()
+    sb.from('op_forms').select('*').eq('client_id',c.id).eq('kind','svc_units').eq('period_month',month).eq('status','finalized').maybeSingle(),
+    term?sb.from('child_prof_targets').select('*').eq('client_id',c.id):Promise.resolve({data:[]})
   ]);
   const monthSess=(sess||[]).filter(s=>ymOf(s.session_date)===ym);
+  const inWin=s=>!win || (String(s.session_date).slice(0,10)>=win.from && String(s.session_date).slice(0,10)<=win.to);
   const pids=[...new Set([...(shares||[]).map(s=>s.professional_id),...monthSess.map(s=>s.professional_id),...(pays||[]).map(p=>p.professional_id)].filter(Boolean))];
   const nm={}; if(pids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name,discipline').in('id',pids); (pf||[]).forEach(p=>nm[p.id]=p); }
   const TP=term?await termPayPicture(c,term):null;
   const unit=c.prof_unit_rate!=null?Number(c.prof_unit_rate):0;
   const people=await Promise.all(pids.map(async pid=>{
     const sh=(shares||[]).find(s=>s.professional_id===pid);
-    const mine=monthSess.filter(s=>s.professional_id===pid);
-    let pct=null; try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:pid,p_month:month}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
+    const allMine=monthSess.filter(s=>s.professional_id===pid);
+    const mine=allMine.filter(inWin), outside=allMine.length-mine.length;
+    let pct=null;
+    if(term){
+      // Fulfilment over the TERM DAYS of this month only: each monthly target is
+      // scaled to the term days (e.g. 17 of 30 days) and only sessions on those days count.
+      const frac=win.days/win.monthDays; let tot=0, done=0;
+      (tg||[]).filter(x=>x.professional_id===pid && Number(x.target_count)>0).forEach(x=>{
+        const tgt=Math.max(1,Math.round(Number(x.target_count)*frac));
+        const d=mine.filter(s=>(s.activity_key||'direct_session')===x.activity_key).length;
+        tot+=tgt; done+=Math.min(d,tgt);
+      });
+      pct=tot?Math.round(done/tot*1000)/10:null;
+    } else {
+      try{ const {data:q}=await sb.rpc('mnd_prof_qualifies',{p_client:c.id,p_professional:pid,p_month:month}); if(q&&q.length) pct=q[0].fulfilment; }catch(e){}
+    }
     const frac=sh?Number(sh.share_fraction||0):0;
     const monthLines=(pays||[]).filter(p=>p.professional_id===pid && ['child_units','term_instalment','term_slice'].includes(p.source));
     let suggested=0, termTotal=null, approvedBefore=null;
@@ -13191,11 +13266,11 @@ async function reviewMonthData(c, month, terms){
       suggested=suggestInstalment(term, month, termTotal, approvedBefore);
     } else suggested=Math.round(unit*frac);
     return { pid, name:(nm[pid]&&nm[pid].full_name)||'Professional', disc:(nm[pid]&&nm[pid].discipline)||'', share:frac, inSplit:!!sh, shareId:sh?sh.id:null,
-      sessions:mine.length, minutes:mine.reduce((a,s)=>a+Number(s.duration_minutes||0),0), pct,
+      sessions:mine.length, outside, minutes:mine.reduce((a,s)=>a+Number(s.duration_minutes||0),0), pct,
       suggested, termTotal, approvedBefore, lines:monthLines };
   }));
   people.sort((a,b)=>(b.inSplit-a.inSplit)||a.name.localeCompare(b.name));
-  return {month, termly, term, holiday, closed:fin||null, people, sessions:monthSess.length};
+  return {month, termly, term, win, holiday, closed:fin||null, people, sessions:monthSess.filter(inWin).length, outside:monthSess.length-monthSess.filter(inWin).length};
 }
 
 async function renderChildReview(v, c){
@@ -13242,8 +13317,9 @@ function reviewFlags(D, p){
   if(!D.holiday && p.inSplit){
     if(p.pct==null) f.push('no targets set');
     else if(p.pct<thr) f.push(`${p.pct}% of targets — below ${thr}%`);
-    if(!p.sessions) f.push('no sessions logged');
+    if(!p.sessions) f.push(D.term?'no sessions on term days':'no sessions logged');
   }
+  if(p.outside) f.push(`${p.outside} session${p.outside===1?'':'s'} outside the term dates (holiday) — not counted`);
   if(!p.inSplit && p.sessions) f.push('logged sessions but is not in the care-team split');
   return f;
 }
@@ -13252,7 +13328,7 @@ function paintReviewMonth(c, D, statusPill, terms){
   const box=document.getElementById('rvBody'); if(!box) return;
   const dir=isDirector(); const label=monthLabel(D.month);
   const fmtH=m=>Math.round(m/6)/10+'h';
-  const termInfo=D.term?`<div class="row-sub" style="white-space:normal">${escapeHtml(D.term.label)} — month ${termMonthIndex(D.term,D.month)+1} of ${termMonthCount(D.term)} (${termRange(D.term)}). Suggested amounts spread each professional's term balance evenly over the months left, rounded to UGX 1,000; the last month takes whatever remains.</div>`:'';
+  const termInfo=D.term?`<div class="row-sub" style="white-space:normal">${escapeHtml(D.term.label)} runs ${termRange(D.term)} (${termLengthText(D.term)}). In ${label} the term runs <b>${fmtDate(D.win.from)} – ${fmtDate(D.win.to)}</b> — ${D.win.days} of ${termDays(D.term)} term days${D.win.days<D.win.monthDays?`; the rest of ${label} is holiday`:''}. Fulfilment uses targets scaled to those ${D.win.days} days and only sessions on them. The suggested instalment is this month's share, by term days, of each professional's remaining term balance, rounded to UGX 1,000; the term's last month takes the exact balance.</div>`:'';
   if(D.holiday){
     box.innerHTML=`<div class="row-card" style="cursor:default;background:var(--accent-soft)"><div class="row-main"><div class="row-name">${label} ${statusPill}</div><div class="row-sub">School holiday — no term this month, so no service is due and nothing is paid.</div></div></div>`;
     return;
@@ -13289,7 +13365,7 @@ function paintReviewMonth(c, D, statusPill, terms){
   // ---- open month: review form
   box.innerHTML=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
     <div class="row-name">${label} ${statusPill}</div>${termInfo}
-    <div class="row-sub">${D.sessions} session${D.sessions===1?'':'s'} logged for this child in ${label}.</div>
+    <div class="row-sub">${D.sessions} session${D.sessions===1?'':'s'} logged for this child${D.term?' on term days':''} in ${label}${D.outside?` · ${D.outside} more on holiday days (not counted)`:''}.</div>
     <div class="rows" id="rvPeople"></div>
     <div class="row-sub" id="rvTotal" style="font-weight:600"></div>
     <div class="form-row"><label>Review note / reason <span id="rvReasonReq" style="color:var(--coral);font-weight:400"></span></label>
@@ -13357,7 +13433,7 @@ async function closeReviewMonth(c, D, amounts, reason){
     professional_id:p.pid, client_id:c.id, period_month:D.month, term_id:D.term?D.term.id:null,
     source:D.term?'term_instalment':'child_units', units:1, unit_rate:amounts[p.pid], amount:amounts[p.pid],
     description:D.term
-      ? `${c.full_name} — ${D.term.label} instalment, ${label} (term total UGX ${Math.round(p.termTotal||0).toLocaleString()})`
+      ? `${c.full_name} — ${D.term.label} instalment, ${label} (${D.win.days} of ${termDays(D.term)} term days; term total UGX ${Math.round(p.termTotal||0).toLocaleString()})`
       : `${c.full_name} — monthly service unit, ${label} (${Math.round(p.share*100)}% share)`,
     status:'approved', dir_approved_at:now, dir_approved_by:ME.id, created_by:ME.id
   }));
