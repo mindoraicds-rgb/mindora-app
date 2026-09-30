@@ -6604,7 +6604,7 @@ async function renderStaffChild(v,c){
     ${!canSeeMoney()?'':(c.prof_unit_rate?`<div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent);flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;align-items:center;gap:10px">
         <div class="row-main"><div class="row-name">Monthly service-unit fee</div><div class="row-sub">UGX ${Number(c.prof_unit_rate).toLocaleString()} per month · one fee for the whole assigned bundle · split across the care team</div></div>
-        <button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit fee</button>
+        <button class="btn btn-ghost btn-sm" id="qaEditRate" style="width:auto">Edit band &amp; fees</button>
         <button class="btn btn-ghost btn-sm" id="qaSplit" style="width:auto">Manage split</button>
       </div>
       <div id="shareSummary" class="row-sub" style="white-space:normal"></div>
@@ -6621,6 +6621,7 @@ async function renderStaffChild(v,c){
       <div class="qa" id="qaGoals">${icon('plan')} Goals</div>
       <div class="qa" id="qaProgress">${icon('graph')} Progress graphs</div>
       <div class="qa" id="qaCaseReport">${icon('schedule')} Case report</div>
+      ${canSeeMoney()?`<div class="qa" id="qaBandFees">${icon('plan')} Band &amp; fees</div>`:''}
       <div class="qa" id="qaEdit">${icon('profile')} Edit details</div>
     </div>
 
@@ -6670,7 +6671,9 @@ async function renderStaffChild(v,c){
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaEdit').onclick=()=>openClientForm(c);
-  { const er=$('#qaEditRate'); if(er) er.onclick=()=>openClientForm(c); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>openClientForm(c);
+  { const _refresh=(fresh)=>renderStaffChild($('#view'),fresh||c);
+    const er=$('#qaEditRate'); if(er) er.onclick=()=>childFeeEditor(c,_refresh); const sr=$('#setRateCard'); if(sr) sr.onclick=()=>childFeeEditor(c,_refresh);
+    const bf=$('#qaBandFees'); if(bf) bf.onclick=()=>childFeeEditor(c,_refresh);
     const sp=$('#qaSplit'); if(sp) sp.onclick=()=>editProfShares(c);
     if(c.prof_unit_rate && canSeeMoney()){ renderShareSummary(c); } }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
@@ -6971,6 +6974,9 @@ async function renderChildPlan(v,c){
     <div class="section-head" style="margin-top:26px"><h3>Hours coverage — ${monthLabel(period)}</h3></div>
     <div class="row-sub" style="color:var(--muted);margin-bottom:8px">Actual time logged toward this child's monthly bundle, per professional and activity type, against the Band ${c.assigned_band||c.assessed_band||'—'} target${mndBandTargetHours(c.assigned_band||c.assessed_band)?' of '+mndBandTargetHours(c.assigned_band||c.assessed_band)+' hours':''}. Hours are built from direct sessions, caregiver guidance, school liaison, coordination and documentation.</div>
     <div id="hoursCoverage"><div class="row-sub" style="color:var(--muted);padding:8px">Loading hours…</div></div>
+    ${canSeeMoney()?`<div class="section-head" style="margin-top:26px"><h3>Monthly service-unit fee — ${monthLabel(period)}</h3></div>
+    <div class="row-sub" style="color:var(--muted);margin-bottom:8px">What this child's bundle is worth this month, how it is split across the care team, and what has actually been invoiced to the family in ${monthLabel(period)}. Use this to check the invoice you send matches the fee on record.</div>
+    <div id="planFeeMonth"><div class="row-sub" style="color:var(--muted);padding:8px">Loading fee…</div></div>`:''}
     <div class="section-head" style="margin-top:26px"><h3>Session summaries</h3></div>
     <div class="rows" id="planSessions"></div>
     ${canEditPlan()&&c.assessed_band?`<div class="finalize-card" id="finalizeCard">
@@ -7067,6 +7073,8 @@ async function renderChildPlan(v,c){
       </div>`;
     }).join('');
   })();
+  // monthly service-unit fee for the selected month (money-visible logins only)
+  if(canSeeMoney()) paintPlanFee(c, period);
   // session summaries feed the service plan too — filtered to the selected month
   (async()=>{
     const psBox=$('#planSessions'); if(!psBox) return;
@@ -12537,6 +12545,285 @@ function childRates(c){
     prof:    rateCell('prof',    band, tier),
     termSec
   };
+}
+
+/* =====================================================================
+   PER-CHILD BAND & FEES EDITOR
+   Edit band, pricing context, billing cycle, fee basis and the three
+   money figures directly from the child's own page — so the record
+   matches the invoice actually sent to the family. Rate card figures
+   are shown as a guide only; every figure is free to override.
+   Money-visible logins only (director, non-routine secretary).
+   ===================================================================== */
+async function childFeeEditor(c, after){
+  if(!canSeeMoney()){ toast('Not available for this login.',true); return; }
+  try{ await loadRateCard(); }catch(e){}
+  const money=v=>v==null||v===''?'—':'UGX '+Number(v).toLocaleString();
+  const S={
+    assessed_band: c.assessed_band?String(c.assessed_band):'',
+    assigned_band: c.assigned_band?String(c.assigned_band):'',
+    band_variance_reason: c.band_variance_reason||'',
+    pricing_context: c.pricing_context||'',
+    billing_cycle: c.billing_cycle||'monthly',
+    fee_basis: c.fee_basis||'direct',
+    monthly_fee: c.monthly_fee??null,
+    term_fee: c.term_fee??null,
+    prof_unit_rate: c.prof_unit_rate??null
+  };
+  const bandOpts=(val,blank)=>`<option value="">${blank}</option>`+[1,2,3,4].map(b=>`<option value="${b}" ${String(val)===String(b)?'selected':''}>Band ${b}</option>`).join('');
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:620px">
+    <h3>Band &amp; fees</h3>
+    <div class="sub">${escapeHtml(c.full_name)}${c.child_no?' · '+escapeHtml(c.child_no):''}. Set the figures so they match the invoice you send the family. The rate card is shown as a guide — you can override any figure.</div>
+
+    <div class="form-row two">
+      <div><label>Assessed band <span style="color:var(--muted);font-weight:400">— clinical</span></label><select id="fe_band">${bandOpts(S.assessed_band,'—')}</select></div>
+      <div><label>Band the child is served on</label><select id="fe_aband">${bandOpts(S.assigned_band,'— same as assessed —')}</select></div>
+    </div>
+    <div class="form-row" id="fe_bvarRow" style="display:none"><label>Served below the assessed band — why?</label><select id="fe_bvar">${mndSelOpts(MND_BAND_VARIANCE, S.band_variance_reason)}</select>
+      <div class="row-sub" style="color:var(--warn);margin-top:4px">This is recorded as unmet clinical need, not as a lower need. A reason is required.</div></div>
+
+    <div class="form-row two">
+      <div><label>Pricing context <span style="color:var(--muted);font-weight:400">— ability to pay</span></label><select id="fe_pc"><option value="">—</option>${RATE_TIERS.map(t=>`<option value="${t.k}" ${S.pricing_context===t.k?'selected':''}>${t.label}</option>`).join('')}${isLegacyContext(S.pricing_context)?`<option value="${escapeHtml(S.pricing_context)}" selected>${escapeHtml(S.pricing_context)} — legacy, reselect</option>`:''}</select></div>
+      <div><label>Billing cycle</label><select id="fe_cycle">
+        <option value="monthly" ${S.billing_cycle==='monthly'?'selected':''}>Monthly</option>
+        <option value="termly" ${S.billing_cycle==='termly'?'selected':''}>Termly</option></select></div>
+    </div>
+    <div class="form-row"><label>Fee basis</label><select id="fe_basis">
+        <option value="direct" ${S.fee_basis==='direct'?'selected':''}>Direct — full term price</option>
+        <option value="model_b" ${S.fee_basis==='model_b'?'selected':''}>Model B child — 10% term discount</option></select></div>
+
+    <div id="fe_box" class="fee-box"></div>
+
+    <div class="row-sub" style="white-space:normal;margin:10px 0 4px;color:var(--muted)">Changes apply from now on. Months already finalized keep the pay amounts they were finalized with, and invoices already sent are not changed — edit those in Finances if needed.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="fe_cancel">Cancel</button>
+      <button class="btn btn-ghost" id="fe_fill" style="width:auto">Fill from rate card</button>
+      <button class="btn btn-primary" id="fe_save">Save band &amp; fees</button>
+    </div>
+  </div></div>`);
+  document.body.appendChild(m);
+  const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  m.querySelector('#fe_cancel').onclick=close;
+  const q=s=>m.querySelector(s);
+  const readSel=()=>({assessed_band:q('#fe_band').value||null, pricing_context:q('#fe_pc').value||null, billing_cycle:q('#fe_cycle').value, fee_basis:q('#fe_basis').value});
+
+  const paintVar=()=>{
+    const a=parseInt(q('#fe_band').value,10), s=parseInt(q('#fe_aband').value,10);
+    q('#fe_bvarRow').style.display=(!isNaN(a)&&!isNaN(s)&&s<a)?'':'none';
+  };
+  const paint=()=>{
+    const sel=readSel();
+    const r=childRates(sel);
+    const termly=sel.billing_cycle==='termly';
+    const cardTxt=(cell)=>cell&&cell.text?escapeHtml(cell.text):'—';
+    const row=(id,label,cell,val,note)=>{
+      const over = r && val!=null && cell && cell.value!=null && Number(val)!==Number(cell.value);
+      return `<div class="fee-row">
+        <div class="fee-lab">${label}<span class="fee-card">${r?'Rate card: '+cardTxt(cell):'No rate card figure — choose band and context'}${note?' · '+note:''}</span></div>
+        <div class="fee-in"><span>UGX</span>
+          <input type="number" min="0" id="${id}" value="${val??''}" placeholder="—"/>
+          ${r?`<button type="button" class="fee-reset" data-for="${id}" title="Restore the rate card figure">↺</button>`:''}</div>
+        ${over?`<div class="fee-over">Overridden — the card says ${cardTxt(cell)}</div>`:''}
+      </div>`;
+    };
+    q('#fe_box').innerHTML=`
+      <div class="fee-h">Fees for this child <span>${sel.assessed_band?'Band '+sel.assessed_band:'No band'}${sel.pricing_context?' · '+escapeHtml(sel.pricing_context):''}</span></div>
+      ${row('fe_monthly','What the family pays — monthly',r&&r.monthly,S.monthly_fee,'')}
+      ${termly?row('fe_term','What the family pays — per term',r&&r.term,S.term_fee,r&&r.termSec==='term_modelb'?'Model B, −10%':'direct, full'):''}
+      ${row('fe_unit','Monthly service-unit fee (professional bundle)',r&&r.prof,S.prof_unit_rate,'split across the care team')}`;
+    q('#fe_box').querySelectorAll('input').forEach(inp=>inp.oninput=()=>{
+      const v=inp.value===''?null:Number(inp.value);
+      if(inp.id==='fe_monthly') S.monthly_fee=v;
+      if(inp.id==='fe_term') S.term_fee=v;
+      if(inp.id==='fe_unit') S.prof_unit_rate=v;
+    });
+    q('#fe_box').querySelectorAll('.fee-reset').forEach(b=>b.onclick=()=>{
+      if(!r) return;
+      if(b.dataset.for==='fe_monthly') S.monthly_fee=r.monthly.value;
+      if(b.dataset.for==='fe_term') S.term_fee=r.term.value;
+      if(b.dataset.for==='fe_unit') S.prof_unit_rate=r.prof.value;
+      paint();
+    });
+  };
+  // Dropdown changes only repaint the rate-card guide; they never overwrite
+  // figures you typed. Use "Fill from rate card" to pull the card figures in.
+  ['#fe_band','#fe_pc','#fe_cycle','#fe_basis'].forEach(s=>q(s).addEventListener('change',()=>{paint();paintVar();}));
+  q('#fe_aband').addEventListener('change',paintVar);
+  q('#fe_fill').onclick=()=>{
+    const r=childRates(readSel());
+    if(!r){ toast('Choose an assessed band and a pricing context (A, B or C) first.',true); return; }
+    S.monthly_fee=r.monthly.value; S.term_fee=r.term.value; S.prof_unit_rate=r.prof.value;
+    paint(); toast('Filled from the rate card — adjust any figure before saving.');
+  };
+  paint(); paintVar();
+
+  q('#fe_save').onclick=async()=>{
+    const assessed=q('#fe_band').value?parseInt(q('#fe_band').value,10):null;
+    const served=q('#fe_aband').value?parseInt(q('#fe_aband').value,10):null;
+    const reason=q('#fe_bvar').value||null;
+    if(assessed!=null && served!=null && served<assessed && !reason){
+      toast('This child is served below the assessed band. Give the reason before saving.',true); return;
+    }
+    for(const [k,lbl] of [['monthly_fee','Monthly fee'],['term_fee','Term fee'],['prof_unit_rate','Service-unit fee']]){
+      if(S[k]!=null && (isNaN(S[k]) || S[k]<0)){ toast(lbl+' must be a positive number.',true); return; }
+    }
+    const cycle=q('#fe_cycle').value;
+    const payload={
+      assessed_band: assessed,
+      assigned_band: served,
+      band_variance_reason: (served!=null && assessed!=null && served<assessed)?reason:null,
+      pricing_context: q('#fe_pc').value||null,
+      billing_cycle: cycle,
+      fee_basis: q('#fe_basis').value,
+      monthly_fee: S.monthly_fee,
+      term_fee: cycle==='termly'?S.term_fee:null,
+      prof_unit_rate: S.prof_unit_rate
+    };
+    const btn=q('#fe_save'); btn.disabled=true; btn.textContent='Saving…';
+    const {error}=await sb.from('clients').update(payload).eq('id',c.id);
+    if(error){ toast(error.message,true); btn.disabled=false; btn.textContent='Save band & fees'; return; }
+    Object.assign(c,payload);
+    if(typeof SELECTED_CHILD!=='undefined' && SELECTED_CHILD && SELECTED_CHILD.id===c.id) Object.assign(SELECTED_CHILD,payload);
+    toast('Band & fees saved');
+    close();
+    if(typeof after==='function') after(c);
+  };
+}
+
+/* =====================================================================
+   MONTHLY SERVICE-UNIT FEE PANEL (service plan, month-filtered)
+   For the selected month: the fee on record, how it splits across the
+   care team (with each professional's fulfilment and pay status), and
+   what was actually invoiced to the family in that month — with a
+   clear match / mismatch check against the fee on record.
+   ===================================================================== */
+async function paintPlanFee(c, period){
+  const box=document.getElementById('planFeeMonth'); if(!box) return;
+  if(!canSeeMoney()){ box.innerHTML=''; return; }
+  const money=v=>v==null?'—':'UGX '+Math.round(Number(v)).toLocaleString();
+  const ym=String(period).slice(0,7);
+  const monthStart=ym+'-01';
+  const d0=new Date(monthStart+'T00:00:00');
+  const next=localMonthISO(new Date(d0.getFullYear(),d0.getMonth()+1,1));
+  const isPast = monthStart < thisMonthISO();
+  const threshold=Number((COMPANY&&COMPANY.pay_fulfil_threshold)||60);
+
+  const [shR, payR, invR, finR]=await Promise.all([
+    sb.from('child_prof_shares').select('*').eq('client_id',c.id).eq('period_month',monthStart),
+    sb.from('prof_payables').select('*').eq('client_id',c.id).eq('period_month',monthStart),
+    sb.from('invoices').select('*').eq('client_id',c.id).gte('invoice_date',monthStart).lt('invoice_date',next).order('invoice_date',{ascending:true}),
+    sb.from('op_forms').select('id').eq('client_id',c.id).eq('kind','svc_units').eq('period_month',monthStart).eq('status','finalized').maybeSingle()
+  ]);
+  const shares=shR.data||[], pays=payR.data||[];
+  // belt-and-braces month match on invoices whatever the date format
+  const invs=(invR.data||[]).filter(i=>i.invoice_date && String(i.invoice_date).slice(0,7)===ym);
+  const finalized=!!finR.data;
+
+  const ids=[...new Set([...shares.map(s=>s.professional_id),...pays.map(p=>p.professional_id)].filter(Boolean))];
+  const nm={};
+  if(ids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',ids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
+  const payBy={}; pays.forEach(p=>{ (payBy[p.professional_id]=payBy[p.professional_id]||[]).push(p); });
+
+  const PAYLBL={pending:'Pending',awaiting_prof:'Awaiting professional',prof_approved:'Professional approved',disputed:'Disputed',approved:'Approved for pay',billed:'Billed',paid:'Paid'};
+  const unit=c.prof_unit_rate!=null?Number(c.prof_unit_rate):null;
+
+  // ---- 1. Fee on record
+  const band=c.assigned_band&&String(c.assigned_band)!==String(c.assessed_band)
+    ? `Band ${c.assigned_band} <span style="color:var(--muted)">(assessed Band ${c.assessed_band||'—'})</span>`
+    : (c.assessed_band?`Band ${c.assessed_band}`:'<span style="color:var(--warn)">No band set</span>');
+  const recHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="row-main"><div class="row-name">Fee on record</div>
+        <div class="row-sub">${band} · Context ${escapeHtml(c.pricing_context||'—')} · ${c.billing_cycle==='termly'?'Termly':'Monthly'} billing${c.fee_basis==='model_b'?' · Model B':''}</div></div>
+      <button class="btn btn-ghost btn-sm" id="pfEdit" style="width:auto">Edit band &amp; fees</button>
+    </div>
+    <div class="fee-strip" style="margin:0">
+      <div class="fee-chip">Family — monthly<b>${money(c.monthly_fee)}</b></div>
+      ${c.billing_cycle==='termly'?`<div class="fee-chip">Family — per term<b>${money(c.term_fee)}</b></div>`:''}
+      <div class="fee-chip">Service unit / month<b>${money(unit)}</b></div>
+    </div>
+    ${isPast?`<div class="row-sub" style="white-space:normal;color:var(--muted)">These are today's figures. Amounts already finalized or invoiced for ${monthLabel(period)} are shown below exactly as they were recorded.</div>`:''}
+  </div>`;
+
+  // ---- 2. Split & pay for this month
+  let splitHtml;
+  if(!shares.length && !pays.length){
+    splitHtml=`<div class="empty" style="padding:16px"><h4>No split recorded for ${monthLabel(period)}</h4><p>${isPast?'No care-team split was saved for this month.':'The split is created automatically once professionals are assigned and the child page is opened.'}</p></div>`;
+  } else {
+    const profIds=ids.length?ids:[];
+    let totExpected=0, totPayable=0;
+    const rows=profIds.map(pid=>{
+      const s=shares.find(x=>x.professional_id===pid);
+      const frac=s?Number(s.share_fraction||0):null;
+      const expected=(unit!=null&&frac!=null)?Math.round(unit*frac):null;
+      if(expected!=null) totExpected+=expected;
+      const pp=payBy[pid]||[];
+      const payAmt=pp.reduce((a,p)=>a+Number(p.amount||0),0);
+      totPayable+=payAmt;
+      const payStat=pp.length?pp.map(p=>PAYLBL[p.status]||p.status).join(', '):(finalized?'<span style="color:var(--coral)">Not payable</span>':'<span style="color:var(--muted)">Not finalized</span>');
+      const fp=(s&&s.fulfil_pct!=null)?Math.round(Number(s.fulfil_pct)):null;
+      const fpHtml=fp==null?'—':`<span style="color:${fp>=threshold||(s&&s.pay_exception)?'var(--teal)':'var(--coral)'}">${fp}%</span>${s&&s.pay_exception?' <span style="color:var(--accent)">(exception)</span>':''}`;
+      return `<tr>
+        <td style="padding:6px 8px">${escapeHtml(nm[pid]||'Professional')}</td>
+        <td style="padding:6px 8px;text-align:right">${frac!=null?Math.round(frac*100)+'%':'—'}</td>
+        <td style="padding:6px 8px;text-align:right">${money(expected)}</td>
+        <td style="padding:6px 8px;text-align:right">${fpHtml}</td>
+        <td style="padding:6px 8px;text-align:right">${pp.length?money(payAmt):'—'}</td>
+        <td style="padding:6px 8px">${payStat}</td>
+      </tr>`;
+    }).join('');
+    splitHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
+      <div class="row-name">Care-team split — ${monthLabel(period)} ${finalized?'<span class="pill active" style="margin-left:6px">Finalized</span>':'<span class="pill band" style="margin-left:6px">Not finalized</span>'}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
+        <thead><tr style="color:var(--muted);text-align:left;font-size:12px">
+          <th style="padding:6px 8px">Professional</th><th style="padding:6px 8px;text-align:right">Share</th><th style="padding:6px 8px;text-align:right">Share of fee</th><th style="padding:6px 8px;text-align:right">Fulfilment</th><th style="padding:6px 8px;text-align:right">Pay recorded</th><th style="padding:6px 8px">Pay status</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)">
+          <td style="padding:6px 8px">Total</td><td></td>
+          <td style="padding:6px 8px;text-align:right">${unit!=null?money(totExpected):'—'}</td><td></td>
+          <td style="padding:6px 8px;text-align:right">${pays.length?money(totPayable):'—'}</td><td></td>
+        </tr></tfoot>
+      </table>
+      <div class="row-sub" style="white-space:normal;color:var(--muted)">"Share of fee" uses the service-unit fee on record. "Pay recorded" is what was actually released when the month was finalized — a professional below ${threshold}% of their targets is not paid unless the director grants an exception.</div>
+    </div>`;
+  }
+
+  // ---- 3. Invoiced to the family this month + match check
+  const invTotal=invs.reduce((a,i)=>a+Number(i.amount||0),0);
+  const invRows=invs.map(i=>`<tr>
+    <td style="padding:6px 8px">${escapeHtml(i.invoice_no||'—')}</td>
+    <td style="padding:6px 8px">${escapeHtml(fmtDate(i.invoice_date))}</td>
+    <td style="padding:6px 8px;white-space:normal">${escapeHtml(i.description||'')}</td>
+    <td style="padding:6px 8px;text-align:right">${money(i.amount)}</td>
+    <td style="padding:6px 8px">${escapeHtml(String(i.status||'').replace('_',' '))}</td>
+  </tr>`).join('');
+  let check='';
+  if(c.billing_cycle==='termly'){
+    check=`<div class="row-sub" style="white-space:normal;color:var(--muted)">Termly billing — the family is invoiced per term (${money(c.term_fee)} on record), so a month may have no invoice. Invoices dated in ${monthLabel(period)} are listed for reference.</div>`;
+  } else if(c.monthly_fee==null){
+    check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No monthly family fee is on record, so the invoice can't be checked. Use "Edit band &amp; fees" to set it.</div>`;
+  } else if(!invs.length){
+    check=`<div class="row-sub" style="white-space:normal;color:var(--warn)">No invoice dated in ${monthLabel(period)} yet. Expected: ${money(c.monthly_fee)}.</div>`;
+  } else if(Math.round(invTotal)===Math.round(Number(c.monthly_fee))){
+    check=`<div class="row-sub" style="white-space:normal;color:var(--teal)">✓ Invoiced ${money(invTotal)} — matches the monthly fee on record.</div>`;
+  } else {
+    const diff=invTotal-Number(c.monthly_fee);
+    check=`<div class="row-sub" style="white-space:normal;color:var(--coral)">Invoiced ${money(invTotal)} but the fee on record is ${money(c.monthly_fee)} — ${diff>0?'over':'under'} by ${money(Math.abs(diff))}. Correct the fee here, or the invoice in Finances, so they agree.</div>`;
+  }
+  const invHtml=`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;overflow-x:auto">
+    <div class="row-name">Invoiced to the family — ${monthLabel(period)}</div>
+    ${invs.length?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px">
+      <thead><tr style="color:var(--muted);text-align:left;font-size:12px"><th style="padding:6px 8px">Invoice</th><th style="padding:6px 8px">Date</th><th style="padding:6px 8px">Description</th><th style="padding:6px 8px;text-align:right">Amount</th><th style="padding:6px 8px">Status</th></tr></thead>
+      <tbody>${invRows}</tbody>
+      <tfoot><tr style="font-weight:700;border-top:1px solid var(--line)"><td style="padding:6px 8px" colspan="3">Total invoiced</td><td style="padding:6px 8px;text-align:right">${money(invTotal)}</td><td></td></tr></tfoot>
+    </table>`:''}
+    ${check}
+  </div>`;
+
+  box.innerHTML=`<div class="rows">${recHtml}${splitHtml}${invHtml}</div>`;
+  const eb=document.getElementById('pfEdit');
+  if(eb) eb.onclick=()=>childFeeEditor(c,()=>renderChildPlan($('#view'),c));
 }
 
 /* ---------------------------------------------------------------------
