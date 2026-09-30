@@ -6358,9 +6358,10 @@ async function finPayApprovals(b){
   let nm={}; if(ids.length){ const {data:pf}=await sb.from('professionals').select('id,full_name').in('id',ids); (pf||[]).forEach(p=>nm[p.id]=p.full_name); }
   if(!pays||!pays.length){ b.innerHTML='<div class="empty" style="padding:24px"><h4>No unpaid professional pay</h4><p>Close a month in a child\'s Director review to approve pay.</p></div>'; return; }
   const waiting=pays.filter(p=>p.status!=='approved'), approved=pays.filter(p=>p.status==='approved');
-  b.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:10px">Every amount here can be edited by the director until it goes on a pay bill. Approved lines are picked up by "Bill professional pay".</div>
+  b.innerHTML=`<div class="row-sub" style="color:var(--muted);margin-bottom:10px">Every amount here can be edited by the director until it goes on a pay bill. When you're ready to pay, <b>Generate professional pay</b> turns the approved lines into one bill per professional per month (in Bills); record the payment against that bill and it goes into the cash book and marks the lines paid.</div>
     ${waiting.length?'<div class="section-head"><h3>Waiting for approval</h3></div><div class="rows" id="paWait"></div>':''}
-    ${approved.length?'<div class="section-head" style="margin-top:14px"><h3>Approved — not yet on a pay bill</h3></div><div class="rows" id="paApp"></div>':''}`;
+    ${approved.length?`<div class="section-head" style="margin-top:14px"><h3>Approved — not yet on a pay bill</h3>${isDirector()?'<button class="btn btn-primary btn-sm" id="paGen" style="width:auto">Generate professional pay</button>':''}</div><div class="rows" id="paApp"></div>`:''}`;
+  { const g=b.querySelector('#paGen'); if(g) g.onclick=async()=>{ await generateProfBills(); }; }
   const card=(p)=>{
     const st=p.status;
     const pill = st==='approved'?'<span class="pill active">Approved</span>'
