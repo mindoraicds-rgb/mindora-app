@@ -5703,7 +5703,7 @@ async function finOverview(b){
   // Cash position and receipts worked out entry by entry — the SAME rule as the cash book
   // (cash actually moved = base + VAT − WHT), so the two always agree.
   const cashPos=(tx||[]).reduce((a,t)=>a+(t.direction==='in'?1:-1)*cbCash(t),0);
-  const recd=(tx||[]).filter(t=>t.direction==='in').reduce((a,t)=>a+cbCash(t),0);
+  const recd=(tx||[]).filter(t=>t.direction==='in' && !isTransfer(t)).reduce((a,t)=>a+cbCash(t),0);   // transfers are not money received
   const viewDiff=(fin&&fin.cash_position!=null)?Math.round(Number(fin.cash_position)-cashPos):0;
   b.innerHTML=`<div class="grid fin-grid" style="margin-bottom:18px">
       <div class="fin pos"><div class="l">Cash position</div><div class="n">${money(cashPos)}</div></div>
@@ -5759,7 +5759,11 @@ function buildCashbook(txns){
       drT[k]=Math.max(open[k],0)+recT[k]+Math.max(-close[k],0);
       crT[k]=Math.max(-open[k],0)+payT[k]+Math.max(close[k],0);
     });
-    out.push({month:m, open, close, rec, pay, recT, payT, drT, crT});
+    const recReal=rec.filter(x=>!isTransfer(x.t)).reduce((a,x)=>a+x.amt,0), payReal=pay.filter(x=>!isTransfer(x.t)).reduce((a,x)=>a+x.amt,0);
+    const trf=pay.filter(x=>isTransfer(x.t)).reduce((a,x)=>a+x.amt,0);
+    // the other half of a transfer — to name the channel it came from / went to
+    const pairOf=t=>{ const o=(txns||[]).find(x=>x.transfer_id&&x.transfer_id===t.transfer_id&&x.id!==t.id); return o||t; };
+    out.push({month:m, open, close, rec, pay, recT, payT, drT, crT, recReal, payReal, trf, pairOf});
     bal=close;
   });
   return out;
@@ -5770,7 +5774,9 @@ function cashbookMonthHtml(M, accName){
   const amtCells=(ch,amt)=>CB_CH.map(([k])=>`<td class="cb-n">${k===ch?money(amt):''}</td>`).join('');
   const balCells=(obj,sign)=>CB_CH.map(([k])=>{ const v=sign>0?Math.max(obj[k],0):Math.max(-obj[k],0); return `<td class="cb-n cb-b">${money(v)}</td>`; }).join('');
   const anyPos=o=>CB_CH.some(([k])=>o[k]>0), anyNeg=o=>CB_CH.some(([k])=>o[k]<0);
-  const part=x=>{ const t=x.t; const bits=[t.party, t.description].filter(Boolean).join(' — ');
+  const part=x=>{ const t=x.t;
+    if(isTransfer(t)) return `<b>Contra — ${t.direction==='in'?'from':'to'} ${escapeHtml(((CB_CH.find(c=>c[0]===cbChannel(M.pairOf(t)))||['',''])[1])||'own account')}</b> <span class="cb-c">C</span>${t.reference?'<br><span class="cb-sub">'+escapeHtml(t.reference)+'</span>':''}`;
+    const bits=[t.party, t.description].filter(Boolean).join(' — ');
     const tax=(Number(t.vat_amount||0)||Number(t.wht_amount||0))?` <span class="cb-tax">(${Number(t.vat_amount||0)?'VAT '+Math.round(t.vat_amount).toLocaleString():''}${Number(t.vat_amount||0)&&Number(t.wht_amount||0)?', ':''}${Number(t.wht_amount||0)?'WHT '+Math.round(t.wht_amount).toLocaleString():''})</span>`:'';
     return `<b>${escapeHtml(accName(t.account_code)||'—')}</b>${bits?'<br><span class="cb-sub">'+escapeHtml(bits.slice(0,90))+'</span>':''}${tax}`; };
   const firstDay=fmtDate(M.month), lastDay=fmtDate(monthEndISO(M.month));
@@ -5792,7 +5798,7 @@ function cashbookMonthHtml(M, accName){
   const balanced=CB_CH.every(([k])=>Math.round(M.drT[k])===Math.round(M.crT[k]));
   return `<div class="cb-month">
     <div class="cb-mhead"><span class="cb-mname">${monthLabel(M.month)}</span>
-      <span class="cb-msum">Receipts ${Math.round(cbSum(M.recT)).toLocaleString()} · Payments ${Math.round(cbSum(M.payT)).toLocaleString()} · Closing balance <b>${Math.round(cbSum(M.close)).toLocaleString()}</b>${balanced?' <span class="cb-ok">✓ balances</span>':' <span class="cb-bad">✗ does not balance</span>'}</span></div>
+      <span class="cb-msum">Receipts ${Math.round(M.recReal).toLocaleString()} · Payments ${Math.round(M.payReal).toLocaleString()}${M.trf?' · Transfers '+Math.round(M.trf).toLocaleString()+' (C)':''} · Closing balance <b>${Math.round(cbSum(M.close)).toLocaleString()}</b>${balanced?' <span class="cb-ok">✓ balances</span>':' <span class="cb-bad">✗ does not balance</span>'}</span></div>
     <div class="cb-scroll"><table class="cb-table">
       <thead><tr><th colspan="${3+CB_CH.length}" class="cb-side">Dr — Receipts</th><th class="cb-mid"></th><th colspan="${3+CB_CH.length}" class="cb-side">Cr — Payments</th></tr>
         <tr><th>Date</th><th>Particulars</th><th>Ref</th>${head}<th class="cb-mid"></th><th>Date</th><th>Particulars</th><th>Ref</th>${head}</tr></thead>
@@ -5815,7 +5821,7 @@ const CB_CSS=`.cb-month{margin:0 0 22px}
 .cb-b{font-weight:700}
 .cb-totrow td{border-top:2px solid #1A1A2E;border-bottom:3px double #1A1A2E;font-weight:700;background:#FAF7FC}
 .cb-bd td{color:#3D1A5E}
-.cb-sub{color:#777;font-size:11px}.cb-tax{color:#8E44AD;font-size:11px}`;
+.cb-sub{color:#777;font-size:11px}.cb-c{display:inline-block;border:1px solid #6C3483;color:#6C3483;border-radius:4px;padding:0 4px;font-size:10px;font-weight:700;margin-left:4px}.cb-tax{color:#8E44AD;font-size:11px}`;
 
 function paintCashbookBook(box, txns){
   const accName=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
@@ -5834,7 +5840,7 @@ function paintCashbookBook(box, txns){
   const mb=box.querySelector('#cbMonths');
   [...book].reverse().forEach((M,i)=>{
     const det=document.createElement('details'); det.className='period-group'; if(i===0) det.open=true;
-    det.innerHTML=`<summary><span class="pg-label">${monthLabel(M.month)}</span><span class="pg-sub">In ${money(cbSum(M.recT))} · Out ${money(cbSum(M.payT))} · Closing ${money(cbSum(M.close))}</span><span class="pill band pg-count">${M.rec.length+M.pay.length} entr${M.rec.length+M.pay.length===1?'y':'ies'}</span></summary><div style="padding:6px 12px 12px">${cashbookMonthHtml(M,accName)}</div>`;
+    det.innerHTML=`<summary><span class="pg-label">${monthLabel(M.month)}</span><span class="pg-sub">In ${money(M.recReal)} · Out ${money(M.payReal)}${M.trf?' · Transfers '+money(M.trf):''} · Closing ${money(cbSum(M.close))}</span><span class="pill band pg-count">${M.rec.length+M.pay.length} entr${M.rec.length+M.pay.length===1?'y':'ies'}</span></summary><div style="padding:6px 12px 12px">${cashbookMonthHtml(M,accName)}</div>`;
     mb.appendChild(det);
   });
   box.querySelector('#cbPrint').onclick=()=>printCashbookDialog(book, accName);
@@ -5856,7 +5862,8 @@ function printCashbookDialog(book, accName){
     const sel=book.filter(M=>M.month>=a&&M.month<=b);
     const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to print.',true); return; }
     const co=(typeof COMPANY!=='undefined'&&COMPANY)||{};
-    const recT=cbZero(), payT=cbZero(); sel.forEach(M=>CB_CH.forEach(([k])=>{ recT[k]+=M.recT[k]; payT[k]+=M.payT[k]; }));
+    const recT=cbZero(), payT=cbZero(), trIn=cbZero(), trOut=cbZero();
+    sel.forEach(M=>{ M.rec.forEach(x=>{ (isTransfer(x.t)?trIn:recT)[x.ch]+=x.amt; }); M.pay.forEach(x=>{ (isTransfer(x.t)?trOut:payT)[x.ch]+=x.amt; }); });
     const pages=sel.map((M,i)=>`<section class="${i?'pb':''}">
       <div class="hd"><div><div class="org">Mindora Inclusive Child Development Services Co. Ltd</div><div class="tag">Cash Book</div></div>
         <div class="meta">${escapeHtml(monthLabel(M.month))}<br>Printed ${escapeHtml(fmtDate(localISO(new Date())))}</div></div>
@@ -5881,21 +5888,114 @@ function printCashbookDialog(book, accName){
         <tr><td>Opening balance (${escapeHtml(monthLabel(a))})</td>${CB_CH.map(([k])=>`<td>${Math.round(sel[0].open[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(sel[0].open)).toLocaleString()}</td></tr>
         <tr><td>Add: receipts</td>${CB_CH.map(([k])=>`<td>${Math.round(recT[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(recT)).toLocaleString()}</td></tr>
         <tr><td>Less: payments</td>${CB_CH.map(([k])=>`<td>${Math.round(payT[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(payT)).toLocaleString()}</td></tr>
+        <tr><td>Transfers in / (out) — contra</td>${CB_CH.map(([k])=>`<td>${Math.round(trIn[k]-trOut[k]).toLocaleString()}</td>`).join('')}<td>${Math.round(cbSum(trIn)-cbSum(trOut)).toLocaleString()}</td></tr>
         <tr><th>Closing balance (${escapeHtml(monthLabel(b))})</th>${CB_CH.map(([k])=>`<th>${Math.round(sel[sel.length-1].close[k]).toLocaleString()}</th>`).join('')}<th>${Math.round(cbSum(sel[sel.length-1].close)).toLocaleString()}</th></tr></table></div>
       <div class="sign"><div>Prepared by</div><div>Checked by</div><div>Approved — Director</div></div></section>
       </body></html>`);
     w.document.close(); close();
   };
 }
+/* =====================================================================
+   TRANSFERS between Mindora's own channels (contra entries)
+   Saved as two linked rows: 'out' of one channel, 'in' to another,
+   is_transfer = true, same transfer_id, no account category. A charge
+   (bank / mobile-money fee) is a separate, ordinary expense entry.
+   ===================================================================== */
+function isTransfer(t){ return !!(t && (t.is_transfer || t.transfer_id)); }
+function transferForm(pair){
+  pair=pair||null; const edit=!!pair;
+  const outRow=edit?pair.find(x=>x.direction==='out'):null, inRow=edit?pair.find(x=>x.direction==='in'):null;
+  const today=localISO(new Date());
+  const chOpts=sel=>CB_CH.map(([k,l])=>`<option value="${k}" ${k===sel?'selected':''}>${l}</option>`).join('');
+  const feeAcct=(ACCOUNTS.find(a=>a.type==='expense'&&/bank|charge|fee|commission/i.test(a.name))||ACCOUNTS.find(a=>a.type==='expense')||{}).code||'';
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:520px">
+    <h3>${edit?'Transfer':'Transfer between cash, bank & mobile money'}</h3>
+    <div class="sub">Money moving between Mindora's own accounts — for example cash deposited to the bank. It is not income or an expense: the cash book shows it on both sides as a contra entry (C), and the total cash stays the same.</div>
+    <div class="form-row two">
+      <div><label>From</label><select id="tr_from">${chOpts(edit?cbChannel(outRow):'cash')}</select></div>
+      <div><label>To</label><select id="tr_to">${chOpts(edit?cbChannel(inRow):'bank')}</select></div>
+    </div>
+    <div class="form-row two">
+      <div><label>Amount moved (UGX)</label><input id="tr_amt" type="number" min="0" value="${edit?Math.round(cbCash(outRow)):''}"/></div>
+      <div><label>Date</label><input id="tr_date" type="date" value="${edit?String(outRow.txn_date).slice(0,10):today}"/></div>
+    </div>
+    ${edit?'':`<div class="form-row two">
+      <div><label>Charge / fee (UGX) <span style="color:var(--muted);font-weight:400">— optional</span></label><input id="tr_fee" type="number" min="0" placeholder="0"/></div>
+      <div><label>Charge recorded as</label><select id="tr_feeAcct">${acctOptions(['expense'],feeAcct)}</select></div>
+    </div>`}
+    <div class="form-row"><label>Reference (deposit slip / transaction ID)</label><input id="tr_ref" value="${edit?escapeHtml(outRow.reference||''):''}"/></div>
+    <div class="form-row"><label>Note</label><input id="tr_note" value="${edit?escapeHtml((outRow.description||'').replace(/^Transfer[^—]*(—\s*)?/,'').replace(/\s*\(C\)$/,'')):''}" placeholder="e.g. Week's fees banked"/></div>
+    <div id="tr_prev" class="row-sub" style="white-space:normal;margin:4px 0 10px"></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="tr_cancel">Cancel</button><button class="btn btn-primary" id="tr_save">${edit?'Save changes':'Record transfer'}</button></div>
+    ${edit?'<button class="btn" id="tr_del" style="width:100%;margin-top:10px;color:var(--danger)">Delete this transfer (both sides)</button>':''}
+  </div></div>`);
+  document.body.appendChild(m);
+  const q=s=>m.querySelector(s); const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
+  q('#tr_cancel').onclick=close;
+  const lab=k=>(CB_CH.find(x=>x[0]===k)||[k,k])[1];
+  const prev=()=>{ const f=q('#tr_from').value, t=q('#tr_to').value, a=Number(q('#tr_amt').value||0), fee=q('#tr_fee')?Number(q('#tr_fee').value||0):0;
+    q('#tr_prev').innerHTML= f===t?'<span style="color:var(--coral)">From and To must be different.</span>'
+      : a>0?`${lab(f)} goes down by <b>${money(a+fee)}</b>${fee?` (${money(a)} moved + ${money(fee)} charge)`:''} · ${lab(t)} goes up by <b>${money(a)}</b>.${fee?` The ${money(fee)} charge is recorded as an expense.`:' Total cash is unchanged.'}`:''; };
+  ['#tr_from','#tr_to','#tr_amt','#tr_fee'].forEach(s=>{ const x=q(s); if(x){ x.addEventListener('input',prev); x.addEventListener('change',prev);} }); prev();
+  if(edit) q('#tr_del').onclick=async()=>{
+    if(!confirm('Delete this transfer? Both sides are removed.')) return;
+    const ids=pair.map(x=>x.id);
+    const {error}=await sb.from('transactions').delete().in('id',ids);
+    if(error){ toast(error.message,true); return; }
+    toast('Transfer deleted'); close(); renderFinances($('#view'));
+  };
+  q('#tr_save').onclick=async()=>{
+    const f=q('#tr_from').value, t=q('#tr_to').value, amt=Math.round(Number(q('#tr_amt').value||0)), date=q('#tr_date').value||today;
+    const fee=q('#tr_fee')?Math.round(Number(q('#tr_fee').value||0)):0;
+    if(f===t){ toast('From and To must be different.',true); return; }
+    if(!(amt>0)){ toast('Enter the amount moved.',true); return; }
+    if(fee<0){ toast('The charge cannot be negative.',true); return; }
+    const ref=q('#tr_ref').value.trim()||null, note=q('#tr_note').value.trim();
+    const desc=`Transfer ${lab(f)} → ${lab(t)}${note?' — '+note:''} (C)`;
+    const base={txn_date:date, gross_amount:amt, vat_amount:0, wht_amount:0, account_code:null, is_transfer:true, reference:ref, description:desc, party:'Mindora (own accounts)'};
+    const btn=q('#tr_save'); btn.disabled=true; btn.textContent='Saving…';
+    let error;
+    if(edit){
+      ({error}=await sb.from('transactions').update({...base, direction:'out', channel:f}).eq('id',outRow.id));
+      if(!error) ({error}=await sb.from('transactions').update({...base, direction:'in', channel:t}).eq('id',inRow.id));
+    } else {
+      const tid=(window.crypto&&window.crypto.randomUUID)?window.crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g,()=>Math.floor(Math.random()*16).toString(16));
+      const rows=[{...base, transfer_id:tid, direction:'out', channel:f, created_by:ME.id},
+                  {...base, transfer_id:tid, direction:'in',  channel:t, created_by:ME.id}];
+      if(fee>0) rows.push({txn_date:date, direction:'out', channel:f, gross_amount:fee, vat_amount:0, wht_amount:0,
+        account_code:q('#tr_feeAcct').value||null, reference:ref, description:`Charge on transfer ${lab(f)} → ${lab(t)}`, party:null, created_by:ME.id});
+      ({error}=await sb.from('transactions').insert(rows));
+    }
+    if(error){
+      const needSql=/is_transfer|transfer_id|account_code|null value/i.test(error.message);
+      toast(needSql?'Transfers need stage54.sql — run it in the Supabase SQL Editor, then try again.':error.message,true);
+      btn.disabled=false; btn.textContent=edit?'Save changes':'Record transfer'; return;
+    }
+    toast(edit?'Transfer updated':'Transfer recorded'); close(); renderFinances($('#view'));
+  };
+}
 async function finCashbook(b){
   await loadAccounts();
   const {data}=await sb.from('transactions').select('*').order('txn_date',{ascending:false}).order('created_at',{ascending:false});
-  b.innerHTML=`<div class="section-head"><h3>Entries</h3><button class="btn btn-primary btn-sm" id="newTxn">+ Record</button></div><div class="rows" id="txnRows"></div><div id="cbBook"></div>`;
+  b.innerHTML=`<div class="section-head"><h3>Entries</h3><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="newTrf" style="width:auto">⇄ Transfer</button><button class="btn btn-primary btn-sm" id="newTxn">+ Record</button></div></div><div class="rows" id="txnRows"></div><div id="cbBook"></div>`;
+  $('#newTrf').onclick=()=>transferForm();
   paintCashbookBook($('#cbBook'), data||[]);
   $('#newTxn').onclick=()=>txnForm();
   const rows=$('#txnRows');
   if(!data||!data.length){rows.innerHTML=`<div class="empty"><h4>No transactions yet</h4><p>Record your first receipt or payment.</p></div>`;return;}
+  const pairOf=t=>t.transfer_id?(data||[]).filter(x=>x.transfer_id===t.transfer_id):[t];
   const cardFor=(t)=>{
+    if(isTransfer(t)){
+      const pr=pairOf(t), o=pr.find(x=>x.direction==='out')||t, i=pr.find(x=>x.direction==='in')||t;
+      const lab=k=>(CB_CH.find(x=>x[0]===cbChannel({channel:k}))||['',k])[1];
+      const card=el(`<div class="row-card">
+        <div class="row-ava" style="background:#EDE0F5;color:#6C3483">⇄</div>
+        <div class="row-main"><div class="row-name">Transfer: ${escapeHtml(lab(o.channel))} → ${escapeHtml(lab(i.channel))} <span class="pill band" style="margin-left:4px">C</span></div>
+        <div class="row-sub">${fmtDate(o.txn_date)}${o.reference?' · '+escapeHtml(o.reference):''} · not income or expense${pr.length<2?' · <span style="color:var(--coral)">other side missing</span>':''}</div></div>
+        <div style="font-weight:700;color:#6C3483">${money(cbCash(o))}</div></div>`);
+      card.addEventListener('click',()=>transferForm(pr.length===2?pr:[o,i]));
+      return card;
+    }
   const accName=c=>{const a=ACCOUNTS.find(x=>x.code===c);return a?a.name:(c||'');};
     const vat=Number(t.vat_amount||0), wht=Number(t.wht_amount||0);
     const cash=Number(t.gross_amount||0)+vat-wht;
@@ -5909,7 +6009,8 @@ async function finCashbook(b){
     card.addEventListener('click',()=>txnForm(t));
     return card;
   };
-  mndRenderGrouped(rows, mndPeriodGroups(data, x=>x.txn_date, null), cardFor, 'entr');
+  const listed=(data||[]).filter(t=>!(t.transfer_id && t.direction==='in' && (data||[]).some(x=>x.transfer_id===t.transfer_id && x.direction==='out')));   // one card per transfer
+  mndRenderGrouped(rows, mndPeriodGroups(listed, x=>x.txn_date, null), cardFor, 'entr');
 }
 async function finTaxes(b){
   const {data:s}=await sb.from('v_tax_summary').select('*').single();
@@ -5933,6 +6034,7 @@ async function finTaxes(b){
   $('#remWht').onclick=()=>txnForm(null,{direction:'out',account_code:'2300'});
 }
 function txnForm(t,preset){
+  if(t && isTransfer(t)){ return sb.from('transactions').select('*').eq('transfer_id',t.transfer_id).then(({data})=>transferForm((data&&data.length)?data:[t])); }
   t=t||null; preset=preset||null; const edit=!!t;
   const today=localISO(new Date());
   const sel=(val,opt)=>val===opt?'selected':'';
@@ -6702,7 +6804,7 @@ function rowsToTable(rows){ // rows: [{label, value, bold, head}]
 }
 function drawReport(){
   const {fromS,toS}=reportRange();
-  const inRange=ALLTXNS.filter(t=>t.txn_date>=fromS && t.txn_date<=toS);
+  const inRange=ALLTXNS.filter(t=>t.txn_date>=fromS && t.txn_date<=toS && !isTransfer(t));   // transfers are neither income nor expense
   LAST_PERIOD=`${fmtDate(fromS)} — ${fmtDate(toS)}`;
   let rows=[], csv=[['Mindora',REPORT_TYPE.toUpperCase(),LAST_PERIOD],[]];
   if(REPORT_TYPE==='pnl'){
