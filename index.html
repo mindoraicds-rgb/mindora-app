@@ -3799,8 +3799,8 @@ async function renderAccess(v){
     const card=el(`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:10px">
       <div style="display:flex;align-items:center;gap:12px">
         <div class="row-ava">${initials(p.full_name||p.email)}</div>
-        <div class="row-main"><div class="row-name">${escapeHtml(p.full_name||'—')}</div><div class="row-sub">${escapeHtml(p.email||'')}</div></div>
-        <select class="roleSel" style="padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff">
+        <div class="row-main"><div class="row-name">${escapeHtml(p.full_name||'—')}${p.id===ME.id?' <span class="pill band" style="margin-left:4px">You</span>':''}</div><div class="row-sub">${escapeHtml(p.email||'')}${p.id===ME.id?' · your own role can only be changed in Supabase':''}</div></div>
+        <select class="roleSel" style="padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff" ${p.id===ME.id?'disabled title="You cannot change your own role"':''}>
           <option value="">— no access —</option>
           ${ROLE_OPTS.map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${r}</option>`).join('')}
         </select>
@@ -3815,8 +3815,14 @@ async function renderAccess(v){
     const chk=card.querySelector('.roChk');
     sel.addEventListener('change',async()=>{
       const newRole=sel.value||null;
+      if(p.id===ME.id){ sel.value=p.role||''; toast('You cannot change your own role here.',true); return; }
+      // never leave Mindora without a director
+      if(p.role==='director' && newRole!=='director' && (data||[]).filter(x=>x.role==='director').length<=1){
+        sel.value=p.role; toast('This is the only director login — make another person director first.',true); return; }
+      if(!confirm(`Change ${p.full_name||p.email||'this person'} from "${p.role||'no access'}" to "${newRole||'no access'}"? They will see a different portal next time they sign in.`)){ sel.value=p.role||''; return; }
       const {error}=await sb.from('profiles').update({role:newRole}).eq('id',p.id);
-      if(error){toast(error.message,true);return;}
+      if(error){toast(error.message,true);sel.value=p.role||'';return;}
+      p.role=newRole;
       flagWrap.style.display = newRole==='secretary' ? 'flex' : 'none';
       toast('Access updated');
     });
