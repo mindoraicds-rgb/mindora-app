@@ -3195,6 +3195,7 @@ async function renderProChild(v,c){
         <div class="qa" id="qaSched">${icon('schedule')} Schedule</div>
         <div class="qa" id="qaChat">${icon('chat')} Care team chat</div>
         <div class="qa" id="qaReview">${icon('assign')} Monthly clinical review</div>
+        <div class="qa" id="qaReviewTerm">${icon('assign')} Termly clinical review</div>
       </div>
     </div>
 
@@ -3216,6 +3217,7 @@ async function renderProChild(v,c){
   $('#qaGoals').onclick=()=>{SELECTED_CHILD=c;go('child_goals');};
   { const _qp=$('#qaProgress'); if(_qp) _qp.onclick=()=>{SELECTED_CHILD=c;go('child_progress');}; }
   $('#qaReview').onclick=()=>opFormModal('review',{client_id:c.id,client_name:c.full_name,professional_id:MY_PROF_ID,after:()=>toast('Review saved')});
+  { const qt=$('#qaReviewTerm'); if(qt) qt.onclick=()=>opFormModal('review_term',{client_id:c.id,client_name:c.full_name,professional_id:MY_PROF_ID,after:()=>toast('Termly review saved')}); }
   { const _qap=$('#qaAssessP'); if(_qap) _qap.onclick=()=>{SELECTED_CHILD=c;go('child_assessments');}; }
 
   const terms=await mndTermsForGrouping(c);
@@ -3987,6 +3989,7 @@ async function sessionDetail(s, c){
     <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       ${canEditNow?'<button class="btn btn-ghost" id="sd_edit" style="width:auto">Edit session</button>':''}
       ${canAddendum?'<button class="btn btn-ghost" id="sd_add" style="width:auto">Add a correction</button>':''}
+      ${isDirector()?'<button class="btn btn-ghost" id="sd_arch" style="width:auto;color:var(--danger)">Archive this session</button>':''}
       <button class="btn btn-primary" id="sd_close">Close</button>
     </div>
     <div id="sd_feedbackWrap"></div>
@@ -3998,6 +4001,14 @@ async function sessionDetail(s, c){
   if(eb) eb.onclick=()=>{ close(); sessionEditForm(s,c,staffEditor&&!isAuthor); };
   const ab=m.querySelector('#sd_add');
   if(ab) ab.onclick=()=>{ addendumForm(s,c,()=>{ close(); reopenSession(s,c); }); };
+  const ar=m.querySelector('#sd_arch');
+  if(ar) ar.onclick=async()=>{
+    const reason=prompt('Archive this session? It disappears from every screen and count (you can restore it from "Sessions — start afresh" on the child\'s page).\n\nReason:');
+    if(reason===null) return; if(!reason.trim()){ toast('A reason is required.',true); return; }
+    const {data:n,error}=await sb.rpc('mnd_archive_sessions',{p_client:c.id,p_through:String(s.session_date).slice(0,10),p_reason:reason.trim(),p_session:String(s.id)});
+    if(error){ toast(/mnd_archive_sessions|function/i.test(error.message)?'Run stage55.sql first to enable archiving.':error.message,true); return; }
+    toast(n?'Session archived':'Nothing archived'); close(); go(currentView);
+  };
   renderSessionFeedback(m.querySelector('#sd_feedbackWrap'), s, c);
 }
 
@@ -6887,7 +6898,7 @@ function printReport(){
 }
 
 /* ---------- FORM PDF (print-to-PDF for operational forms) ---------- */
-const FORM_TITLES={intake:'Intake & Referral',eligibility:'Eligibility & Scope',band_alloc:'Band Allocation',review:'Monthly Program Review',exit:'Case Exit & Transition',safeguard:'Safeguarding Incident Report (MND-REC-10)',parent_inst_comm:'Parent–Institution Communication',svc_units:'Monthly Service Units'};
+const FORM_TITLES={review_term:'Termly Clinical Review',intake:'Intake & Referral',eligibility:'Eligibility & Scope',band_alloc:'Band Allocation',review:'Monthly Program Review',exit:'Case Exit & Transition',safeguard:'Safeguarding Incident Report (MND-REC-10)',parent_inst_comm:'Parent–Institution Communication',svc_units:'Monthly Service Units'};
 function prettyKey(k){ return String(k||'').replace(/_/g,' ').replace(/\b\w/g,ch=>ch.toUpperCase()); }
 function formBodyHTML(f){
   const d=f.data||{};
@@ -6901,6 +6912,23 @@ function formBodyHTML(f){
       <tr style="border-bottom:2px solid #6C3483"><th style="text-align:left;padding:6px 4px">Activity</th><th style="text-align:center;padding:6px 4px">Done</th><th style="text-align:center;padding:6px 4px">Target</th><th style="text-align:center;padding:6px 4px">Confirmed</th></tr>
       ${d.activities.map(a=>`<tr style="border-bottom:1px solid #eee"><td style="padding:6px 4px">${escapeHtml(a.label||a.key)}</td><td style="text-align:center;padding:6px 4px">${escapeHtml(String(a.done))}</td><td style="text-align:center;padding:6px 4px">${escapeHtml(String(a.target))}</td><td style="text-align:center;padding:6px 4px">${a.confirmed?'✓':'—'}</td></tr>`).join('')}
     </table></td></tr>`;
+  } else if(f.kind==='svc_units' && Array.isArray(d.lines)){
+    // Director review (month close): who was paid what, with the reason
+    const m=v=>'UGX '+Math.round(Number(v||0)).toLocaleString();
+    rows=`<tr><td style="padding:6px 0;color:#555">Month</td><td style="padding:6px 0;font-weight:600">${escapeHtml(d.month||'')}${d.term?' · '+escapeHtml(d.term):''}</td></tr>
+      <tr><td style="padding:6px 0;color:#555">Sessions counted</td><td style="padding:6px 0;font-weight:600">${escapeHtml(String(d.sessions||0))}</td></tr>
+      <tr><td style="padding:6px 0;color:#555;vertical-align:top">Reason / note</td><td style="padding:6px 0;white-space:pre-wrap">${escapeHtml(d.reason||'—')}</td></tr>
+      <tr><td colspan="2" style="padding-top:14px"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr style="border-bottom:2px solid #6C3483"><th style="text-align:left;padding:6px 4px">Professional</th><th style="text-align:center;padding:6px 4px">Sessions</th><th style="text-align:center;padding:6px 4px">Fulfilment</th><th style="text-align:right;padding:6px 4px">Suggested</th><th style="text-align:right;padding:6px 4px">Approved</th></tr>
+      ${d.lines.map(l=>`<tr style="border-bottom:1px solid #eee"><td style="padding:6px 4px">${escapeHtml(l.name||'')}${(l.flags&&l.flags.length)?'<br><span style="color:#B7791F;font-size:11px">⚑ '+escapeHtml(l.flags.join(' · '))+'</span>':''}</td><td style="text-align:center;padding:6px 4px">${escapeHtml(String(l.sessions||0))}</td><td style="text-align:center;padding:6px 4px">${l.fulfilment==null?'—':escapeHtml(String(l.fulfilment))+'%'}</td><td style="text-align:right;padding:6px 4px">${m(l.suggested)}</td><td style="text-align:right;padding:6px 4px;font-weight:700">${m(l.amount)}</td></tr>`).join('')}
+    </table></td></tr>`;
+  } else if(FORM_DEFS[f.kind]){
+    // a defined form: print every field with its label, in order
+    const row=(label,val)=>`<tr><td style="padding:8px 0;color:#555;vertical-align:top;width:38%">${escapeHtml(label)}</td><td style="padding:8px 0;font-weight:500;white-space:pre-wrap">${escapeHtml(val==null||val===''?'—':String(val))}</td></tr>`;
+    FORM_DEFS[f.kind].fields.forEach(([k,label])=>{
+      rows+=row(label,d[k]);
+      if(k==='term' && d.term_start) rows+=row('Term dates', fmtDate(d.term_start)+' – '+fmtDate(d.term_end));
+    });
   } else {
     const keys=Object.keys(d);
     if(!keys.length){ rows='<tr><td style="padding:6px 0;color:#999">No details recorded.</td></tr>'; }
@@ -6941,6 +6969,85 @@ function printForm(f, childName){
   w.document.close(); w.focus();
   setTimeout(()=>{ try{ w.print(); }catch(e){} },350);
 }
+/* =====================================================================
+   SESSIONS — START AFRESH (director)
+   Archive a child's sessions up to a date (they move out of every screen
+   and count), restore an archived batch, or delete it permanently.
+   ===================================================================== */
+async function sessionArchiveModal(c, after){
+  if(!isDirector()){ toast('Only the director can archive sessions.',true); return; }
+  const m=el(`<div class="modal-bg show"><div class="modal" style="max-width:600px">
+    <h3>Sessions — start afresh</h3>
+    <div class="sub">${escapeHtml(c.full_name)}. Archived sessions are moved out of the child's records: they no longer appear anywhere — service plan, Director review, reports, the parent's view — and they stop counting toward targets. Their corrections, goals worked on and parent feedback move with them. You can restore an archived batch exactly as it was, or delete it permanently.</div>
+    <div id="saBody"><div class="row-sub" style="padding:8px;color:var(--muted)">Loading…</div></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="saClose">Close</button></div>
+  </div></div>`);
+  document.body.appendChild(m);
+  let changed=false;
+  const close=()=>{ m.remove(); if(changed&&typeof after==='function') after(c); };
+  m.addEventListener('click',e=>{if(e.target===m)close();}); m.querySelector('#saClose').onclick=close;
+  const body=m.querySelector('#saBody');
+  const paint=async()=>{
+    const [{data:live},arch]=await Promise.all([
+      sb.from('session_logs').select('id,session_date').eq('client_id',c.id).order('session_date'),
+      sb.from('session_logs_archive').select('batch_id,session_date,reason,archived_at').eq('client_id',c.id).order('session_date')
+    ]);
+    if(arch.error){ body.innerHTML=`<div class="as-flag">Archiving isn't switched on yet. Run <b>stage55.sql</b> in the Supabase SQL Editor, then try again.</div>`; return; }
+    const L=(live||[]).map(x=>String(x.session_date).slice(0,10)).filter(Boolean);
+    const byM={}; L.forEach(d=>{ const k=d.slice(0,7)+'-01'; byM[k]=(byM[k]||0)+1; });
+    const batches={}; (arch.data||[]).forEach(a=>{ const b=(batches[a.batch_id]=batches[a.batch_id]||{id:a.batch_id,n:0,from:null,to:null,reason:a.reason,at:a.archived_at});
+      b.n++; const d=String(a.session_date||'').slice(0,10); if(d){ if(!b.from||d<b.from) b.from=d; if(!b.to||d>b.to) b.to=d; } });
+    const B=Object.values(batches).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+    const today=localISO(new Date());
+    body.innerHTML=`
+      <div class="section-head" style="margin-top:6px"><h3>Live sessions — ${L.length}</h3></div>
+      ${L.length?`<div class="row-sub" style="white-space:normal">${Object.keys(byM).sort().map(k=>`${monthLabel(k)}: ${byM[k]}`).join(' · ')}</div>`:'<div class="row-sub">No live sessions — this child is starting fresh.</div>'}
+      ${L.length?`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px;margin-top:10px;border:1px solid var(--warn)">
+        <div class="row-name">Archive sessions</div>
+        <div class="form-row" style="margin:0"><label>Archive every session dated on or before</label><input type="date" id="saThrough" value="${L[L.length-1]>today?L[L.length-1]:today}"/></div>
+        <div class="row-sub" id="saCount"></div>
+        <div class="form-row" style="margin:0"><label>Reason (kept with the archive)</label><textarea id="saReason" style="min-height:64px" placeholder="e.g. Restarting the program after re-assessment in October 2026; earlier sessions were from the trial period."></textarea></div>
+        <div><button class="btn btn-primary" id="saGo" style="width:auto">Archive sessions</button></div>
+      </div>`:''}
+      <div class="section-head" style="margin-top:18px"><h3>Archived batches</h3></div>
+      ${B.length?B.map(b=>`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;margin-bottom:8px">
+        <div class="row-name">${b.n} session${b.n===1?'':'s'} · ${b.from?fmtDate(b.from)+(b.to&&b.to!==b.from?' – '+fmtDate(b.to):''):''}</div>
+        <div class="row-sub" style="white-space:normal">Archived ${fmtDate(String(b.at).slice(0,10))}${b.reason?' · '+escapeHtml(b.reason):''}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm saRestore" data-b="${b.id}" style="width:auto">Restore</button>
+          <button class="btn btn-ghost btn-sm saPurge" data-b="${b.id}" data-n="${b.n}" style="width:auto;color:var(--danger)">Delete permanently</button></div></div>`).join('')
+        :'<div class="row-sub">Nothing archived for this child.</div>'}`;
+    const th=body.querySelector('#saThrough');
+    if(th){
+      const cnt=()=>{ const n=L.filter(d=>d<=th.value).length; body.querySelector('#saCount').innerHTML=th.value?`<b>${n}</b> of ${L.length} session${L.length===1?'':'s'} will be archived${n===L.length?' — the child starts with a clean record':''}.`:''; return n; };
+      th.oninput=cnt; th.onchange=cnt; cnt();
+      body.querySelector('#saGo').onclick=async()=>{
+        const n=cnt(), reason=body.querySelector('#saReason').value.trim();
+        if(!n){ toast('No sessions on or before that date.',true); return; }
+        if(!reason){ toast('Give the reason for archiving.',true); return; }
+        if(!confirm(`Archive ${n} session${n===1?'':'s'} for ${c.full_name}? They will disappear from every screen. You can restore them later.`)) return;
+        const btn=body.querySelector('#saGo'); btn.disabled=true; btn.textContent='Archiving…';
+        const {data:done,error}=await sb.rpc('mnd_archive_sessions',{p_client:c.id,p_through:th.value,p_reason:reason,p_session:null});
+        if(error){ toast(error.message,true); btn.disabled=false; btn.textContent='Archive sessions'; return; }
+        changed=true; toast(`${done} session${done===1?'':'s'} archived`); paint();
+      };
+    }
+    body.querySelectorAll('.saRestore').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Restore this batch? The sessions come back exactly as they were.')) return;
+      const {data:done,error}=await sb.rpc('mnd_restore_session_batch',{p_batch:b.dataset.b});
+      if(error){ toast(error.message,true); return; }
+      changed=true; toast(`${done} session${done===1?'':'s'} restored`); paint();
+    });
+    body.querySelectorAll('.saPurge').forEach(b=>b.onclick=async()=>{
+      const typed=prompt(`Permanently delete ${b.dataset.n} archived session${b.dataset.n==='1'?'':'s'}? This cannot be undone.\n\nType DELETE to confirm:`);
+      if(typed!=='DELETE'){ if(typed!==null) toast('Not deleted — you must type DELETE.',true); return; }
+      const {data:done,error}=await sb.rpc('mnd_purge_session_batch',{p_batch:b.dataset.b});
+      if(error){ toast(error.message,true); return; }
+      changed=true; toast(`${done} session${done===1?'':'s'} permanently deleted`); paint();
+    });
+  };
+  paint();
+}
+
 /* ---------- STAFF CHILD DETAIL ---------- */
 async function renderStaffChild(v,c){
   if(!c){ go('clients'); return; }
@@ -6974,6 +7081,7 @@ async function renderStaffChild(v,c){
         <div class="qa" id="qaReview" style="border-color:var(--accent)">${icon('schedule')} Director review — work &amp; pay${(!c.prof_unit_rate&&!c.monthly_fee)?' <span class="pill assessment" style="margin-left:4px">fees not set</span>':''}</div>
         <div class="qa" id="qaBandFees">${icon('plan')} Band &amp; fees</div>
         ${c.billing_cycle==='termly'?`<div class="qa" id="qaTerms">${icon('schedule')} Terms</div>`:''}
+        ${isDirector()?`<div class="qa" id="qaArchive">${icon('schedule')} Sessions — start afresh</div>`:''}
       </div>`:(c.billing_cycle==='termly'&&canEditPlan()?`<div class="qa-group-h">Terms</div><div class="qa-row"><div class="qa" id="qaTerms">${icon('schedule')} Terms</div></div>`:'')}
       <div class="qa-group-h">Reports &amp; records</div>
       <div class="qa-row">
@@ -7001,6 +7109,7 @@ async function renderStaffChild(v,c){
       <div class="qa" data-form="eligibility">Eligibility & scope</div>
       <div class="qa" data-form="band_alloc">Band allocation</div>
       <div class="qa" data-form="review">Monthly clinical review</div>
+      <div class="qa" data-form="review_term">Termly clinical review</div>
       <div class="qa" data-form="exit">Case exit</div>
       <div class="qa" data-form="safeguard" style="color:var(--danger);border-color:#F3C9CB">Safeguarding incident</div>
     </div>
@@ -7034,7 +7143,8 @@ async function renderStaffChild(v,c){
   { const _refresh=(fresh)=>renderStaffChild($('#view'),fresh||c);
     const bf=$('#qaBandFees'); if(bf) bf.onclick=()=>childFeeEditor(c,_refresh);
     const qt=$('#qaTerms'); if(qt) qt.onclick=()=>childTermsEditor(c,_refresh);
-    const rv=$('#qaReview'); if(rv) rv.onclick=()=>{ SELECTED_CHILD=c; REVIEW_MONTH=null; go('child_review'); }; }
+    const rv=$('#qaReview'); if(rv) rv.onclick=()=>{ SELECTED_CHILD=c; REVIEW_MONTH=null; go('child_review'); };
+    const qa=$('#qaArchive'); if(qa) qa.onclick=()=>sessionArchiveModal(c,_refresh); }
   v.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>opFormModal(b.dataset.form,{client_id:c.id,client_name:c.full_name,after:()=>renderStaffChild($('#view'),c)}));
 
   // --- Care team: active + past professionals, with end / reactivate ---
@@ -7826,8 +7936,8 @@ async function autoDraftSection(clientId, professionalId, pstart, pend, tmpl){
   // latest monthly review for this child+professional feeds the report too
   let reviewNote='';
   try{
-    const {data:rv}=await sb.from('op_forms').select('*').eq('client_id',clientId).eq('kind','review').order('created_at',{ascending:false}).limit(1);
-    if(rv&&rv[0]&&rv[0].data){ const d=rv[0].data; reviewNote=[d.progress,d.summary,d.notes,d.review_note].filter(Boolean).join('\n'); }
+    const {data:rv}=await sb.from('op_forms').select('*').eq('client_id',clientId).in('kind',['review','review_term']).order('created_at',{ascending:false}).limit(1);
+    if(rv&&rv[0]&&rv[0].data){ const d=rv[0].data; reviewNote=[d.progress,d.summary,d.notes,d.review_note,d.recommendations].filter(Boolean).join('\n'); }
   }catch(e){}
   const sessions=ss||[];
   const summaries=sessions.filter(s=>s.summary).map(s=>`• ${fmtDate(s.session_date)}: ${s.summary}`);
@@ -9200,14 +9310,62 @@ const FORM_DEFS={
   eligibility:{title:'Eligibility & scope',fields:[['eligible','Eligible? (yes/no/needs review)'],['scope','Agreed scope','area'],['exclusions','Out of scope','area'],['notes','Notes','area']]},
   band_alloc:{title:'Band allocation',fields:[['proposed_band','Proposed band (1-4)'],['rationale','Rationale','area'],['review_date','Next review date']]},
   review:{title:'Monthly program review',fields:[['period','Month reviewed'],['progress','Progress summary','area'],['concerns','Concerns','area'],['adjustments','Adjustments to plan','area'],['next','Next steps','area']]},
+  review_term:{title:'Termly clinical review',fields:[['term','Term reviewed'],['attendance','Attendance & sessions this term','area'],['progress','Progress against goals','area'],['school','School / classroom observations','area'],['home','Home carry-over & family engagement','area'],['concerns','Concerns','area'],['recommendations','Recommendations for next term (goals, intensity, band, referrals)','area'],['next','Agreed next steps & who does what','area']]},
   exit:{title:'Case exit & transition',fields:[['reason','Reason for exit'],['summary','Summary of work done','area'],['handover','Handover / onward referral','area'],['exit_date','Exit date']]},
   safeguard:{title:'Safeguarding incident (MND-REC-10)',fields:[['date','Date of incident'],['what','What happened','area'],['who','Who was involved','area'],['action','Action taken','area'],['reported_to','Reported to']]},
   parent_inst_comm:{title:'Parent–institution communication',fields:[['to','Message to (school / parent)'],['subject','Subject'],['message','Message','area']]},
 };
+/* Termly clinical review: pick the term (or type dates) and draft the
+   attendance and goal-progress sections from that term's records. */
+async function wireTermReview(m, ctx){
+  const q=s=>m.querySelector(s), sel=q('#of_term'), termF=m.querySelector('[data-f="term"]');
+  let terms=[];
+  try{ const {data}=await sb.from('child_terms').select('*').eq('client_id',ctx.client_id).order('start_date',{ascending:false}); terms=data||[]; }catch(e){}
+  const today=localISO(new Date());
+  sel.innerHTML=(terms.length?terms.map(t=>`<option value="${t.id}">${escapeHtml(t.label)} (${fmtDate(String(t.start_date).slice(0,10))} – ${fmtDate(String(t.end_date).slice(0,10))})</option>`).join(''):'')
+    +`<option value="">${terms.length?'Other dates…':'No terms set for this child — enter the dates'}</option>`;
+  // default: the term running now, else the most recent one that has started
+  const cur=terms.find(t=>String(t.start_date)<=today&&String(t.end_date)>=today)||terms.find(t=>String(t.start_date)<=today)||terms[0];
+  if(cur) sel.value=cur.id; else sel.value='';
+  const apply=()=>{ const t=terms.find(x=>x.id===sel.value);
+    if(t){ q('#of_t1').value=String(t.start_date).slice(0,10); q('#of_t2').value=String(t.end_date).slice(0,10); if(!termF.value||terms.some(x=>x.label===termF.value)) termF.value=t.label; } };
+  sel.onchange=apply; apply();
+  q('#of_draft').onclick=async()=>{
+    const t1=q('#of_t1').value, t2=q('#of_t2').value;
+    if(!t1||!t2||t2<t1){ toast('Set the term dates first.',true); return; }
+    q('#of_dmsg').textContent='Reading the term…';
+    let sq=sb.from('session_logs').select('*').eq('client_id',ctx.client_id).gte('session_date',t1).lte('session_date',t2).order('session_date');
+    let gq=sb.from('goals').select('*').eq('client_id',ctx.client_id);
+    if(ctx.professional_id){ sq=sq.eq('professional_id',ctx.professional_id); gq=gq.eq('professional_id',ctx.professional_id); }
+    const [{data:ss},{data:gs},{data:gp}]=await Promise.all([sq,gq,
+      sb.from('goal_progress').select('goal_id,score,recorded_on').eq('client_id',ctx.client_id).gte('recorded_on',t1).lte('recorded_on',t2).order('recorded_on')]);
+    const sess=(ss||[]).filter(x=>{const d=String(x.session_date).slice(0,10); return d>=t1&&d<=t2;});
+    const ACT={direct_session:['direct session','direct sessions'],caregiver:['caregiver guidance session','caregiver guidance sessions'],school_checkin:['school / teacher liaison','school / teacher liaisons'],coordination:['team meeting','team meetings'],documentation:['documentation entry','documentation entries']};
+    const by={}; sess.forEach(x=>{ const k=x.activity_key||'direct_session'; by[k]=(by[k]||0)+1; });
+    const mins=sess.reduce((a,x)=>a+Number(x.duration_minutes||0),0);
+    const att=`${sess.length} session${sess.length===1?'':'s'} logged between ${fmtDate(t1)} and ${fmtDate(t2)} (${Math.round(mins/6)/10} hours)${sess.length?': '+Object.keys(by).map(k=>by[k]+' '+(ACT[k]?ACT[k][by[k]===1?0:1]:k)).join(', '):''}.`;
+    const lines=(gs||[]).filter(g=>g.status!=='discontinued').map(g=>{
+      const pts=(gp||[]).filter(p=>p.goal_id===g.id);
+      const st=({not_started:'not started',active:'in progress',in_progress:'in progress',achieved:'achieved',modified:'modified'})[g.status]||g.status||'';
+      const mv=pts.length>1?` — scores ${pts[0].score} → ${pts[pts.length-1].score} this term`:pts.length===1?` — score ${pts[0].score} this term`:' — no progress scored this term';
+      return `• ${g.domain?g.domain+': ':''}${g.goal||'Goal'} (${st})${mv}`;
+    });
+    const af=m.querySelector('[data-f="attendance"]'), pf=m.querySelector('[data-f="progress"]');
+    let filled=0;
+    if(!af.value.trim()){ af.value=att; filled++; }
+    if(!pf.value.trim()){ pf.value=lines.length?lines.join('\n'):'No goals recorded for this child yet.'; filled++; }
+    q('#of_dmsg').textContent=filled?'Drafted — read it through and edit before submitting.':'Those sections already have text, so nothing was overwritten.';
+  };
+}
 function opFormModal(kind, ctx){ // ctx: {client_id, institution_id, professional_id}
   const def=FORM_DEFS[kind]; if(!def){toast('Unknown form',true);return;}
   const m=el(`<div class="modal-bg show"><div class="modal">
     <h3>${escapeHtml(def.title)}</h3><div class="sub">${ctx.client_name?'For '+escapeHtml(ctx.client_name):''}</div>
+    ${kind==='review_term'?`<div class="form-row" style="background:#FAF7FC;border:1px solid var(--line);border-radius:12px;padding:12px">
+      <label>Which term?</label><select id="of_term"><option value="">Loading terms…</option></select>
+      <div class="form-row two" style="margin:8px 0 0"><div><label>From</label><input type="date" id="of_t1"/></div><div><label>To</label><input type="date" id="of_t2"/></div></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" class="btn btn-ghost btn-sm" id="of_draft" style="width:auto">Draft from this term's sessions &amp; goals</button><span class="row-sub" id="of_dmsg"></span></div>
+    </div>`:''}
     ${def.fields.map(f=>f[2]==='area'
       ? `<div class="form-row"><label>${escapeHtml(f[1])}</label><textarea data-f="${f[0]}"></textarea></div>`
       : `<div class="form-row"><label>${escapeHtml(f[1])}</label><input data-f="${f[0]}"/></div>`).join('')}
@@ -9216,13 +9374,23 @@ function opFormModal(kind, ctx){ // ctx: {client_id, institution_id, professiona
   document.body.appendChild(m);
   const close=()=>m.remove(); m.addEventListener('click',e=>{if(e.target===m)close();});
   m.querySelector('#of_cancel').onclick=close;
+  if(kind==='review_term') wireTermReview(m, ctx);
   m.querySelector('#of_save').onclick=async()=>{
-    const btn=m.querySelector('#of_save');btn.disabled=true;btn.textContent='Submitting…';
+    const btn=m.querySelector('#of_save');
     const data={}; m.querySelectorAll('[data-f]').forEach(i=>data[i.dataset.f]=i.value.trim());
+    let period=kind==='review'?thisMonthISO():null;
+    if(kind==='review_term'){
+      const t1=m.querySelector('#of_t1').value, t2=m.querySelector('#of_t2').value;
+      if(!t1||!t2||t2<t1){ toast('Choose the term, or enter its first and last day.',true); return; }
+      if(!data.term){ toast('Give the term a name (e.g. Term 3 2026).',true); return; }
+      data.term_id=m.querySelector('#of_term').value||null; data.term_start=t1; data.term_end=t2;
+      period=t1.slice(0,7)+'-01';
+    }
+    btn.disabled=true;btn.textContent='Submitting…';
     const {error}=await sb.from('op_forms').insert({
       kind, client_id:ctx.client_id||null, institution_id:ctx.institution_id||null,
-      professional_id:ctx.professional_id||null, period_month: kind==='review'?thisMonthISO():null,
-      title:def.title, data, created_by:ME.id });
+      professional_id:ctx.professional_id||null, period_month: period,
+      title:kind==='review_term'?(def.title+' — '+data.term):def.title, data, created_by:ME.id });
     if(error){toast(error.message,true);btn.disabled=false;btn.textContent='Submit';return;}
     toast(def.title+' submitted'); close();
     if(typeof ctx.after==='function') ctx.after();
