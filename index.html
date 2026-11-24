@@ -341,6 +341,9 @@ details.clin-fold .fold-body{padding:14px 15px 4px}
 .period-group .pg-sub{font-weight:500;font-size:12.5px;color:var(--muted);flex:1}
 .period-group .pg-count{margin-left:auto}
 .period-group .pg-rows{padding:0 10px 10px}
+.as-earlier{margin:4px 0 6px;padding:7px 10px;background:#EAF7F3;border-left:3px solid var(--teal);border-radius:6px;font-size:12.5px;color:#1f4f44}
+.as-earlier>div+div{margin-top:4px}
+.as-earlier .asUse{margin-left:6px;border:1px solid var(--teal);background:#fff;color:#0F6E56;border-radius:999px;padding:1px 9px;font-size:11.5px;font-weight:700;cursor:pointer}
 .qa-group-h{font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:14px 2px 6px}
 #childTiles .qa-row{margin:0 0 8px}
 #childTiles{margin-bottom:18px}
@@ -11106,8 +11109,8 @@ function asFlags(protoRows){
    NARRATIVE GENERATION
    Turns the responses into descriptive clinical prose, section by section.
 --------------------------------------------------------------------- */
-function asNarrative(def, responses){
-  const R=responses||{};
+function asNarrative(def, responses, opt){
+  const R=responses||{}; opt=opt||{};
   const paras=[];
 
   (def.sections||[]).forEach(sec=>{
@@ -11153,7 +11156,7 @@ function asNarrative(def, responses){
           vals.push(stem+': '+v+(it.u?' '+it.u:''));
           break;
         case 'T':
-          if(String(v).trim()) texts.push(String(v).trim());
+          if(String(v).trim()) texts.push(stem+': '+String(v).trim());
           break;
       }
       if(r.n && String(r.n).trim()) notes.push(stem+' — '+String(r.n).trim());
@@ -11169,13 +11172,14 @@ function asNarrative(def, responses){
     if(hypo.length)      bits.push('Responses LESS than same-age peers were recorded for: '+hypo.join('; ')+'.');
     if(present.length)   bits.push('Present on examination: '+present.join('; ')+'.');
     if(vals.length)      bits.push(vals.join('. ')+'.');
-    if(texts.length)     bits.push(texts.join(' '));
+    if(texts.length)     bits.push(texts.join('\n'));
     if(notes.length)     bits.push('Clinician notes: '+notes.join('. ')+'.');
 
-    if(bits.length) paras.push(sec.s.toUpperCase()+'\n'+bits.join(' '));
+    if(bits.length) paras.push('#### '+sec.s+'\n'+bits.join('\n'));
   });
 
   if(!paras.length) return '';
+  if(opt.noHead) return paras.join('\n\n');
   const head=def.title+' ('+def.code+', v'+ASSESS_VERSION+') — a Mindora criterion-referenced protocol. '+
              'Findings are descriptive and criterion-referenced; they are not standardized scores.';
   return head+'\n\n'+paras.join('\n\n');
@@ -11189,119 +11193,278 @@ function asAgeStr(a){
   const y=a.age_years||0, m=a.age_months||0;
   return y+' years '+m+' months';
 }
+/* =====================================================================
+   REPORT ROUTING — where each answer belongs in the report
+   referral | background | procedures | conduct | impression | recs | findings
+   ===================================================================== */
+const AS_SYNTH_SEC=/synthesis|clinician observations/i;
+function asRole(def, sec, it){
+  const t=it.t||'';
+  if(def.code==='MND-HX-01'){
+    if(/^Referral/i.test(sec.s)) return 'referral';
+    if(it.c==='z2') return 'procedures';
+    if(it.c==='z3') return 'recs';
+    return 'background';
+  }
+  if(AS_SYNTH_SEC.test(sec.s)){
+    if(/validity|behaviou?r during|cooperation|representativ|sample context|context, length/i.test(t)) return 'conduct';
+    if(/recommend|referral|next steps|indicated\?/i.test(t)) return 'recs';
+    if(/additional observations|hearing and vision status|language\(s\) spoken/i.test(t)) return 'findings';
+    return 'impression';
+  }
+  return 'findings';
+}
+/* One answer as readable text, with its question. */
+function asAnswerText(it, r){
+  if(!asAnswered(r)) return '';
+  const stem=it.t.replace(/\s*\(.*?\)\s*$/,'').trim();
+  let val;
+  switch(it.ty){
+    case 'T': val=String(r.v).trim(); break;
+    case 'N': val=r.v+(it.u?' '+it.u:''); break;
+    case 'X': val=(r.v||[]).join('; '); break;
+    default:  val=asLabel(it,r.v);
+  }
+  return stem+': '+val+(r.n&&String(r.n).trim()?' ('+String(r.n).trim()+')':'');
+}
+/* Split one protocol's answers by report role. Findings keep the protocol's
+   section structure; the rest come back as labelled lines. */
+function asParts(def, R){
+  R=R||{};
+  const out={referral:[],background:[],procedures:[],conduct:[],impression:[],recs:[]};
+  const findSecs={sections:[]};
+  (def.sections||[]).forEach(sec=>{
+    const keep=[];
+    (sec.items||[]).forEach(it=>{
+      const role=asRole(def,sec,it);
+      if(role==='findings'){ keep.push(it); return; }
+      const txt=asAnswerText(it,R[it.c]); if(!txt) return;
+      // a lone free-text answer reads better without its question
+      const line = (it.ty==='T' && role!=='background' && role!=='referral') ? String(R[it.c].v).trim()+(R[it.c].n?' ('+String(R[it.c].n).trim()+')':'') : txt;
+      out[role].push({sec:sec.s, line, full:txt});
+    });
+    if(keep.length) findSecs.sections.push({s:sec.s, items:keep});
+  });
+  out.findings=asNarrative(Object.assign({},def,{sections:findSecs.sections}), R, {noHead:true});
+  return out;
+}
+
+/* ---------------------------------------------------------------------
+   REPEATED QUESTIONS — answers already given elsewhere in this assessment
+   target protocol/item  <-  source protocol/item(s)
+--------------------------------------------------------------------- */
+const AS_LINKS=[
+  {p:'MND-HRG-01',c:'d3', from:[['MND-HX-01','d3']]},
+  {p:'MND-HRG-01',c:'d1', from:[['MND-HX-01','d7']]},
+  {p:'MND-HRG-01',c:'d2', from:[['MND-HX-01','e3']]},
+  {p:'MND-HRG-01',c:'d4', from:[['MND-HX-01','a2']]},
+  {p:'MND-SEN-01',c:'z1', from:[['MND-HX-01','d3'],['MND-HX-01','d4'],['MND-HRG-01','d3']]},
+  {p:'MND-SPC-01',c:'z1', from:[['MND-HX-01','e2']]},
+  {p:'MND-FLU-01',c:'e1', from:[['MND-HX-01','a3'],['MND-HX-01','a4']]},
+  {p:'MND-FLU-01',c:'e2', from:[['MND-HX-01','e3']]},
+  {p:'MND-VOI-02',c:'e4', from:[['MND-HX-01','d1'],['MND-HX-01','d5'],['MND-HX-01','d6']]},
+  {p:'MND-FDG-01',c:'e3', from:[['MND-HX-01','d1'],['MND-HX-01','d5']]},
+  {p:'MND-LNG-01',c:'e5', from:[['MND-HX-01','a2']]},
+  {p:'MND-ADL-01',c:'f3', from:[['MND-HX-01','a2']]},
+  {p:'MND-MOT-01',c:'f3', from:[['MND-HX-01','a3'],['MND-HX-01','c7']]},
+  {p:'MND-DYS-01',c:'e3', from:[['MND-HX-01','d1']]},
+];
+// the four DSM-5 anchor questions are the same in the three learning profiles
+['f1','f2','f3','f4'].forEach(c=>['MND-SLD-01','MND-SLD-02','MND-SLD-03'].forEach(p=>
+  AS_LINKS.push({p,c,from:['MND-SLD-01','MND-SLD-02','MND-SLD-03'].filter(x=>x!==p).map(x=>[x,c])})));
+
+/* Earlier answers for each item of this protocol: {itemCode:[{label,text,r,same}]} */
+function asEarlierAnswers(def, siblings){
+  const out={};
+  const rowOf=code=>(siblings||[]).find(s=>s.protocol_code===code);
+  const add=(c,entry)=>{ (out[c]=out[c]||[]).push(entry); };
+  const myItems=asAllItems(def);
+  // explicit links
+  AS_LINKS.filter(l=>l.p===def.code).forEach(l=>{
+    const tgt=myItems.find(i=>i.c===l.c); if(!tgt) return;
+    l.from.forEach(([pc,ic])=>{
+      const row=rowOf(pc); if(!row) return; const sdef=asProto(pc); if(!sdef) return;
+      const sit=asAllItems(sdef).find(i=>i.c===ic); const r=(row.responses||{})[ic];
+      if(!sit||!asAnswered(r)) return;
+      add(l.c,{label:sdef.code==='MND-HX-01'?'Case history':sdef.title, text:asAnswerText(sit,r), r, same:sit.ty===tgt.ty&&(sit.ty!=='C'||JSON.stringify(sit.o)===JSON.stringify(tgt.o))});
+    });
+  });
+  // behaviour / cooperation / validity: asked in most protocols
+  myItems.forEach(it=>{
+    const sec=(def.sections||[]).find(s=>s.s===it._sec);
+    if(!sec||asRole(def,sec,it)!=='conduct'||it.ty!=='T') return;
+    (siblings||[]).forEach(row=>{
+      if(row.protocol_code===def.code) return; const sdef=asProto(row.protocol_code); if(!sdef) return;
+      (sdef.sections||[]).forEach(ss=>(ss.items||[]).forEach(si=>{
+        if(si.ty!=='T'||asRole(sdef,ss,si)!=='conduct') return;
+        const r=(row.responses||{})[si.c]; if(!asAnswered(r)) return;
+        add(it.c,{label:sdef.title, text:String(r.v).trim(), r:{v:r.v}, same:true});
+      }));
+    });
+  });
+  return out;
+}
+
+/* Render report text (light markup) as HTML for print. */
+function asRichText(v){
+  const lines=String(v||'—').split('\n'); let html='', list=false;
+  const close=()=>{ if(list){ html+='</ul>'; list=false; } };
+  lines.forEach(raw=>{
+    const l=raw.replace(/\s+$/,'');
+    if(!l.trim()){ close(); return; }
+    let m;
+    if((m=l.match(/^###\s+(.*)/))){ close(); html+=`<h3>${escapeHtml(m[1])}</h3>`; return; }
+    if((m=l.match(/^####\s+(.*)/))){ close(); html+=`<h4>${escapeHtml(m[1])}</h4>`; return; }
+    if(/^[A-Z0-9][A-Z0-9 ,&/()\-—–'’:]{3,}$/.test(l.trim()) && !/[a-z]/.test(l)){ close(); html+=`<h4>${escapeHtml(l.trim())}</h4>`; return; }
+    if((m=l.match(/^\s*(?:·|•|-|!|\d+\.)\s+(.*)/))){ if(!list){ html+='<ul>'; list=true; }
+      const flag=/^\s*!/.test(l); html+=`<li${flag?' class="flag"':''}>${asLabelBold(m[1])}</li>`; return; }
+    close(); html+=`<p>${asLabelBold(l.trim())}</p>`;
+  });
+  close(); return html;
+}
+function asLabelBold(s){
+  const m=String(s).match(/^([^:]{2,70}):\s+(.*)$/);
+  return m?`<b>${escapeHtml(m[1])}:</b> ${escapeHtml(m[2])}`:escapeHtml(s);
+}
+
 function asBuildSections(child, a, protoRows, scores){
   const done=(protoRows||[]).slice().sort((x,y)=>
     AS_DOMAIN_ORDER.indexOf(x.protocol_domain)-AS_DOMAIN_ORDER.indexOf(y.protocol_domain));
+  const subj = child || { full_name:a.subject_name||'', child_no:null, dob:a.subject_dob||null, sex:a.subject_sex||null, parent_name:a.subject_caregiver||null };
+  const P={}; done.forEach(p=>{ const def=asProto(p.protocol_code); if(def) P[p.protocol_code]={row:p, def, parts:asParts(def,p.responses)}; });
+  const hx=P['MND-HX-01'];
+  const hxR=hx?(hx.row.responses||{}):{};
+  const hxVal=c=>{ const r=hxR[c]; return asAnswered(r)?String(typeof r.v==='string'?r.v:asLabel(asAllItems(hx.def).find(i=>i.c===c)||{},r.v)).trim():''; };
+  const label=code=>{ const d=asProto(code); return d?(AS_DOMAIN_LABEL[d.domain]||d.title):code; };
+  const same=(x,y)=>String(x||'').trim().toLowerCase()===String(y||'').trim().toLowerCase();
 
-  // For a standalone assessment there is no child yet — use the subject
-  // details captured on the assessment itself.
-  const subj = child || {
-    full_name: a.subject_name||'',
-    child_no: null,
-    dob: a.subject_dob||null
-  };
-
+  // ---- Identifying information
   const ident=[
     'Name: '+(subj.full_name||''),
     subj.child_no?'File number: '+subj.child_no:'',
     subj.dob?'Date of birth: '+fmtDate(subj.dob):'',
-    (!child && a.subject_caregiver)?'Caregiver: '+a.subject_caregiver:'',
-    (!child && a.assessment_purpose)?'Purpose of assessment: '+a.assessment_purpose:'',
+    subj.sex?'Sex: '+subj.sex:'',
     asAgeStr(a)?'Age at assessment: '+asAgeStr(a):'',
+    (subj.parent_name||a.subject_caregiver)?'Parent / caregiver: '+(subj.parent_name||a.subject_caregiver):'',
+    subj.school_name?'School: '+subj.school_name+(subj.school_class?' ('+subj.school_class+')':''):'',
+    hxVal('e2')?'Languages at home: '+hxVal('e2'):'',
     'Date of assessment: '+fmtDate(a.assessment_date),
     'Assessed by: '+(a.examiner_name||'')+(a.examiner_discipline?', '+a.examiner_discipline:''),
     a.informants?'Informants: '+a.informants:'',
+    (!child && a.assessment_purpose)?'Purpose of assessment: '+a.assessment_purpose:'',
     'Consent: '+(a.consent_obtained?'Obtained':'NOT RECORDED — obtain before the report is released'),
   ].filter(Boolean).join('\n');
 
-  const procLines=[];
-  if(done.length){
-    procLines.push('Mindora criterion-referenced protocols administered:');
-    done.forEach(p=>procLines.push('  · '+p.protocol_title+' ('+p.protocol_code+', v'+p.protocol_version+')'));
+  // ---- Reason for referral: the episode's reason + the case history's referral answers
+  const refLines=[];
+  if(a.reason_for_referral) refLines.push(a.reason_for_referral.trim());
+  if(!a.reason_for_referral && a.assessment_purpose && child) refLines.push(a.assessment_purpose.trim());
+  if(hx) hx.parts.referral.forEach(x=>{ if(!refLines.some(l=>same(l,x.full.split(': ').slice(1).join(': ')))) refLines.push(x.full); });
+  const referral=refLines.join('\n');
+
+  // ---- Background: episode background, then the case history by topic
+  const bg=[];
+  if(a.background) bg.push(a.background.trim());
+  if(hx){
+    const bySec={}; hx.parts.background.forEach(x=>{ (bySec[x.sec]=bySec[x.sec]||[]).push(x.full); });
+    Object.keys(bySec).filter(s=>!/synthesis/i.test(s)).forEach(s=>{ bg.push('#### '+s); bySec[s].forEach(l=>bg.push('· '+l)); });
+    const syn=hx.parts.background.filter(x=>/synthesis/i.test(x.sec));
+    if(syn.length){ bg.push('#### Summary of history'); syn.forEach(x=>bg.push(x.full)); }
   }
+  const background=bg.join('\n');
+
+  // ---- Procedures
+  const procLines=[];
+  const admin=done.filter(p=>p.protocol_code!=='MND-HX-01');
+  if(hx) procLines.push('Case history taken'+(a.informants?' with '+a.informants:'')+' (MND-HX-01).');
+  if(admin.length){
+    procLines.push('Mindora criterion-referenced protocols administered:');
+    admin.forEach(p=>procLines.push('· '+p.protocol_title+' ('+p.protocol_code+', v'+p.protocol_version+')'));
+  }
+  if(hx) hx.parts.procedures.forEach(x=>procLines.push('Protocols indicated by the history: '+x.line));
   if((scores||[]).length){
     const tools=[...new Set(scores.map(s=>s.tool_name+(s.tool_edition?' ('+s.tool_edition+')':'')))];
-    procLines.push('');
     procLines.push('Standardized instruments administered:');
-    tools.forEach(t=>procLines.push('  · '+t));
+    tools.forEach(t=>procLines.push('· '+t));
   }
   procLines.push('');
-  procLines.push('Note on interpretation: Mindora protocols are criterion-referenced. They describe what the child can and cannot do against published developmental and clinical criteria. They do not yield standard scores, percentiles or age equivalents. Where standard scores are reported below, they derive from the licensed instrument named, administered in full with its own materials.');
+  procLines.push('Note on interpretation: Mindora protocols are criterion-referenced. They describe what the child can and cannot do against published developmental and clinical criteria. They do not yield standard scores, percentiles or age equivalents. Where standard scores are reported, they derive from the licensed instrument named, administered in full with its own materials.');
 
-  // findings grouped by domain
+  // ---- Behaviour during assessment & validity (asked in most protocols — said once)
+  const conduct=[]; const seenC=[];
+  Object.keys(P).forEach(code=>P[code].parts.conduct.forEach(x=>{
+    if(seenC.some(s=>same(s,x.line))) return; seenC.push(x.line);
+    conduct.push((Object.keys(P).length>2?label(code)+': ':'')+x.line);
+  }));
+
+  // ---- Findings by domain (test results only)
   const byDom={};
-  done.forEach(p=>{ (byDom[p.protocol_domain]=byDom[p.protocol_domain]||[]).push(p); });
-  const findings=AS_DOMAIN_ORDER.filter(d=>byDom[d]).map(d=>{
-    const body=byDom[d].map(p=>p.narrative||asNarrative(asProto(p.protocol_code)||{sections:[]},p.responses)).filter(Boolean).join('\n\n');
-    return '### '+(AS_DOMAIN_LABEL[d]||d).toUpperCase()+'\n\n'+body;
-  }).join('\n\n');
+  done.filter(p=>p.protocol_code!=='MND-HX-01').forEach(p=>{ const x=P[p.protocol_code]; if(!x||!x.parts.findings) return; (byDom[p.protocol_domain]=byDom[p.protocol_domain]||[]).push(x.def.title+' ('+x.def.code+')\n'+x.parts.findings); });
+  const findings=AS_DOMAIN_ORDER.filter(d=>byDom[d]).map(d=>'### '+(AS_DOMAIN_LABEL[d]||d)+'\n'+byDom[d].join('\n\n')).join('\n\n');
 
+  // ---- Standardized results
   let std='No standardized instrument was administered in this assessment episode.';
   if((scores||[]).length){
     std=scores.map(s=>{
-      const cols=[
-        s.tool_name+(s.tool_edition?' ('+s.tool_edition+')':''),
-        s.subtest?'Subtest: '+s.subtest:'',
-        s.raw_score?'Raw '+s.raw_score:'',
-        s.standard_score?'Standard score '+s.standard_score:'',
-        s.scaled_score?'Scaled score '+s.scaled_score:'',
-        s.percentile?'Percentile '+s.percentile:'',
-        (s.ci_low&&s.ci_high)?'90% CI '+s.ci_low+'–'+s.ci_high:'',
-        s.descriptor?'Descriptor: '+s.descriptor:'',
-        s.administered_on?'Administered '+fmtDate(s.administered_on):'',
-        s.administered_by?'by '+s.administered_by:'',
-      ].filter(Boolean);
+      const cols=[s.tool_name+(s.tool_edition?' ('+s.tool_edition+')':''), s.subtest?'Subtest: '+s.subtest:'', s.raw_score?'Raw '+s.raw_score:'',
+        s.standard_score?'Standard score '+s.standard_score:'', s.scaled_score?'Scaled score '+s.scaled_score:'', s.percentile?'Percentile '+s.percentile:'',
+        (s.ci_low&&s.ci_high)?'90% CI '+s.ci_low+'–'+s.ci_high:'', s.descriptor?'Descriptor: '+s.descriptor:'',
+        s.administered_on?'Administered '+fmtDate(s.administered_on):'', s.administered_by?'by '+s.administered_by:''].filter(Boolean);
       return '· '+cols.join(' · ')+(s.notes?'\n  '+s.notes:'');
     }).join('\n');
   }
 
-  // impression scaffold — pulls the concerns, leaves the reasoning to the clinician
+  // ---- Impression: priority flags, the clinician's own summaries per area, difficulties
   const flags=asFlags(done);
   const concerns=[];
   done.forEach(p=>{
-    const def=asProto(p.protocol_code); if(!def) return;
+    const def=asProto(p.protocol_code); if(!def||def.code==='MND-HX-01') return;
     const R=p.responses||{};
-    asAllItems(def).forEach(it=>{
+    (def.sections||[]).forEach(sec=>(sec.items||[]).forEach(it=>{
+      if(asRole(def,sec,it)!=='findings') return;
       const r=R[it.c]; if(!asAnswered(r)) return;
-      if(it.ty==='M' && r.v<=1) concerns.push(AS_DOMAIN_LABEL[def.domain]+': '+it.t);
-      if(it.ty==='V' && r.v>=2 && r.v<=3) concerns.push(AS_DOMAIN_LABEL[def.domain]+': '+it.t+' — '+AS_SCALES.V.opts[r.v]);
+      const L=AS_DOMAIN_LABEL[def.domain]||def.domain;
+      if(it.ty==='M' && r.v<=1) concerns.push(L+': '+it.t);
+      if(it.ty==='V' && r.v>=2 && r.v<=3) concerns.push(L+': '+it.t+' — '+AS_SCALES.V.opts[r.v]);
       if(it.ty==='G' && r.v>=2) concerns.push('Voice: '+it.t+' — '+AS_SCALES.G.opts[r.v]);
-      if(it.ty==='F' && r.v>=3) concerns.push(AS_DOMAIN_LABEL[def.domain]+': '+it.t+' — '+AS_SCALES.F.opts[r.v]);
-    });
+      if(it.ty==='F' && r.v>=3) concerns.push(L+': '+it.t+' — '+AS_SCALES.F.opts[r.v]);
+    }));
   });
+  const imp=[];
+  if(flags.length){ imp.push('PRIORITY FINDINGS'); flags.forEach(f=>imp.push('! '+f)); imp.push(''); }
+  const own=[]; Object.keys(P).forEach(code=>{ if(code==='MND-HX-01') return; P[code].parts.impression.forEach(x=>own.push(label(code)+': '+x.line)); });
+  if(own.length){ imp.push('SUMMARY BY AREA'); own.forEach(l=>imp.push('· '+l)); imp.push(''); }
+  imp.push('AREAS OF DIFFICULTY IDENTIFIED');
+  if(concerns.length) concerns.slice(0,40).forEach(c=>imp.push('· '+c)); else imp.push('· None recorded.');
+  imp.push(''); imp.push('CLINICAL FORMULATION');
+  imp.push('[Write the formulation here. State what the pattern of findings means, what it does NOT mean, the differential you considered, and the confidence you hold in it.]');
 
-  const impression =
-    (flags.length?'PRIORITY FINDINGS\n'+flags.map(f=>'  ! '+f).join('\n')+'\n\n':'')+
-    'AREAS OF DIFFICULTY IDENTIFIED\n'+
-    (concerns.length?concerns.slice(0,40).map(c=>'  · '+c).join('\n'):'  · None recorded.')+
-    '\n\nCLINICAL FORMULATION\n'+
-    '[Write the formulation here. State what the pattern of findings means, what it does NOT mean, '+
-    'the differential you considered, and the confidence you hold in it. This section is generated as a '+
-    'scaffold only — the reasoning is yours.]';
+  // ---- Recommendations: flags, each protocol's own recommendations, red flags from history
+  const rec=[]; let n=0;
+  if(flags.length){ rec.push('URGENT'); flags.forEach(f=>rec.push((++n)+'. '+f)); rec.push(''); }
+  const recByArea=[]; Object.keys(P).forEach(code=>{ if(code==='MND-HX-01') return; P[code].parts.recs.forEach(x=>recByArea.push(label(code)+': '+x.line)); });
+  if(recByArea.length){ rec.push('RECOMMENDATIONS'); recByArea.forEach(l=>rec.push((++n)+'. '+l)); rec.push(''); }
+  else { rec.push('RECOMMENDATIONS'); rec.push('[Add recommendations. For each one state: what, who does it, how often, and how it will be reviewed.]'); rec.push(''); }
+  rec.push('ONWARD REFERRALS');
+  const hxRef=hx?hx.parts.recs.map(x=>x.line).filter(Boolean):[];
+  if(hxRef.length) hxRef.forEach(l=>rec.push('· '+l)); else rec.push('[List, or state "none indicated".]');
+  rec.push(''); rec.push('REVIEW'); rec.push('[State when this will be reviewed and against what.]');
 
-  const recs =
-    'RECOMMENDATIONS\n'+
-    (flags.length?flags.map((f,i)=>(i+1)+'. '+f).join('\n')+'\n':'')+
-    '[Add recommendations. For each one state: what, who does it, how often, and how it will be reviewed.]\n\n'+
-    'ONWARD REFERRALS\n[List, or state "none indicated".]\n\n'+
-    'REVIEW\n[State when this will be reviewed and against what.]';
-
-  const goals =
-    '[Write goals here. Each goal should be specific, measurable, tied to a finding above, and '+
-    'meaningful in the child\u2019s everyday life. State the baseline you are measuring from.]';
+  const goals='[Write goals here. Each goal should be specific, measurable, tied to a finding above, and meaningful in the child’s everyday life. State the baseline you are measuring from.]';
 
   return [
-    {k:'identifying',   t:'Identifying information',        v:ident},
-    {k:'referral',      t:'Reason for referral',            v:a.reason_for_referral||''},
-    {k:'background',    t:'Background and relevant history', v:a.background||''},
-    {k:'procedures',    t:'Assessment procedures',          v:procLines.join('\n')},
-    {k:'findings',      t:'Findings',                       v:findings||'No protocols have been completed for this assessment.'},
-    {k:'standardized',  t:'Standardized test results',      v:std},
-    {k:'impression',    t:'Clinical impression and formulation', v:impression},
-    {k:'recommendations',t:'Recommendations',               v:recs},
-    {k:'goals',         t:'Proposed goals',                 v:goals},
-    {k:'examiner',      t:'Examiner',                       v:(a.examiner_name||'')+(a.examiner_discipline?'\n'+a.examiner_discipline:'')+'\nMindora Inclusive Child Development Services\nDate: '+fmtDate(a.assessment_date)},
-  ];
+    {k:'identifying',   t:'Identifying information',             v:ident},
+    {k:'referral',      t:'Reason for referral',                 v:referral||'[Not recorded — add it here or in the case history.]'},
+    {k:'background',    t:'Background and relevant history',     v:background||'[No case history recorded.]'},
+    {k:'procedures',    t:'Assessment procedures',               v:procLines.join('\n')},
+    {k:'conduct',       t:'Behaviour during assessment and validity', v:conduct.length?conduct.join('\n'):'[Describe engagement, cooperation, and how representative this sample is.]'},
+    {k:'findings',      t:'Findings',                            v:findings||'No protocols other than the case history have been completed for this assessment.'},
+    {k:'standardized',  t:'Standardized test results',           v:std},
+    {k:'impression',    t:'Clinical impression and formulation', v:imp.join('\n')},
+    {k:'recommendations',t:'Recommendations',                    v:rec.join('\n')},
+    {k:'goals',         t:'Proposed goals',                      v:goals},
+    {k:'examiner',      t:'Examiner',                            v:(a.examiner_name||'')+(a.examiner_discipline?'\n'+a.examiner_discipline:'')+'\nMindora Inclusive Child Development Services\nDate: '+fmtDate(a.assessment_date)},
+  ].map(s=>Object.assign(s,{g:s.v}));   // g = generated text, so a regenerate knows what you edited
 }
 
 function asBuildSummary(child, a, sections, protoRows){
@@ -11309,7 +11472,7 @@ function asBuildSummary(child, a, sections, protoRows){
   const flags=asFlags(protoRows);
   const doms=[...new Set((protoRows||[]).map(p=>AS_DOMAIN_LABEL[p.protocol_domain]||p.protocol_domain))];
   return [
-    (child.full_name||'')+' — Clinical summary',
+    ((child&&child.full_name)||a.subject_name||'')+' — Clinical summary',
     'Assessed '+fmtDate(a.assessment_date)+(asAgeStr(a)?' at '+asAgeStr(a):'')+' by '+(a.examiner_name||'—')+'.',
     '',
     'Areas assessed: '+(doms.length?doms.join(', '):'—')+'.',
@@ -11742,7 +11905,7 @@ async function renderAssessment(v,a){
       <div class="row-sub">${anyDone?'Draws the findings from every protocol and standardized result, then hands it to you to edit.':'Complete at least one protocol first.'}</div></div>
       <span style="color:var(--accent)">${anyDone?'Generate ›':''}</span></div>`);
     if(anyDone) card.onclick=async()=>{
-      const secs=asBuildSections(c,a,ps||[],scores||[]);
+      const secs=asBuildSections(await asFullChild(c),a,ps||[],scores||[]);
       const {data,error}=await sb.from('assessment_reports').insert({
         assessment_id:a.id, sections:secs, generated_at:new Date().toISOString(), updated_by:ME.id
       }).select().single();
@@ -11909,6 +12072,11 @@ async function renderAssessProtocol(v,row){
   // refresh before sync), use it — it is newer than whatever the server holds.
   const draft=await OFFLINE.peekDraft('assessment_protocols', row.id);
   const R=Object.assign({}, (draft&&draft.responses) ? draft.responses : (row.responses||{}));
+  // answers already given in this assessment's other protocols (case history etc.)
+  let siblings=[];
+  try{ const {data:sib}=await sb.from('assessment_protocols').select('protocol_code,responses').eq('assessment_id',row.assessment_id).neq('id',row.id); siblings=sib||[]; }catch(e){}
+  const EARLIER=asEarlierAnswers(def, siblings);
+  const fillable=Object.keys(EARLIER).filter(c=>EARLIER[c].some(e=>e.same));
 
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessment</button>
@@ -11922,6 +12090,11 @@ async function renderAssessProtocol(v,row){
       <div class="as-prog" style="margin-top:10px"><i id="progBar" style="width:${row.completed_pct||0}%"></i></div>
       <div class="row-sub"><span id="progTxt">${row.completed_pct||0}%</span> complete</div>
     </div>
+    ${Object.keys(EARLIER).length?`<div class="row-card" style="cursor:default;flex-direction:column;align-items:stretch;gap:6px;margin-top:12px;border:1px solid var(--teal)">
+      <div class="row-name">${Object.keys(EARLIER).length} question${Object.keys(EARLIER).length===1?' has':'s have'} already been answered in this assessment</div>
+      <div class="row-sub" style="white-space:normal">The earlier answer is shown under each one, marked <b>Already recorded</b>. Use it, change it, or ignore it — nothing is copied unless you choose to.</div>
+      ${fillable.length?`<div><button class="btn btn-ghost btn-sm" id="fillEarlier" style="width:auto">Fill ${fillable.length} empty question${fillable.length===1?'':'s'} from earlier answers</button></div>`:''}
+    </div>`:''}
     <div id="secs" style="margin-top:14px"></div>
     <div style="display:flex;gap:10px;margin:8px 0 30px">
       <button class="btn btn-ghost" id="markIncomplete" style="flex:1">Leave as in progress</button>
@@ -11942,6 +12115,7 @@ async function renderAssessProtocol(v,row){
       const itEl=el(`<div class="as-item" data-c="${it.c}">
         <div class="as-q">${escapeHtml(it.t)}</div>
         ${it.a?`<div class="as-a">${escapeHtml(it.a)}</div>`:''}
+        ${EARLIER[it.c]?`<div class="as-earlier">${EARLIER[it.c].map((e,ei)=>`<div><b>Already recorded — ${escapeHtml(e.label)}:</b> ${escapeHtml(e.text)}${e.same?` <button type="button" class="asUse" data-e="${ei}">Use this</button>`:''}</div>`).join('')}</div>`:''}
         <div class="as-ctl"></div>
         <div class="as-note">
           <button type="button" class="noteTog">${cur.n?'Edit note':'+ Add note'}</button>
@@ -12018,6 +12192,12 @@ async function renderAssessProtocol(v,row){
         ctl.appendChild(ta);
       }
 
+      itEl.querySelectorAll('.asUse').forEach(ub=>ub.onclick=()=>{
+        const e=EARLIER[it.c][+ub.dataset.e]; if(!e) return;
+        if(it.ty==='T' && asAnswered(R[it.c]) && !confirm('Replace what you have written with the earlier answer?')) return;
+        R[it.c]=Object.assign({},R[it.c]||{},{v:Array.isArray(e.r.v)?e.r.v.slice():e.r.v});
+        queueSave(); renderAssessProtocolKeepScroll();
+      });
       const tog=itEl.querySelector('.noteTog'), box=itEl.querySelector('.noteBox');
       tog.onclick=()=>{ box.style.display = box.style.display==='none'?'block':'none'; if(box.style.display==='block') box.focus(); };
       box.oninput=()=>{
@@ -12033,6 +12213,18 @@ async function renderAssessProtocol(v,row){
     wrap.appendChild(secEl);
   });
 
+  // after "Use this": save, then redraw the screen where it was
+  function renderAssessProtocolKeepScroll(){
+    const y=window.scrollY;
+    setTimeout(async()=>{ await OFFLINE.save('update','assessment_protocols',row.id,{responses:R, completed_pct:asProgress(def,R), narrative:asNarrative(def,R)},'body');
+      await renderAssessProtocol($('#view'),row); window.scrollTo(0,y); },50);
+  }
+  const fe=$('#fillEarlier'); if(fe) fe.onclick=()=>{
+    let n=0; fillable.forEach(c=>{ if(asAnswered(R[c])) return; const e=EARLIER[c].find(x=>x.same); if(!e) return;
+      R[c]=Object.assign({},R[c]||{},{v:Array.isArray(e.r.v)?e.r.v.slice():e.r.v}); n++; });
+    if(!n){ toast('Those questions already have answers — nothing was changed.'); return; }
+    toast(n+' question'+(n===1?'':'s')+' filled from earlier answers — check them'); renderAssessProtocolKeepScroll();
+  };
   function refreshCounts(){
     def.sections.forEach((sec,si)=>{
       const n=sec.items.filter(i=>asAnswered(R[i.c])).length;
@@ -12083,12 +12275,27 @@ async function renderAssessProtocol(v,row){
   };
 }
 
+/* The full child record (the selected child may only carry id + name). */
+async function asFullChild(c){
+  if(!c||!c.id) return c||null;
+  try{ const {data}=await sb.from('clients').select('*').eq('id',c.id).maybeSingle(); return data||c; }catch(e){ return c; }
+}
+/* Merge a fresh build into a saved report: keep any section you edited. */
+function asMergeReport(fresh, old){
+  const scaffold=/\[Write the formulation|\[Add recommendations|\[Write goals|\[Not recorded|\[No case history|\[Describe engagement/;
+  return fresh.map(f=>{
+    const o=(old||[]).find(x=>x.k===f.k);
+    if(!o||!o.v||!o.v.trim()) return f;
+    const edited = o.g!==undefined ? o.v!==o.g : (['impression','recommendations','goals'].includes(f.k) && !scaffold.test(o.v));
+    return edited?Object.assign({},f,{v:o.v,g:f.g}):f;
+  });
+}
 /* ---------------------------------------------------------------------
    VIEW: the assessment report + clinical summary
 --------------------------------------------------------------------- */
 async function renderAssessmentReport(v,a){
   if(!a){ go('child_assessments'); return; }
-  const c=SELECTED_CHILD;
+  const c=await asFullChild(SELECTED_CHILD);
   const [{data:rep},{data:ps},{data:scores},{data:aFresh}]=await Promise.all([
     sb.from('assessment_reports').select('*').eq('assessment_id',a.id).maybeSingle(),
     sb.from('assessment_protocols').select('*').eq('assessment_id',a.id),
@@ -12099,6 +12306,11 @@ async function renderAssessmentReport(v,a){
   if(!rep){ toast('No report yet',true); go('assessment'); return; }
 
   let secs = Array.isArray(rep.sections)?rep.sections:asBuildSections(c,a,ps||[],scores||[]);
+  // reports made before the "Behaviour during assessment" section existed get it added
+  if(Array.isArray(rep.sections) && !secs.some(x=>x.k==='conduct')){
+    const fresh=asBuildSections(c,a,ps||[],scores||[]).find(x=>x.k==='conduct');
+    const at=secs.findIndex(x=>x.k==='findings'); if(fresh) secs.splice(at<0?secs.length:at,0,fresh);
+  }
 
   v.innerHTML=`
     <button class="btn btn-ghost btn-sm" id="backBtn" style="width:auto;margin-bottom:14px">← Back to assessment</button>
@@ -12112,7 +12324,7 @@ async function renderAssessmentReport(v,a){
     </div>
 
     <div class="row-card" style="cursor:default;background:var(--accent-soft);border:1px solid var(--accent)">
-      <div class="row-sub" style="white-space:normal">Every section below is editable. Regenerating rewrites the <em>Findings</em>, <em>Procedures</em> and <em>Standardized results</em> sections from the protocols — anything you have written in the impression, recommendations and goals is preserved.</div>
+      <div class="row-sub" style="white-space:normal">Every section below is editable. <b>Regenerate from protocols</b> rebuilds the report from the case history and protocols in the new layout, and keeps any section you have edited yourself.</div>
     </div>
 
     <div id="repSecs" style="margin-top:14px"></div>
@@ -12156,16 +12368,9 @@ async function renderAssessmentReport(v,a){
   }
 
   $('#regen').onclick=async()=>{
-    if(!confirm('Rewrite Findings, Procedures and Standardized results from the protocols? Your impression, recommendations and goals will be kept.')) return;
+    if(!confirm('Rebuild the report from the case history and protocols? Sections you have edited yourself are kept; everything else is rewritten in the new layout.')) return;
     const fresh=asBuildSections(c,a,ps||[],scores||[]);
-    const keep=['impression','recommendations','goals','background','referral'];
-    const merged=fresh.map(f=>{
-      if(keep.includes(f.k)){
-        const old=secs.find(s=>s.k===f.k);
-        if(old && old.v && old.v.trim()) return Object.assign({},f,{v:old.v});
-      }
-      return f;
-    });
+    const merged=asMergeReport(fresh, secs);
     const {error}=await sb.from('assessment_reports').update({
       sections:merged, generated_at:new Date().toISOString(), updated_by:ME.id
     }).eq('id',rep.id);
@@ -12206,7 +12411,7 @@ function asPrint(child, a, blocks, docTitle){
   const w=window.open('','_blank');
   if(!w){ toast('Allow pop-ups to print',true); return; }
   const body=blocks.map(([t,v])=>`
-    <section><h2>${escapeHtml(t)}</h2><div class="body">${escapeHtml(v||'—').replace(/\n/g,'<br>')}</div></section>`).join('');
+    <section><h2>${escapeHtml(t)}</h2><div class="body">${asRichText(v)}</div></section>`).join('');
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)} — ${escapeHtml(dispName)}</title>
   <style>
     @page{margin:18mm 16mm}
@@ -12217,8 +12422,13 @@ function asPrint(child, a, blocks, docTitle){
     h1{font-family:Georgia,'Times New Roman',serif;color:#6C3483;margin:0 0 4px;font-size:20pt}
     .meta{color:#6B6475;font-size:10pt}
     h2{font-family:Georgia,serif;color:#4A1E63;font-size:13pt;margin:20px 0 6px;padding-bottom:4px;border-bottom:1px solid #E6D8EE;page-break-after:avoid}
-    section{page-break-inside:avoid}
+    section{page-break-inside:auto}
     .body{white-space:normal}
+    .body p{margin:0 0 6px}
+    .body h3{font-family:Georgia,serif;color:#6C3483;font-size:12pt;margin:14px 0 4px}
+    .body h4{font-size:10.5pt;text-transform:uppercase;letter-spacing:.04em;color:#4A1E63;margin:10px 0 3px}
+    .body ul{margin:2px 0 8px;padding-left:18px}.body li{margin:2px 0}
+    .body li.flag{color:#B23A48;font-weight:600}
     footer{margin-top:28px;padding-top:10px;border-top:1px solid #E6D8EE;color:#6B6475;font-size:9pt}
     @media print{ .noprint{display:none} }
   </style></head><body>
